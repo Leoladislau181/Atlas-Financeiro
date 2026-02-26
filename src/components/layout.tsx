@@ -25,8 +25,10 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-gray-900">
       <header className="sticky top-0 z-40 w-full border-b bg-white shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <img src="/Logo.png" alt="Atlas Financeiro Logo" className="h-8 w-8 object-contain" />
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 overflow-hidden rounded-lg bg-white shadow-sm flex items-center justify-center">
+              <img src="/Logo.png" alt="Atlas Financeiro Logo" className="h-full w-full object-cover" />
+            </div>
             <span className="text-xl font-bold tracking-tight text-gray-900">
               Atlas Financeiro
             </span>
