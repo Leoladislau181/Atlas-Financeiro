@@ -57,9 +57,7 @@ export function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#F59E0B] text-white text-2xl font-bold">
-            A
-          </div>
+          <img src="/Logo.png" alt="Atlas Financeiro Logo" className="mx-auto mb-4 h-16 w-16 object-contain" />
           <CardTitle className="text-2xl font-bold tracking-tight">
             Atlas Financeiro
           </CardTitle>

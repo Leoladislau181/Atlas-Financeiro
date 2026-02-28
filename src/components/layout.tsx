@@ -14,6 +14,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
     { id: 'inicio', label: 'Início' },
     { id: 'lancamentos', label: 'Lançamentos' },
     { id: 'relatorios', label: 'Relatórios' },
+    { id: 'veiculos', label: 'Veículos' },
     { id: 'configuracoes', label: 'Configurações' },
   ];
 

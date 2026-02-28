@@ -3,20 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, parseLocalDate } from '@/lib/utils';
-import { Lancamento } from '@/types';
+import { Lancamento, Vehicle } from '@/types';
 import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface RelatoriosProps {
   lancamentos: Lancamento[];
+  vehicles: Vehicle[];
 }
 
-export function Relatorios({ lancamentos }: RelatoriosProps) {
+export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
   const [filterType, setFilterType] = useState<'month' | 'custom'>('month');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('all');
 
   const filteredLancamentos = useMemo(() => {
     let start: Date;
@@ -33,9 +35,11 @@ export function Relatorios({ lancamentos }: RelatoriosProps) {
 
     return lancamentos.filter((l) => {
       const data = parseLocalDate(l.data);
-      return isWithinInterval(data, { start, end });
+      const matchesDate = isWithinInterval(data, { start, end });
+      const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
+      return matchesDate && matchesVehicle;
     });
-  }, [lancamentos, filterType, selectedMonth, startDate, endDate]);
+  }, [lancamentos, filterType, selectedMonth, startDate, endDate, selectedVehicleId]);
 
   const stats = useMemo(() => {
     let receitas = 0;
@@ -83,7 +87,9 @@ export function Relatorios({ lancamentos }: RelatoriosProps) {
 
       lancamentos.forEach((l) => {
         const lDate = parseLocalDate(l.data);
-        if (isWithinInterval(lDate, { start, end })) {
+        const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
+        
+        if (isWithinInterval(lDate, { start, end }) && matchesVehicle) {
           if (l.tipo === 'receita') receitas += Number(l.valor);
           else despesas += Number(l.valor);
         }
@@ -143,6 +149,18 @@ export function Relatorios({ lancamentos }: RelatoriosProps) {
                 </div>
               </>
             )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Veículo</label>
+              <Select value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)}>
+                <option value="all">Todos os Veículos</option>
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.plate})
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Categoria, Lancamento } from '@/types';
+import { Categoria, Lancamento, Vehicle } from '@/types';
 
 export function useFinanceData() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -18,9 +19,17 @@ export function useFinanceData() {
       if (catError) throw catError;
       setCategorias(catData || []);
 
+      const { data: vehData, error: vehError } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('name');
+      
+      if (vehError && vehError.code !== '42P01') throw vehError; // Ignore if table doesn't exist yet
+      setVehicles(vehData || []);
+
       const { data: lanData, error: lanError } = await supabase
         .from('lancamentos')
-        .select('*, categorias(*)')
+        .select('*, categorias(*), vehicles(*)')
         .order('data', { ascending: false });
 
       if (lanError) throw lanError;
@@ -36,5 +45,5 @@ export function useFinanceData() {
     fetchData();
   }, []);
 
-  return { categorias, lancamentos, loading, refetch: fetchData };
+  return { categorias, lancamentos, vehicles, loading, refetch: fetchData };
 }

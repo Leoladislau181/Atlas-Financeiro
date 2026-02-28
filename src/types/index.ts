@@ -8,6 +8,22 @@ export interface Categoria {
   created_at: string;
 }
 
+export interface Vehicle {
+  id: string;
+  user_id: string;
+  name: string;
+  plate: string;
+  type: 'own' | 'rented';
+  initial_odometer: number;
+  contract_value?: number;
+  contract_start_date?: string;
+  contract_end_date?: string;
+  contract_initial_km?: number;
+  profit_goal?: number;
+  maintenance_reserve?: number;
+  created_at: string;
+}
+
 export interface Lancamento {
   id: string;
   user_id: string;
@@ -18,6 +34,11 @@ export interface Lancamento {
   observacao: string;
   created_at: string;
   categorias?: Categoria; // Joined data
+  vehicle_id?: string;
+  odometer?: number;
+  fuel_liters?: number;
+  fuel_price_per_liter?: number;
+  vehicles?: Vehicle; // Joined data
 }
 
 export interface User {

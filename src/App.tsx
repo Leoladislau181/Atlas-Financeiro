@@ -7,6 +7,7 @@ import { Dashboard } from '@/pages/dashboard';
 import { Lancamentos } from '@/pages/lancamentos';
 import { Relatorios } from '@/pages/relatorios';
 import { Configuracoes } from '@/pages/configuracoes';
+import { Veiculos } from '@/pages/veiculos';
 import { useFinanceData } from '@/hooks/useFinanceData';
 
 export default function App() {
@@ -44,7 +45,7 @@ export default function App() {
 }
 
 function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: string; setActiveTab: (tab: string) => void }) {
-  const { categorias, lancamentos, loading, refetch } = useFinanceData();
+  const { categorias, lancamentos, vehicles, loading, refetch } = useFinanceData();
 
   if (loading) {
     return (
@@ -61,11 +62,20 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         <Lancamentos
           categorias={categorias}
           lancamentos={lancamentos}
+          vehicles={vehicles}
           refetch={refetch}
           userId={user.id}
         />
       )}
-      {activeTab === 'relatorios' && <Relatorios lancamentos={lancamentos} />}
+      {activeTab === 'relatorios' && <Relatorios lancamentos={lancamentos} vehicles={vehicles} />}
+      {activeTab === 'veiculos' && (
+        <Veiculos
+          vehicles={vehicles}
+          lancamentos={lancamentos}
+          refetch={refetch}
+          userId={user.id}
+        />
+      )}
       {activeTab === 'configuracoes' && (
         <Configuracoes categorias={categorias} user={user} refetch={refetch} />
       )}
