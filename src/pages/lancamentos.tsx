@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, Car } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LancamentosProps {
@@ -365,11 +365,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Histórico de Lançamentos</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600">
               <thead className="bg-gray-50 text-xs uppercase text-gray-700">
                 <tr>
@@ -450,11 +451,77 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {visibleLancamentos.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                Nenhum lançamento encontrado.
+              </div>
+            ) : (
+              visibleLancamentos.map((l) => (
+                <div key={l.id} className="rounded-lg border p-4 space-y-3 bg-white shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs text-gray-500">{format(parseLocalDate(l.data), 'dd/MM/yyyy')}</p>
+                      <h4 className="font-semibold text-gray-900">{l.categorias?.nome || 'N/A'}</h4>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold ${l.tipo === 'receita' ? 'text-[#059568]' : 'text-[#EF4444]'}`}>
+                        {l.tipo === 'receita' ? '+' : '-'} {formatCurrency(l.valor)}
+                      </p>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          l.tipo === 'receita'
+                            ? 'bg-green-100 text-[#059568]'
+                            : 'bg-red-100 text-[#EF4444]'
+                        }`}
+                      >
+                        {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {(l.vehicles || l.observacao) && (
+                    <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-50 mt-2">
+                      {l.vehicles && (
+                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600">
+                          <Car className="h-3 w-3 mr-1" /> {l.vehicles.name}
+                        </span>
+                      )}
+                      {l.observacao && (
+                        <p className="text-xs text-gray-500 italic truncate max-w-full">
+                          "{l.observacao}"
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-2 border-t border-gray-50">
+                    <button
+                      onClick={() => handleEdit(l)}
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#F59E0B]"
+                    >
+                      <Edit2 className="h-3 w-3" /> Editar
+                    </button>
+                    <button
+                      onClick={() => confirmDelete(l.id)}
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#EF4444]"
+                    >
+                      <Trash2 className="h-3 w-3" /> Excluir
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           {hasMore && (
             <div className="mt-6 flex justify-center">
               <Button
                 variant="outline"
                 onClick={() => setVisibleCount((prev) => prev + 20)}
+                className="w-full sm:w-auto"
               >
                 Ver Mais Lançamentos
               </Button>

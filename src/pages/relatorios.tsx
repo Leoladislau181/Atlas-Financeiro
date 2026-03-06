@@ -111,7 +111,7 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
           <CardTitle>Filtros de Relatório</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-4 md:flex-row md:items-end">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Tipo de Filtro</label>
               <Select value={filterType} onChange={(e) => setFilterType(e.target.value as any)}>

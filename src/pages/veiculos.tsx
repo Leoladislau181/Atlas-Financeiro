@@ -248,7 +248,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Nome do Veículo *</label>
                 <Input
@@ -289,7 +289,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
             </div>
 
             {type === 'rented' ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Valor do Contrato</label>
                   <Input
@@ -335,7 +335,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Meta de Lucro Mensal</label>
                   <Input
@@ -357,18 +357,18 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
               </div>
             )}
 
-            <div className="flex justify-end pt-4">
+            <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
               {editingId && (
                 <Button
                   type="button"
                   variant="ghost"
-                  className="mr-2"
                   onClick={resetForm}
+                  className="w-full sm:w-auto"
                 >
                   Cancelar
                 </Button>
               )}
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                 {loading ? 'Salvando...' : editingId ? 'Atualizar Veículo' : 'Salvar Veículo'}
               </Button>
             </div>
