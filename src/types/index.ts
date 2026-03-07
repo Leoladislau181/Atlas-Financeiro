@@ -14,6 +14,7 @@ export interface Vehicle {
   name: string;
   plate: string;
   type: 'own' | 'rented';
+  status: 'active' | 'sold' | 'deactivated';
   initial_odometer: number;
   contract_value?: number;
   contract_start_date?: string;

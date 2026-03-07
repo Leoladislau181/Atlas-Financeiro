@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency } from '@/lib/utils';
 import { Lancamento, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, RefreshCw } from 'lucide-react';
+import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface VeiculosProps {
   vehicles: Vehicle[];
@@ -20,6 +20,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
   const [type, setType] = useState<'own' | 'rented'>('own');
+  const [status, setStatus] = useState<'active' | 'sold' | 'deactivated'>('active');
   const [initialOdometer, setInitialOdometer] = useState('');
   
   // Rented specific
@@ -36,6 +37,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
   const [loading, setLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Renew Contract specific
   const [renewModalOpen, setRenewModalOpen] = useState(false);
@@ -60,6 +62,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         name,
         plate,
         type,
+        status,
         initial_odometer: Number(initialOdometer),
       };
 
@@ -88,6 +91,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
       }
 
       resetForm();
+      setIsFormOpen(false);
       refetch();
     } catch (error: any) {
       alert(error.message || 'Erro ao salvar veículo.');
@@ -100,6 +104,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
     setName('');
     setPlate('');
     setType('own');
+    setStatus('active');
     setInitialOdometer('');
     setContractValueStr('');
     setContractStartDate('');
@@ -108,13 +113,16 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
     setProfitGoalStr('');
     setMaintenanceReserveStr('');
     setEditingId(null);
+    setIsFormOpen(false);
   };
 
   const handleEdit = (vehicle: Vehicle) => {
     setEditingId(vehicle.id);
+    setIsFormOpen(true);
     setName(vehicle.name);
     setPlate(vehicle.plate);
     setType(vehicle.type);
+    setStatus(vehicle.status || 'active');
     setInitialOdometer(vehicle.initial_odometer.toString());
     
     if (vehicle.type === 'rented') {
@@ -240,155 +248,220 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
     };
   };
 
+  const sortedVehicles = [...vehicles].sort((a, b) => {
+    const getOrder = (v: Vehicle) => {
+      if (v.status === 'sold' || v.status === 'deactivated') return 3;
+      if (v.type === 'own') return 1;
+      if (v.type === 'rented') return 2;
+      return 4;
+    };
+    return getOrder(a) - getOrder(b);
+  });
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{editingId ? 'Editar Veículo' : 'Novo Veículo'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nome do Veículo *</label>
-                <Input
-                  type="text"
-                  placeholder="Ex: Corolla 2015"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Placa *</label>
-                <Input
-                  type="text"
-                  placeholder="ABC-1234"
-                  value={plate}
-                  onChange={(e) => setPlate(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Tipo *</label>
-                <Select value={type} onChange={(e) => setType(e.target.value as 'own' | 'rented')}>
-                  <option value="own">Próprio</option>
-                  <option value="rented">Alugado</option>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Odômetro Inicial (KM) *</label>
-                <Input
-                  type="number"
-                  placeholder="Ex: 50000"
-                  value={initialOdometer}
-                  onChange={(e) => setInitialOdometer(e.target.value)}
-                  required
-                />
-              </div>
+      <Card className="overflow-hidden border-none shadow-sm bg-white">
+        <div 
+          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => setIsFormOpen(!isFormOpen)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+              <Car className="h-5 w-5 text-[#F59E0B]" />
             </div>
+            <div>
+              <h3 className="font-bold text-gray-900">
+                {editingId ? 'Editar Veículo' : 'Novo Veículo'}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {isFormOpen ? 'Preencha os dados abaixo' : 'Clique para cadastrar um novo veículo'}
+              </p>
+            </div>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5"
+          >
+            {isFormOpen ? (
+              <div className="flex items-center gap-2">
+                <span>Recolher</span>
+                <ChevronUp className="h-4 w-4" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Cadastrar Veículo</span>
+              </div>
+            )}
+          </Button>
+        </div>
 
-            {type === 'rented' ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+        {isFormOpen && (
+          <CardContent className="pt-0 border-t border-gray-100">
+            <form onSubmit={handleSubmit} className="space-y-4 pt-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Valor do Contrato</label>
+                  <label className="text-sm font-medium text-gray-700">Nome do Veículo *</label>
                   <Input
                     type="text"
-                    placeholder="R$ 0,00"
-                    value={contractValueStr}
-                    onChange={(e) => setContractValueStr(formatCurrencyInput(e.target.value))}
+                    placeholder="Ex: Corolla 2015"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Meta de Lucro</label>
+                  <label className="text-sm font-medium text-gray-700">Placa *</label>
                   <Input
                     type="text"
-                    placeholder="R$ 0,00"
-                    value={profitGoalStr}
-                    onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
+                    placeholder="ABC-1234"
+                    value={plate}
+                    onChange={(e) => setPlate(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Data Início Contrato</label>
-                  <Input
-                    type="date"
-                    value={contractStartDate}
-                    onChange={(e) => setContractStartDate(e.target.value)}
-                  />
+                  <label className="text-sm font-medium text-gray-700">Tipo *</label>
+                  <Select value={type} onChange={(e) => {
+                    const newType = e.target.value as 'own' | 'rented';
+                    setType(newType);
+                    if (newType === 'own' && status === 'deactivated') setStatus('active');
+                    if (newType === 'rented' && status === 'sold') setStatus('active');
+                  }}>
+                    <option value="own">Próprio</option>
+                    <option value="rented">Alugado</option>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Data Fim Contrato</label>
-                  <Input
-                    type="date"
-                    value={contractEndDate}
-                    onChange={(e) => setContractEndDate(e.target.value)}
-                  />
+                  <label className="text-sm font-medium text-gray-700">Status *</label>
+                  <Select value={status} onChange={(e) => setStatus(e.target.value as any)}>
+                    <option value="active">Ativo</option>
+                    {type === 'own' ? (
+                      <option value="sold">Vendido</option>
+                    ) : (
+                      <option value="deactivated">Desativado</option>
+                    )}
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">KM Inicial Contrato</label>
+                  <label className="text-sm font-medium text-gray-700">Odômetro Inicial (KM) *</label>
                   <Input
                     type="number"
                     placeholder="Ex: 50000"
-                    value={contractInitialKm}
-                    onChange={(e) => setContractInitialKm(e.target.value)}
+                    value={initialOdometer}
+                    onChange={(e) => setInitialOdometer(e.target.value)}
+                    required
                   />
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Meta de Lucro Mensal</label>
-                  <Input
-                    type="text"
-                    placeholder="R$ 0,00"
-                    value={profitGoalStr}
-                    onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Reserva Manutenção Mensal</label>
-                  <Input
-                    type="text"
-                    placeholder="R$ 0,00"
-                    value={maintenanceReserveStr}
-                    onChange={(e) => setMaintenanceReserveStr(formatCurrencyInput(e.target.value))}
-                  />
-                </div>
-              </div>
-            )}
 
-            <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
-              {editingId && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={resetForm}
-                  className="w-full sm:w-auto"
-                >
-                  Cancelar
-                </Button>
+              {type === 'rented' ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Valor do Contrato</label>
+                    <Input
+                      type="text"
+                      placeholder="R$ 0,00"
+                      value={contractValueStr}
+                      onChange={(e) => setContractValueStr(formatCurrencyInput(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Meta de Lucro</label>
+                    <Input
+                      type="text"
+                      placeholder="R$ 0,00"
+                      value={profitGoalStr}
+                      onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Data Início Contrato</label>
+                    <Input
+                      type="date"
+                      value={contractStartDate}
+                      onChange={(e) => setContractStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Data Fim Contrato</label>
+                    <Input
+                      type="date"
+                      value={contractEndDate}
+                      onChange={(e) => setContractEndDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">KM Inicial Contrato</label>
+                    <Input
+                      type="number"
+                      placeholder="Ex: 50000"
+                      value={contractInitialKm}
+                      onChange={(e) => setContractInitialKm(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Meta de Lucro Mensal</label>
+                    <Input
+                      type="text"
+                      placeholder="R$ 0,00"
+                      value={profitGoalStr}
+                      onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Reserva Manutenção Mensal</label>
+                    <Input
+                      type="text"
+                      placeholder="R$ 0,00"
+                      value={maintenanceReserveStr}
+                      onChange={(e) => setMaintenanceReserveStr(formatCurrencyInput(e.target.value))}
+                    />
+                  </div>
+                </div>
               )}
-              <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                {loading ? 'Salvando...' : editingId ? 'Atualizar Veículo' : 'Salvar Veículo'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
+
+              <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
+                {editingId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={resetForm}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancelar
+                  </Button>
+                )}
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
+                  {loading ? 'Salvando...' : editingId ? 'Atualizar Veículo' : 'Salvar Veículo'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {vehicles.map((v) => {
+        {sortedVehicles.map((v) => {
           const metrics = calculateMetrics(v);
           return (
-            <Card key={v.id} className="overflow-hidden">
+            <Card key={v.id} className={`overflow-hidden ${v.status !== 'active' ? 'opacity-75 grayscale-[0.5]' : ''}`}>
               <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-white rounded-lg shadow-sm">
-                    <Car className="h-5 w-5 text-[#F59E0B]" />
+                    <Car className={`h-5 w-5 ${v.status === 'sold' ? 'text-red-500' : v.status === 'deactivated' ? 'text-gray-500' : 'text-[#F59E0B]'}`} />
                   </div>
                   <div>
                     <h3 className="font-bold text-gray-900">{v.name}</h3>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">{v.plate} • {v.type === 'own' ? 'Próprio' : 'Alugado'}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">
+                      {v.plate} • {v.type === 'own' ? 'Próprio' : 'Alugado'} 
+                      {v.status === 'sold' && <span className="ml-2 text-red-600 font-bold">• VENDIDO</span>}
+                      {v.status === 'deactivated' && <span className="ml-2 text-gray-600 font-bold">• DESATIVADO</span>}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
