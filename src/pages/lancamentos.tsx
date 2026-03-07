@@ -38,6 +38,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // History Filters
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
+  const [filterCategoriaId, setFilterCategoriaId] = useState('all');
+  const [filterVehicleId, setFilterVehicleId] = useState('all');
+
   const filteredCategorias = categorias.filter((c) => c.tipo === tipo);
 
   useEffect(() => {
@@ -200,7 +206,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
     }
   };
 
-  const sortedLancamentos = [...lancamentos].sort((a, b) => {
+  const filteredLancamentos = lancamentos.filter((l) => {
+    const matchesMonth = !filterMonth || l.data.startsWith(filterMonth);
+    const matchesTipo = filterTipo === 'all' || l.tipo === filterTipo;
+    const matchesCategoria = filterCategoriaId === 'all' || l.categoria_id === filterCategoriaId;
+    const matchesVehicle = filterVehicleId === 'all' || l.vehicle_id === filterVehicleId;
+    return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle;
+  });
+
+  const sortedLancamentos = [...filteredLancamentos].sort((a, b) => {
     const dateA = new Date(a.data).getTime();
     const dateB = new Date(b.data).getTime();
     if (dateA !== dateB) return dateB - dateA;
@@ -365,8 +379,62 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <CardTitle>Histórico de Lançamentos</CardTitle>
+          
+          <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:space-x-2">
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-gray-500 uppercase">Mês</label>
+              <Input
+                type="month"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-gray-500 uppercase">Tipo</label>
+              <Select
+                value={filterTipo}
+                onChange={(e) => setFilterTipo(e.target.value as any)}
+                className="h-8 text-xs"
+              >
+                <option value="all">Todos</option>
+                <option value="receita">Receitas</option>
+                <option value="despesa">Despesas</option>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-gray-500 uppercase">Categoria</label>
+              <Select
+                value={filterCategoriaId}
+                onChange={(e) => setFilterCategoriaId(e.target.value)}
+                className="h-8 text-xs"
+              >
+                <option value="all">Todas</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-gray-500 uppercase">Veículo</label>
+              <Select
+                value={filterVehicleId}
+                onChange={(e) => setFilterVehicleId(e.target.value)}
+                className="h-8 text-xs"
+              >
+                <option value="all">Todos</option>
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {/* Desktop Table View */}
