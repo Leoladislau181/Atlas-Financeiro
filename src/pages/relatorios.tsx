@@ -7,6 +7,7 @@ import { Lancamento, Vehicle } from '@/types';
 import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 
 interface RelatoriosProps {
   lancamentos: Lancamento[];
@@ -44,7 +45,28 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
   const stats = useMemo(() => {
     let receitas = 0;
     let despesas = 0;
+    let saldoAcumulado = 0;
     const porCategoria: Record<string, { nome: string; valor: number; tipo: string }> = {};
+
+    // Calculate accumulated balance up to the end date of the filter
+    let endFilterDate: Date;
+    if (filterType === 'month') {
+      const [year, month] = selectedMonth.split('-');
+      endFilterDate = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else {
+      endFilterDate = parseLocalDate(endDate);
+    }
+
+    lancamentos.forEach((l) => {
+      const data = parseLocalDate(l.data);
+      const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
+      
+      if (data <= endFilterDate && matchesVehicle) {
+        const valor = Number(l.valor);
+        if (l.tipo === 'receita') saldoAcumulado += valor;
+        else saldoAcumulado -= valor;
+      }
+    });
 
     filteredLancamentos.forEach((l) => {
       const valor = Number(l.valor);
@@ -70,9 +92,10 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
       receitas,
       despesas,
       lucroLiquido: receitas - despesas,
+      saldoAcumulado,
       porCategoria: Object.values(porCategoria).sort((a, b) => b.valor - a.valor),
     };
-  }, [filteredLancamentos]);
+  }, [filteredLancamentos, lancamentos, filterType, selectedMonth, endDate, selectedVehicleId]);
 
   const chartData = useMemo(() => {
     // Generate last 6 months data
@@ -106,11 +129,16 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros de Relatório</CardTitle>
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="pb-4 border-b border-gray-50">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+              <Filter className="h-5 w-5 text-[#F59E0B]" />
+            </div>
+            <CardTitle>Filtros de Relatório</CardTitle>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Tipo de Filtro</label>
@@ -165,10 +193,13 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-gray-500">Total Receitas</CardTitle>
+            <div className="p-2 bg-green-50 rounded-full">
+              <TrendingUp className="h-4 w-4 text-[#059568]" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#059568]">
@@ -176,9 +207,12 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-gray-500">Total Despesas</CardTitle>
+            <div className="p-2 bg-red-50 rounded-full">
+              <TrendingDown className="h-4 w-4 text-[#EF4444]" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#EF4444]">
@@ -186,9 +220,12 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-gray-500">Lucro Líquido</CardTitle>
+            <div className={`p-2 rounded-full ${stats.lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+              <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568]' : 'text-[#EF4444]'}`} />
+            </div>
           </CardHeader>
           <CardContent>
             <div
@@ -200,22 +237,39 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
             </div>
           </CardContent>
         </Card>
+        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium text-gray-500">Saldo Acumulado</CardTitle>
+            <div className={`p-2 rounded-full ${stats.saldoAcumulado >= 0 ? 'bg-gray-100' : 'bg-red-50'}`}>
+              <Wallet className={`h-4 w-4 ${stats.saldoAcumulado >= 0 ? 'text-gray-900' : 'text-[#EF4444]'}`} />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${
+                stats.saldoAcumulado >= 0 ? 'text-gray-900' : 'text-[#EF4444]'
+              }`}
+            >
+              {formatCurrency(stats.saldoAcumulado)}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Despesas por Categoria</CardTitle>
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="border-b border-gray-50 pb-4">
+            <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-4">
               {stats.porCategoria.filter((c) => c.tipo === 'despesa').length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhuma despesa no período.</p>
+                <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed">Nenhuma despesa no período.</p>
               ) : (
                 stats.porCategoria
                   .filter((c) => c.tipo === 'despesa')
                   .map((cat, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                       <span className="text-sm font-medium text-gray-700">{cat.nome}</span>
                       <span className="text-sm font-bold text-[#EF4444]">
                         {formatCurrency(cat.valor)}
@@ -227,19 +281,19 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Receitas por Categoria</CardTitle>
+        <Card className="border-none shadow-sm bg-white">
+          <CardHeader className="border-b border-gray-50 pb-4">
+            <CardTitle className="text-lg">Receitas por Categoria</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-4">
               {stats.porCategoria.filter((c) => c.tipo === 'receita').length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhuma receita no período.</p>
+                <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed">Nenhuma receita no período.</p>
               ) : (
                 stats.porCategoria
                   .filter((c) => c.tipo === 'receita')
                   .map((cat, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
                       <span className="text-sm font-medium text-gray-700">{cat.nome}</span>
                       <span className="text-sm font-bold text-[#059568]">
                         {formatCurrency(cat.valor)}
@@ -252,28 +306,31 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Comparativo Mensal (Últimos 6 meses)</CardTitle>
+      <Card className="border-none shadow-sm bg-white">
+        <CardHeader className="border-b border-gray-50 pb-4">
+          <CardTitle className="text-lg">Comparativo Mensal (Últimos 6 meses)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `R$ ${value}`}
+                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                  dx={-10}
                 />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
-                  cursor={{ fill: '#F3F4F6' }}
+                  cursor={{ fill: '#F3F4F6', opacity: 0.4 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
                 />
-                <Legend />
-                <Bar dataKey="Receitas" fill="#059568" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
               </BarChart>
             </ResponsiveContainer>
           </div>

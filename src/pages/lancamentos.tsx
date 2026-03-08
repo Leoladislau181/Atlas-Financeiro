@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car } from 'lucide-react';
+import { Edit2, Trash2, Car, Plus, ChevronUp } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LancamentosProps {
@@ -37,6 +37,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   // History Filters
   const [filterMonth, setFilterMonth] = useState('');
@@ -153,6 +154,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
       setOdometer('');
       setFuelPricePerLiterStr('');
       setEditingId(null);
+      setIsFormOpen(false);
       refetch();
     } catch (error: any) {
       alert(error.message || 'Erro ao salvar lançamento.');
@@ -163,6 +165,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
 
   const handleEdit = (lancamento: Lancamento) => {
     setEditingId(lancamento.id);
+    setIsFormOpen(true);
     setTipo(lancamento.tipo);
     setCategoriaId(lancamento.categoria_id);
     setValorStr(formatCurrency(lancamento.valor));
@@ -226,13 +229,47 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{editingId ? 'Editar Lançamento' : 'Novo Lançamento'}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <Card className="overflow-hidden border-none shadow-sm bg-white">
+        <div 
+          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => setIsFormOpen(!isFormOpen)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+              <Plus className="h-5 w-5 text-[#F59E0B]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">
+                {editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {isFormOpen ? 'Preencha os dados abaixo' : 'Clique para adicionar uma receita ou despesa'}
+              </p>
+            </div>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5"
+          >
+            {isFormOpen ? (
+              <div className="flex items-center gap-2">
+                <span>Recolher</span>
+                <ChevronUp className="h-4 w-4" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Adicionar</span>
+              </div>
+            )}
+          </Button>
+        </div>
+
+        {isFormOpen && (
+          <CardContent className="pt-0 border-t border-gray-100">
+            <form onSubmit={handleSubmit} className="space-y-4 pt-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Tipo</label>
                 <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoLancamento)}>
@@ -355,7 +392,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 onChange={(e) => setObservacao(e.target.value)}
               />
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-4">
               {editingId && (
                 <Button
                   type="button"
@@ -365,20 +402,22 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                     setEditingId(null);
                     setValorStr('');
                     setObservacao('');
+                    setIsFormOpen(false);
                   }}
                 >
                   Cancelar
                 </Button>
               )}
-              <Button type="submit" disabled={loading || filteredCategorias.length === 0}>
+              <Button type="submit" disabled={loading || filteredCategorias.length === 0} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
                 {loading ? 'Salvando...' : editingId ? 'Atualizar Lançamento' : 'Salvar Lançamento'}
               </Button>
             </div>
           </form>
         </CardContent>
+        )}
       </Card>
 
-      <Card>
+      <Card className="border-none shadow-sm">
         <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <CardTitle>Histórico de Lançamentos</CardTitle>
           
@@ -523,26 +562,26 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
             {visibleLancamentos.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
+              <div className="py-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed">
                 Nenhum lançamento encontrado.
               </div>
             ) : (
               visibleLancamentos.map((l) => (
-                <div key={l.id} className="rounded-lg border p-4 space-y-3 bg-white shadow-sm">
+                <div key={l.id} className="rounded-2xl border border-gray-100 p-4 space-y-3 bg-white shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-xs text-gray-500">{format(parseLocalDate(l.data), 'dd/MM/yyyy')}</p>
-                      <h4 className="font-semibold text-gray-900">{l.categorias?.nome || 'N/A'}</h4>
+                      <p className="text-xs text-gray-400 font-medium mb-1">{format(parseLocalDate(l.data), 'dd/MM/yyyy')}</p>
+                      <h4 className="font-bold text-gray-900">{l.categorias?.nome || 'N/A'}</h4>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold ${l.tipo === 'receita' ? 'text-[#059568]' : 'text-[#EF4444]'}`}>
+                      <p className={`font-bold text-lg ${l.tipo === 'receita' ? 'text-[#059568]' : 'text-[#EF4444]'}`}>
                         {l.tipo === 'receita' ? '+' : '-'} {formatCurrency(l.valor)}
                       </p>
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mt-1 ${
                           l.tipo === 'receita'
-                            ? 'bg-green-100 text-[#059568]'
-                            : 'bg-red-100 text-[#EF4444]'
+                            ? 'bg-green-50 text-[#059568]'
+                            : 'bg-red-50 text-[#EF4444]'
                         }`}
                       >
                         {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
@@ -551,30 +590,30 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                   </div>
                   
                   {(l.vehicles || l.observacao) && (
-                    <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-50 mt-2">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-50 mt-3">
                       {l.vehicles && (
-                        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600">
-                          <Car className="h-3 w-3 mr-1" /> {l.vehicles.name}
+                        <span className="inline-flex items-center rounded-lg bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-600 border border-gray-100">
+                          <Car className="h-3 w-3 mr-1 text-gray-400" /> {l.vehicles.name}
                         </span>
                       )}
                       {l.observacao && (
-                        <p className="text-xs text-gray-500 italic truncate max-w-full">
+                        <p className="text-xs text-gray-500 italic truncate max-w-full w-full mt-1">
                           "{l.observacao}"
                         </p>
                       )}
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-3 pt-2 border-t border-gray-50">
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-50 mt-2">
                     <button
                       onClick={() => handleEdit(l)}
-                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#F59E0B]"
+                      className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-[#F59E0B] px-2 py-1 rounded-md hover:bg-gray-50 transition-colors"
                     >
                       <Edit2 className="h-3 w-3" /> Editar
                     </button>
                     <button
                       onClick={() => confirmDelete(l.id)}
-                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#EF4444]"
+                      className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-[#EF4444] px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="h-3 w-3" /> Excluir
                     </button>
