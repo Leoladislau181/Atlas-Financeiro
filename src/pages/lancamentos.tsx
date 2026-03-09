@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, Plus, ChevronUp, Filter } from 'lucide-react';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LancamentosProps {
@@ -44,6 +44,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
   const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
   const [filterCategoriaId, setFilterCategoriaId] = useState('all');
   const [filterVehicleId, setFilterVehicleId] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
   const filteredCategorias = categorias.filter((c) => c.tipo === tipo);
@@ -215,7 +216,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
     const matchesTipo = filterTipo === 'all' || l.tipo === filterTipo;
     const matchesCategoria = filterCategoriaId === 'all' || l.categoria_id === filterCategoriaId;
     const matchesVehicle = filterVehicleId === 'all' || l.vehicle_id === filterVehicleId;
-    return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle;
+    const matchesSearch = !searchTerm || 
+      (l.observacao && l.observacao.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (l.categorias && l.categorias.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (l.valor.toString().includes(searchTerm));
+      
+    return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle && matchesSearch;
   });
 
   const sortedLancamentos = [...filteredLancamentos].sort((a, b) => {
@@ -230,9 +236,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-none shadow-sm bg-white">
+      <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-gray-900">
         <div 
-          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
           onClick={() => setIsFormOpen(!isFormOpen)}
         >
           <div className="flex items-center gap-3">
@@ -240,10 +246,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
               <Plus className="h-5 w-5 text-[#F59E0B]" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">
                 {editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
               </h3>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {isFormOpen ? 'Preencha os dados abaixo' : 'Clique para adicionar uma receita ou despesa'}
               </p>
             </div>
@@ -251,7 +257,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           <Button 
             variant="ghost" 
             size="sm" 
-            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5"
+            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5 dark:hover:bg-[#F59E0B]/10"
           >
             {isFormOpen ? (
               <div className="flex items-center gap-2">
@@ -268,18 +274,18 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
         </div>
 
         {isFormOpen && (
-          <CardContent className="pt-0 border-t border-gray-100">
+          <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-800">
             <form onSubmit={handleSubmit} className="space-y-4 pt-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Tipo</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
                 <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoLancamento)}>
                   <option value="despesa">Despesa</option>
                   <option value="receita">Receita</option>
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Categoria</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Categoria</label>
                 <Select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
                   {filteredCategorias.length === 0 && (
                     <option value="" disabled>Nenhuma categoria</option>
@@ -292,7 +298,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {useVehicle && tipo === 'despesa' && isCombustivel() ? 'Valor Total Abastecido' : 'Valor'}
                 </label>
                 <Input
@@ -304,7 +310,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Data</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
                 <Input
                   type="date"
                   value={data}
@@ -320,17 +326,17 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 id="useVehicle"
                 checked={useVehicle}
                 onChange={(e) => setUseVehicle(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-[#F59E0B] focus:ring-[#F59E0B]"
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-[#F59E0B] focus:ring-[#F59E0B] dark:bg-gray-700"
               />
-              <label htmlFor="useVehicle" className="text-sm font-medium text-gray-700">
+              <label htmlFor="useVehicle" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Atrelar a um veículo?
               </label>
             </div>
 
             {useVehicle && (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Veículo *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo *</label>
                   <Select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
                     <option value="" disabled>Selecione um veículo</option>
                     {vehicles.map((v) => (
@@ -343,7 +349,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 
                 {tipo === 'despesa' && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Odômetro Atual (KM) *</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Odômetro Atual (KM) *</label>
                     <Input
                       type="number"
                       placeholder="Ex: 50100"
@@ -357,7 +363,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 {tipo === 'despesa' && isCombustivel() && (
                   <>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Valor por Litro</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
                       <Input
                         type="text"
                         placeholder="R$ 0,00"
@@ -367,7 +373,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Litros (Calculado)</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Litros (Calculado)</label>
                       <Input
                         type="text"
                         value={
@@ -376,7 +382,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                             : '0.00 L'
                         }
                         disabled
-                        className="bg-gray-100"
+                        className="bg-gray-100 dark:bg-gray-800"
                       />
                     </div>
                   </>
@@ -385,7 +391,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Observação</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Observação</label>
               <Input
                 type="text"
                 placeholder="Detalhes do lançamento..."
@@ -418,15 +424,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
         )}
       </Card>
 
-      <Card className="border-none shadow-sm">
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
         <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div className="flex items-center justify-between w-full md:w-auto">
-            <CardTitle>Histórico de Lançamentos</CardTitle>
+            <CardTitle className="text-gray-900 dark:text-gray-100">Histórico de Lançamentos</CardTitle>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="md:hidden text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              className="md:hidden text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filtros
@@ -434,11 +440,21 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           </div>
           
           <div className="hidden md:flex items-center space-x-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Buscar lançamentos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9 w-[200px] lg:w-[250px] text-sm"
+              />
+            </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filtros
@@ -446,11 +462,25 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           </div>
         </CardHeader>
 
+        {/* Mobile Search Bar */}
+        <div className="md:hidden px-6 pb-4">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Buscar lançamentos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-9 w-full text-sm bg-gray-50 dark:bg-gray-800/50 border-transparent focus:bg-white dark:focus:bg-gray-800"
+            />
+          </div>
+        </div>
+
         {showFilters && (
-          <CardContent className="pt-0 pb-4 border-b border-gray-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardContent className="pt-0 pb-4 border-b border-gray-50 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-2 gap-4 md:flex md:items-center md:space-x-4">
               <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 uppercase">Mês</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Mês</label>
                 <Input
                   type="month"
                   value={filterMonth}
@@ -459,7 +489,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 />
               </div>
               <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 uppercase">Tipo</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</label>
                 <Select
                   value={filterTipo}
                   onChange={(e) => setFilterTipo(e.target.value as any)}
@@ -471,7 +501,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 </Select>
               </div>
               <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 uppercase">Categoria</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Categoria</label>
                 <Select
                   value={filterCategoriaId}
                   onChange={(e) => setFilterCategoriaId(e.target.value)}
@@ -486,7 +516,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 </Select>
               </div>
               <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 uppercase">Veículo</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Veículo</label>
                 <Select
                   value={filterVehicleId}
                   onChange={(e) => setFilterVehicleId(e.target.value)}
@@ -507,8 +537,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
         <CardContent className={showFilters ? "pt-6" : "pt-6"}>
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-600">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-700">
+            <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+              <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs uppercase text-gray-700 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3">Data</th>
                   <th className="px-4 py-3">Tipo</th>
@@ -522,13 +552,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
               <tbody>
                 {visibleLancamentos.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       Nenhum lançamento encontrado.
                     </td>
                   </tr>
                 ) : (
                   visibleLancamentos.map((l) => (
-                    <tr key={l.id} className="border-b hover:bg-gray-50">
+                    <tr key={l.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">
                         {format(parseLocalDate(l.data), 'dd/MM/yyyy')}
                       </td>
@@ -536,29 +566,29 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                         <span
                           className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
                             l.tipo === 'receita'
-                              ? 'bg-green-100 text-[#059568]'
-                              : 'bg-red-100 text-[#EF4444]'
+                              ? 'bg-green-100 dark:bg-[#059568]/20 text-[#059568] dark:text-[#10B981]'
+                              : 'bg-red-100 dark:bg-[#EF4444]/20 text-[#EF4444] dark:text-[#F87171]'
                           }`}
                         >
                           {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{l.categorias?.nome || 'N/A'}</td>
+                      <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</td>
                       <td className="px-4 py-3">
                         {l.vehicles ? (
-                          <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                          <span className="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
                             {l.vehicles.name}
                           </span>
                         ) : (
-                          '-'
+                          <span className="text-gray-500 dark:text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 max-w-[200px] truncate" title={l.observacao}>
+                      <td className="px-4 py-3 max-w-[200px] truncate text-gray-600 dark:text-gray-400" title={l.observacao}>
                         {l.observacao || '-'}
                       </td>
                       <td
                         className={`px-4 py-3 text-right font-medium whitespace-nowrap ${
-                          l.tipo === 'receita' ? 'text-[#059568]' : 'text-[#EF4444]'
+                          l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
                         }`}
                       >
                         {formatCurrency(l.valor)}
@@ -591,26 +621,26 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
             {visibleLancamentos.length === 0 ? (
-              <div className="py-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed">
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed dark:border-gray-700">
                 Nenhum lançamento encontrado.
               </div>
             ) : (
               visibleLancamentos.map((l) => (
-                <div key={l.id} className="rounded-2xl border border-gray-100 p-4 space-y-3 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+                <div key={l.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-xs text-gray-400 font-medium mb-1">{format(parseLocalDate(l.data), 'dd/MM/yyyy')}</p>
-                      <h4 className="font-bold text-gray-900">{l.categorias?.nome || 'N/A'}</h4>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">{format(parseLocalDate(l.data), 'dd/MM/yyyy')}</p>
+                      <h4 className="font-bold text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</h4>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold text-lg ${l.tipo === 'receita' ? 'text-[#059568]' : 'text-[#EF4444]'}`}>
+                      <p className={`font-bold text-lg ${l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
                         {l.tipo === 'receita' ? '+' : '-'} {formatCurrency(l.valor)}
                       </p>
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mt-1 ${
                           l.tipo === 'receita'
-                            ? 'bg-green-50 text-[#059568]'
-                            : 'bg-red-50 text-[#EF4444]'
+                            ? 'bg-green-50 dark:bg-[#059568]/20 text-[#059568] dark:text-[#10B981]'
+                            : 'bg-red-50 dark:bg-[#EF4444]/20 text-[#EF4444] dark:text-[#F87171]'
                         }`}
                       >
                         {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
@@ -619,30 +649,30 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                   </div>
                   
                   {(l.vehicles || l.observacao) && (
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-50 mt-3">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-50 dark:border-gray-800 mt-3">
                       {l.vehicles && (
-                        <span className="inline-flex items-center rounded-lg bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-600 border border-gray-100">
-                          <Car className="h-3 w-3 mr-1 text-gray-400" /> {l.vehicles.name}
+                        <span className="inline-flex items-center rounded-lg bg-gray-50 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700">
+                          <Car className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500" /> {l.vehicles.name}
                         </span>
                       )}
                       {l.observacao && (
-                        <p className="text-xs text-gray-500 italic truncate max-w-full w-full mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-full w-full mt-1">
                           "{l.observacao}"
                         </p>
                       )}
                     </div>
                   )}
 
-                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-50 mt-2">
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-50 dark:border-gray-800 mt-2">
                     <button
                       onClick={() => handleEdit(l)}
-                      className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-[#F59E0B] px-2 py-1 rounded-md hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-[#F59E0B] px-2 py-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
                       <Edit2 className="h-3 w-3" /> Editar
                     </button>
                     <button
                       onClick={() => confirmDelete(l.id)}
-                      className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-[#EF4444] px-2 py-1 rounded-md hover:bg-red-50 transition-colors"
+                      className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-[#EF4444] px-2 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       <Trash2 className="h-3 w-3" /> Excluir
                     </button>
@@ -671,7 +701,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
         onClose={() => setDeleteModalOpen(false)}
         title="Confirmar Exclusão"
       >
-        <p className="mb-6 text-sm text-gray-600">
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
           Tem certeza que deseja excluir este lançamento? Esta ação não poderá ser desfeita.
         </p>
         <div className="flex justify-end space-x-3">

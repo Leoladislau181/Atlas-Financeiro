@@ -298,9 +298,9 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-none shadow-sm bg-white">
+      <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-gray-900">
         <div 
-          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
           onClick={() => setIsFormOpen(!isFormOpen)}
         >
           <div className="flex items-center gap-3">
@@ -308,10 +308,10 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
               <Car className="h-5 w-5 text-[#F59E0B]" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">
                 {editingId ? 'Editar Veículo' : 'Novo Veículo'}
               </h3>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {isFormOpen ? 'Preencha os dados abaixo' : 'Clique para cadastrar um novo veículo'}
               </p>
             </div>
@@ -319,7 +319,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
           <Button 
             variant="ghost" 
             size="sm" 
-            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5"
+            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5 dark:hover:bg-[#F59E0B]/10"
           >
             {isFormOpen ? (
               <div className="flex items-center gap-2">
@@ -336,11 +336,11 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         </div>
 
         {isFormOpen && (
-          <CardContent className="pt-0 border-t border-gray-100">
+          <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-800">
             <form onSubmit={handleSubmit} className="space-y-4 pt-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Nome do Veículo *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome do Veículo *</label>
                   <Input
                     type="text"
                     placeholder="Ex: Corolla 2015"
@@ -350,7 +350,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Placa *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Placa *</label>
                   <Input
                     type="text"
                     placeholder="ABC-1234"
@@ -360,7 +360,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Tipo *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo *</label>
                   <Select value={type} onChange={(e) => {
                     const newType = e.target.value as 'own' | 'rented';
                     setType(newType);
@@ -372,7 +372,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Status *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status *</label>
                   <Select value={status} onChange={(e) => setStatus(e.target.value as any)}>
                     <option value="active">Ativo</option>
                     {type === 'own' ? (
@@ -383,7 +383,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Odômetro Inicial (KM) *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Odômetro Inicial (KM) *</label>
                   <Input
                     type="number"
                     placeholder="Ex: 50000"
@@ -395,9 +395,9 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
               </div>
 
               {type === 'rented' ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Valor do Contrato</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor do Contrato</label>
                     <Input
                       type="text"
                       placeholder="R$ 0,00"
@@ -406,7 +406,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Meta de Lucro</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta de Lucro</label>
                     <Input
                       type="text"
                       placeholder="R$ 0,00"
@@ -415,7 +415,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Data Início Contrato</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Início Contrato</label>
                     <Input
                       type="date"
                       value={contractStartDate}
@@ -423,7 +423,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Data Fim Contrato</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Fim Contrato</label>
                     <Input
                       type="date"
                       value={contractEndDate}
@@ -431,7 +431,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">KM Inicial Contrato</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">KM Inicial Contrato</label>
                     <Input
                       type="number"
                       placeholder="Ex: 50000"
@@ -440,7 +440,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Franquia de KM (Limite)</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Franquia de KM (Limite)</label>
                     <Input
                       type="number"
                       placeholder="Ex: 5000"
@@ -450,9 +450,9 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Meta de Lucro Mensal</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta de Lucro Mensal</label>
                     <Input
                       type="text"
                       placeholder="R$ 0,00"
@@ -461,7 +461,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Reserva Manutenção Mensal</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reserva Manutenção Mensal</label>
                     <Input
                       type="text"
                       placeholder="R$ 0,00"
@@ -496,73 +496,73 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         {sortedVehicles.map((v) => {
           const metrics = calculateMetrics(v);
           return (
-            <Card key={v.id} className={`overflow-hidden transition-all duration-200 ${v.status !== 'active' ? 'opacity-75 grayscale-[0.5]' : 'hover:shadow-md'}`}>
+            <Card key={v.id} className={`overflow-hidden transition-all duration-200 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 ${v.status !== 'active' ? 'opacity-75 grayscale-[0.5]' : 'hover:shadow-md'}`}>
               <div 
-                className="bg-white px-6 py-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                className="bg-white dark:bg-gray-900 px-6 py-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 onClick={() => toggleInfo(v.id)}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl shadow-sm border ${v.status === 'sold' ? 'bg-red-50 border-red-100' : v.status === 'deactivated' ? 'bg-gray-100 border-gray-200' : 'bg-[#F59E0B]/10 border-[#F59E0B]/20'}`}>
-                    <Car className={`h-6 w-6 ${v.status === 'sold' ? 'text-red-500' : v.status === 'deactivated' ? 'text-gray-500' : 'text-[#F59E0B]'}`} />
+                  <div className={`p-3 rounded-xl shadow-sm border ${v.status === 'sold' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : v.status === 'deactivated' ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-[#F59E0B]/10 border-[#F59E0B]/20'}`}>
+                    <Car className={`h-6 w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-lg text-gray-900">{v.name}</h3>
+                      <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">{v.name}</h3>
                       {expandedInfo[v.id] ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400" />
+                        <ChevronUp className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                        <ChevronDown className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md uppercase tracking-wider">{v.plate}</span>
-                      <span className={`px-2 py-1 rounded-md uppercase tracking-wider ${v.type === 'own' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                      <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md uppercase tracking-wider">{v.plate}</span>
+                      <span className={`px-2 py-1 rounded-md uppercase tracking-wider ${v.type === 'own' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'}`}>
                         {v.type === 'own' ? 'Próprio' : 'Alugado'}
                       </span>
-                      {v.status === 'sold' && <span className="bg-red-50 text-red-600 px-2 py-1 rounded-md uppercase tracking-wider">Vendido</span>}
-                      {v.status === 'deactivated' && <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md uppercase tracking-wider">Desativado</span>}
+                      {v.status === 'sold' && <span className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-1 rounded-md uppercase tracking-wider">Vendido</span>}
+                      {v.status === 'deactivated' && <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md uppercase tracking-wider">Desativado</span>}
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2 self-end sm:self-auto" onClick={(e) => e.stopPropagation()}>
                   {v.type === 'rented' && (
-                    <Button variant="outline" size="sm" onClick={() => handleOpenRenew(v)} className="text-[#059568] border-[#059568]/20 hover:bg-[#059568]/10" title="Renovar Contrato">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenRenew(v)} className="text-[#059568] border-[#059568]/20 hover:bg-[#059568]/10 dark:text-[#10B981] dark:border-[#10B981]/20 dark:hover:bg-[#10B981]/10" title="Renovar Contrato">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Renovar
                     </Button>
                   )}
-                  <Button variant="outline" size="icon" onClick={() => handleEdit(v)} className="text-[#F59E0B] border-[#F59E0B]/20 hover:bg-[#F59E0B]/10" title="Editar">
+                  <Button variant="outline" size="icon" onClick={() => handleEdit(v)} className="text-[#F59E0B] border-[#F59E0B]/20 hover:bg-[#F59E0B]/10 dark:text-[#FBBF24] dark:border-[#FBBF24]/20 dark:hover:bg-[#FBBF24]/10" title="Editar">
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => confirmDelete(v.id)} className="text-red-500 border-red-200 hover:bg-red-50" title="Excluir">
+                  <Button variant="outline" size="icon" onClick={() => confirmDelete(v.id)} className="text-red-500 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900/50 dark:hover:bg-red-900/20" title="Excluir">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
               
               {expandedInfo[v.id] && (
-                <CardContent className="p-6 animate-in fade-in slide-in-from-top-2 duration-200 bg-gray-50/50 border-t border-gray-100">
+                <CardContent className="p-6 animate-in fade-in slide-in-from-top-2 duration-200 bg-gray-50/50 dark:bg-gray-800/20 border-t border-gray-100 dark:border-gray-800">
                   {/* Section: Financeiro */}
                   <div className="mb-8">
-                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#059568]"></span>
+                    <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#059568] dark:bg-[#10B981]"></span>
                       Financeiro
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Lucro Líquido</p>
-                        <p className={`font-bold text-2xl ${metrics.lucroLiquido >= 0 ? 'text-[#059568]' : 'text-[#EF4444]'}`}>
+                      <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Lucro Líquido</p>
+                        <p className={`font-bold text-2xl ${metrics.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
                           {formatCurrency(metrics.lucroLiquido)}
                         </p>
                       </div>
-                      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Receitas</p>
-                        <p className="font-semibold text-xl text-[#059568]">{formatCurrency(metrics.totalReceitas)}</p>
+                      <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Receitas</p>
+                        <p className="font-semibold text-xl text-[#059568] dark:text-[#10B981]">{formatCurrency(metrics.totalReceitas)}</p>
                       </div>
-                      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Despesas</p>
-                        <p className="font-semibold text-xl text-[#EF4444]">{formatCurrency(metrics.totalDespesas)}</p>
+                      <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Despesas</p>
+                        <p className="font-semibold text-xl text-[#EF4444] dark:text-[#F87171]">{formatCurrency(metrics.totalDespesas)}</p>
                       </div>
                     </div>
                   </div>
@@ -570,28 +570,28 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   {/* Section: Contrato */}
                   {v.type === 'rented' && (
                     <div className="mb-8">
-                      <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                      <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 dark:bg-blue-400"></span>
                         Contrato de Aluguel
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                          <p className="text-xs font-medium text-blue-600/80 mb-1">Dias Restantes</p>
-                          <p className="font-bold text-lg text-blue-700">{getDaysRemaining(v.contract_end_date)} dias</p>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                          <p className="text-xs font-medium text-blue-600/80 dark:text-blue-400/80 mb-1">Dias Restantes</p>
+                          <p className="font-bold text-lg text-blue-700 dark:text-blue-300">{getDaysRemaining(v.contract_end_date)} dias</p>
                         </div>
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                          <p className="text-xs font-medium text-blue-600/80 mb-1">KM Restante</p>
-                          <p className="font-bold text-lg text-blue-700">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                          <p className="text-xs font-medium text-blue-600/80 dark:text-blue-400/80 mb-1">KM Restante</p>
+                          <p className="font-bold text-lg text-blue-700 dark:text-blue-300">
                             {v.contract_km_limit ? (v.contract_km_limit - (metrics.lastOdometer - (v.contract_initial_km || v.initial_odometer))).toLocaleString('pt-BR') : '-'} km
                           </p>
                         </div>
-                        <div className="bg-white p-4 rounded-xl border border-gray-200">
-                          <p className="text-xs font-medium text-gray-500 mb-1">Franquia de KM</p>
-                          <p className="font-semibold text-gray-900">{v.contract_km_limit ? v.contract_km_limit.toLocaleString('pt-BR') : '-'} km</p>
+                        <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Franquia de KM</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{v.contract_km_limit ? v.contract_km_limit.toLocaleString('pt-BR') : '-'} km</p>
                         </div>
-                        <div className="bg-white p-4 rounded-xl border border-gray-200">
-                          <p className="text-xs font-medium text-gray-500 mb-1">KM Inicial Contrato</p>
-                          <p className="font-semibold text-gray-900">{v.contract_initial_km ? v.contract_initial_km.toLocaleString('pt-BR') : '-'}</p>
+                        <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM Inicial Contrato</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{v.contract_initial_km ? v.contract_initial_km.toLocaleString('pt-BR') : '-'}</p>
                         </div>
                       </div>
                     </div>
@@ -599,26 +599,26 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
 
                   {/* Section: Uso e Consumo */}
                   <div>
-                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                    <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-500 dark:bg-purple-400"></span>
                       Uso e Consumo
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="bg-white p-4 rounded-xl border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-1">Último Odômetro</p>
-                        <p className="font-semibold text-gray-900">{metrics.lastOdometer.toLocaleString('pt-BR')}</p>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Último Odômetro</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.lastOdometer.toLocaleString('pt-BR')}</p>
                       </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-1">KM Rodado</p>
-                        <p className="font-semibold text-gray-900">{metrics.kmRodado.toLocaleString('pt-BR')} km</p>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM Rodado</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.kmRodado.toLocaleString('pt-BR')} km</p>
                       </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-1">Média Consumo</p>
-                        <p className="font-semibold text-gray-900">{metrics.mediaKmL} km/l</p>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Média Consumo</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.mediaKmL} km/l</p>
                       </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-1">Gasto Combustível</p>
-                        <p className="font-semibold text-gray-900">{formatCurrency(metrics.totalCombustivel)}</p>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Gasto Combustível</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.totalCombustivel)}</p>
                       </div>
                     </div>
                   </div>
@@ -629,7 +629,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         })}
         
         {vehicles.length === 0 && (
-          <div className="py-12 text-center text-gray-500 bg-white rounded-xl border border-dashed">
+          <div className="py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-dashed dark:border-gray-800">
             Nenhum veículo cadastrado ainda.
           </div>
         )}
@@ -640,7 +640,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         onClose={() => setDeleteModalOpen(false)}
         title="Confirmar Exclusão"
       >
-        <p className="mb-6 text-sm text-gray-600">
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
           Tem certeza que deseja excluir este veículo? Os lançamentos atrelados a ele não serão apagados, apenas perderão o vínculo.
         </p>
         <div className="flex justify-end space-x-3">
@@ -660,7 +660,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
       >
         <form onSubmit={handleRenewSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Novo Valor do Contrato</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo Valor do Contrato</label>
             <Input
               type="text"
               placeholder="R$ 0,00"
@@ -669,7 +669,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Nova Meta de Lucro</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Meta de Lucro</label>
             <Input
               type="text"
               placeholder="R$ 0,00"
@@ -679,7 +679,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Nova Data Início</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Data Início</label>
               <Input
                 type="date"
                 value={renewStartDate}
@@ -687,7 +687,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Nova Data Fim</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Data Fim</label>
               <Input
                 type="date"
                 value={renewEndDate}
@@ -696,17 +696,17 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Novo KM Inicial do Contrato</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo KM Inicial do Contrato</label>
             <Input
               type="number"
               placeholder="Ex: 50000"
               value={renewInitialKm}
               onChange={(e) => setRenewInitialKm(e.target.value)}
             />
-            <p className="text-xs text-gray-500">O KM inicial foi preenchido automaticamente com o último odômetro registrado.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">O KM inicial foi preenchido automaticamente com o último odômetro registrado.</p>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Nova Franquia de KM (Limite)</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Franquia de KM (Limite)</label>
             <Input
               type="number"
               placeholder="Ex: 5000"
@@ -720,9 +720,9 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
               id="addRemainingKm"
               checked={addRemainingKm}
               onChange={(e) => setAddRemainingKm(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-[#F59E0B] focus:ring-[#F59E0B]"
+              className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-[#F59E0B] focus:ring-[#F59E0B] dark:bg-gray-700"
             />
-            <label htmlFor="addRemainingKm" className="text-sm font-medium text-gray-700">
+            <label htmlFor="addRemainingKm" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Somar KM restante do contrato anterior ao novo contrato?
             </label>
           </div>

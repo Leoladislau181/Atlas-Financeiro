@@ -86,39 +86,39 @@ export function Dashboard({ lancamentos }: DashboardProps) {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-sm hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <ArrowUpCircle className="h-4 w-4 text-[#059568]" />
-            <CardTitle className="text-sm font-medium text-gray-500">Receitas do Mês</CardTitle>
+            <ArrowUpCircle className="h-4 w-4 text-[#059568] dark:text-[#10B981]" />
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Receitas do Mês</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#059568]">
+            <div className="text-2xl font-bold text-[#059568] dark:text-[#10B981]">
               {formatCurrency(stats.receitasMes)}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <ArrowDownCircle className="h-4 w-4 text-[#EF4444]" />
-            <CardTitle className="text-sm font-medium text-gray-500">Despesas do Mês</CardTitle>
+            <ArrowDownCircle className="h-4 w-4 text-[#EF4444] dark:text-[#F87171]" />
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Despesas do Mês</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#EF4444]">
+            <div className="text-2xl font-bold text-[#EF4444] dark:text-[#F87171]">
               {formatCurrency(stats.despesasMes)}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568]' : 'text-[#EF4444]'}`} />
-            <CardTitle className="text-sm font-medium text-gray-500">Lucro Líquido</CardTitle>
+            <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Lucro Líquido</CardTitle>
           </CardHeader>
           <CardContent>
             <div
               className={`text-2xl font-bold ${
-                stats.lucroLiquido >= 0 ? 'text-[#059568]' : 'text-[#EF4444]'
+                stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
               }`}
             >
               {formatCurrency(stats.lucroLiquido)}
@@ -127,20 +127,20 @@ export function Dashboard({ lancamentos }: DashboardProps) {
         </Card>
       </div>
 
-      <Card className="col-span-3 border-none shadow-sm">
+      <Card className="col-span-3 border-none shadow-sm bg-white dark:bg-gray-900">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-gray-900">Comparativo Mensal</CardTitle>
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
           <div className="relative">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => setShowFilter(!showFilter)} 
-              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <Filter className="h-4 w-4" />
             </Button>
             {showFilter && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="py-1">
                   {[3, 6, 12].map((months) => (
                     <button
@@ -151,8 +151,8 @@ export function Dashboard({ lancamentos }: DashboardProps) {
                       }}
                       className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
                         monthsFilter === months 
-                          ? 'bg-blue-50 text-blue-700 font-medium' 
-                          : 'text-gray-700 hover:bg-gray-50'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       Últimos {months} meses
@@ -167,19 +167,20 @@ export function Dashboard({ lancamentos }: DashboardProps) {
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-gray-200 dark:text-gray-800" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-500 dark:text-gray-400" dy={10} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `R$ ${value}`}
-                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                  tick={{ fill: 'currentColor', fontSize: 12 }}
+                  className="text-gray-500 dark:text-gray-400"
                   dx={-10}
                 />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
-                  cursor={{ fill: '#F3F4F6', opacity: 0.4 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+                  cursor={{ fill: 'currentColor', opacity: 0.1 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: 'var(--tw-colors-white)' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />

@@ -139,9 +139,9 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="border-none shadow-sm bg-white overflow-hidden">
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
         <div 
-          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
           onClick={() => setShowFilters(!showFilters)}
         >
           <div className="flex items-center gap-3">
@@ -149,22 +149,22 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
               <Filter className="h-5 w-5 text-[#F59E0B]" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">Filtros de Relatório</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">Filtros de Relatório</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {showFilters ? 'Ocultar filtros' : 'Clique para filtrar por período ou veículo'}
               </p>
             </div>
           </div>
-          <button className="text-gray-400 hover:text-gray-600">
+          <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             {showFilters ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
           </button>
         </div>
 
         {showFilters && (
-          <CardContent className="pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Tipo de Filtro</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Filtro</label>
                 <Select value={filterType} onChange={(e) => setFilterType(e.target.value as any)}>
                   <option value="month">Por Mês</option>
                   <option value="custom">Período Personalizado</option>
@@ -173,7 +173,7 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
 
               {filterType === 'month' ? (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Mês</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mês</label>
                   <Input
                     type="month"
                     value={selectedMonth}
@@ -183,7 +183,7 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
               ) : (
                 <>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Data Inicial</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Inicial</label>
                     <Input
                       type="date"
                       value={startDate}
@@ -191,7 +191,7 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Data Final</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Final</label>
                     <Input
                       type="date"
                       value={endDate}
@@ -202,7 +202,7 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Veículo</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
                 <Select value={selectedVehicleId} onChange={(e) => setSelectedVehicleId(e.target.value)}>
                   <option value="all">Todos os Veículos</option>
                   {vehicles.map((v) => (
@@ -218,60 +218,60 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className="p-2 bg-green-50 rounded-full">
-              <TrendingUp className="h-4 w-4 text-[#059568]" />
+            <div className="p-2 bg-green-50 dark:bg-[#059568]/20 rounded-full">
+              <TrendingUp className="h-4 w-4 text-[#059568] dark:text-[#10B981]" />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500">Total Receitas</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Receitas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#059568]">
+            <div className="text-2xl font-bold text-[#059568] dark:text-[#10B981]">
               {formatCurrency(stats.receitas)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className="p-2 bg-red-50 rounded-full">
-              <TrendingDown className="h-4 w-4 text-[#EF4444]" />
+            <div className="p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-full">
+              <TrendingDown className="h-4 w-4 text-[#EF4444] dark:text-[#F87171]" />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500">Total Despesas</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Despesas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#EF4444]">
+            <div className="text-2xl font-bold text-[#EF4444] dark:text-[#F87171]">
               {formatCurrency(stats.despesas)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className={`p-2 rounded-full ${stats.lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-              <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568]' : 'text-[#EF4444]'}`} />
+            <div className={`p-2 rounded-full ${stats.lucroLiquido >= 0 ? 'bg-green-50 dark:bg-[#059568]/20' : 'bg-red-50 dark:bg-[#EF4444]/20'}`}>
+              <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500">Lucro Líquido</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Lucro Líquido</CardTitle>
           </CardHeader>
           <CardContent>
             <div
               className={`text-2xl font-bold ${
-                stats.lucroLiquido >= 0 ? 'text-[#059568]' : 'text-[#EF4444]'
+                stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
               }`}
             >
               {formatCurrency(stats.lucroLiquido)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className={`p-2 rounded-full ${stats.saldoAcumulado >= 0 ? 'bg-gray-100' : 'bg-red-50'}`}>
-              <Wallet className={`h-4 w-4 ${stats.saldoAcumulado >= 0 ? 'text-gray-900' : 'text-[#EF4444]'}`} />
+            <div className={`p-2 rounded-full ${stats.saldoAcumulado >= 0 ? 'bg-gray-100 dark:bg-gray-800' : 'bg-red-50 dark:bg-[#EF4444]/20'}`}>
+              <Wallet className={`h-4 w-4 ${stats.saldoAcumulado >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500">Saldo Acumulado</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo Acumulado</CardTitle>
           </CardHeader>
           <CardContent>
             <div
               className={`text-2xl font-bold ${
-                stats.saldoAcumulado >= 0 ? 'text-gray-900' : 'text-[#EF4444]'
+                stats.saldoAcumulado >= 0 ? 'text-gray-900 dark:text-gray-100' : 'text-[#EF4444] dark:text-[#F87171]'
               }`}
             >
               {formatCurrency(stats.saldoAcumulado)}
@@ -281,21 +281,21 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="border-b border-gray-50 pb-4">
-            <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Despesas por Categoria</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4">
               {stats.porCategoria.filter((c) => c.tipo === 'despesa').length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed">Nenhuma despesa no período.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma despesa no período.</p>
               ) : (
                 stats.porCategoria
                   .filter((c) => c.tipo === 'despesa')
                   .map((cat, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                      <span className="text-sm font-medium text-gray-700">{cat.nome}</span>
-                      <span className="text-sm font-bold text-[#EF4444]">
+                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
+                      <span className="text-sm font-bold text-[#EF4444] dark:text-[#F87171]">
                         {formatCurrency(cat.valor)}
                       </span>
                     </div>
@@ -305,21 +305,21 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="border-b border-gray-50 pb-4">
-            <CardTitle className="text-lg">Receitas por Categoria</CardTitle>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Receitas por Categoria</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-4">
               {stats.porCategoria.filter((c) => c.tipo === 'receita').length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed">Nenhuma receita no período.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma receita no período.</p>
               ) : (
                 stats.porCategoria
                   .filter((c) => c.tipo === 'receita')
                   .map((cat, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                      <span className="text-sm font-medium text-gray-700">{cat.nome}</span>
-                      <span className="text-sm font-bold text-[#059568]">
+                    <div key={index} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
+                      <span className="text-sm font-bold text-[#059568] dark:text-[#10B981]">
                         {formatCurrency(cat.valor)}
                       </span>
                     </div>
@@ -330,20 +330,20 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
         </Card>
       </div>
 
-      <Card className="border-none shadow-sm bg-white">
-        <CardHeader className="border-b border-gray-50 pb-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Comparativo Mensal</CardTitle>
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+        <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
           <div className="relative">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => setShowChartFilter(!showChartFilter)} 
-              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <Filter className="h-4 w-4" />
             </Button>
             {showChartFilter && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="py-1">
                   {[1, 3, 6, 12].map((months) => (
                     <button
@@ -354,8 +354,8 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
                       }}
                       className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
                         chartMonthsFilter === months 
-                          ? 'bg-blue-50 text-blue-700 font-medium' 
-                          : 'text-gray-700 hover:bg-gray-50'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       Últimos {months} {months === 1 ? 'mês' : 'meses'}
@@ -370,19 +370,22 @@ export function Relatorios({ lancamentos, vehicles }: RelatoriosProps) {
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-gray-200 dark:text-gray-800" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-500 dark:text-gray-400" dy={10} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `R$ ${value}`}
-                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                  tick={{ fill: 'currentColor', fontSize: 12 }}
+                  className="text-gray-500 dark:text-gray-400"
                   dx={-10}
                 />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
-                  cursor={{ fill: '#F3F4F6', opacity: 0.4 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+                  cursor={{ fill: 'currentColor', opacity: 0.1 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: 'var(--tw-colors-white)' }}
+                  itemStyle={{ color: 'var(--tw-colors-gray-900)' }}
+                  labelStyle={{ color: 'var(--tw-colors-gray-500)', marginBottom: '8px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />

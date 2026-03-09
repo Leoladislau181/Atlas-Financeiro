@@ -6,7 +6,8 @@ import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/components/theme-provider';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
@@ -107,44 +108,46 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
   };
 
   const receitas = categorias.filter((c) => c.tipo === 'receita');
+  const { theme, setTheme } = useTheme();
+
   const despesas = categorias.filter((c) => c.tipo === 'despesa');
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
             onClick={() => setIsProfileOpen(!isProfileOpen)}
           >
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <UserIcon className="h-5 w-5 text-blue-500" />
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <UserIcon className="h-5 w-5 text-blue-500 dark:text-blue-400" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">Perfil</h3>
-                <p className="text-xs text-gray-500">Preferências e informações particulares</p>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Perfil</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Preferências e informações particulares</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" className="text-gray-400">
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
               {isProfileOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </Button>
           </div>
           
           {isProfileOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Email</label>
-                <Input type="email" value={user.email} disabled className="bg-gray-50 text-gray-500" />
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                <Input type="email" value={user.email} disabled className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400" />
               </div>
 
-              <form onSubmit={handlePasswordChange} className="space-y-4 pt-6 mt-6 border-t border-gray-100">
+              <form onSubmit={handlePasswordChange} className="space-y-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
                 <div className="flex items-center gap-2 mb-2">
-                  <Shield className="h-4 w-4 text-gray-400" />
-                  <h4 className="text-sm font-semibold text-gray-900">Alterar Senha</h4>
+                  <Shield className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Alterar Senha</h4>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Nova Senha</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Senha</label>
                   <Input
                     type="password"
                     value={newPassword}
@@ -156,13 +159,33 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
                   {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
                 </Button>
               </form>
+
+              <div className="space-y-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Moon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Aparência</h4>
+                </div>
+                <div 
+                  onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 group"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Modo Escuro</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Alterne entre o tema claro e escuro</p>
+                  </div>
+                  <div className="flex items-center justify-center rounded-lg p-2 text-gray-500 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-gray-100 transition-colors">
+                    <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                    <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  </div>
+                </div>
+              </div>
             </CardContent>
           )}
         </Card>
 
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
             onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
           >
             <div className="flex items-center gap-3">
@@ -170,21 +193,21 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
                 <Settings className="h-5 w-5 text-[#F59E0B]" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
-                <p className="text-xs text-gray-500">Cadastre ou edite categorias de lançamentos</p>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Cadastre ou edite categorias de lançamentos</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" className="text-gray-400">
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
               {isCategoryFormOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </Button>
           </div>
 
           {isCategoryFormOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Nome da Categoria</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Categoria</label>
                     <Input
                       type="text"
                       value={nome}
@@ -194,7 +217,7 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Tipo</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
                     <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoLancamento)}>
                       <option value="despesa">Despesa</option>
                       <option value="receita">Receita</option>
@@ -227,36 +250,36 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-4 border-b border-gray-50">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+          <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-red-50 rounded-lg">
-                <Tag className="h-5 w-5 text-[#EF4444]" />
+              <div className="p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-lg">
+                <Tag className="h-5 w-5 text-[#EF4444] dark:text-[#F87171]" />
               </div>
-              <CardTitle className="text-[#EF4444]">Categorias de Despesa</CardTitle>
+              <CardTitle className="text-[#EF4444] dark:text-[#F87171]">Categorias de Despesa</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
             <ul className="space-y-2">
               {despesas.length === 0 ? (
-                <li className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed">Nenhuma categoria cadastrada.</li>
+                <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
               ) : (
                 despesas.map((cat) => (
                   <li
                     key={cat.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 p-3 hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-700">{cat.nome}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
                     <div className="flex space-x-1">
                       <button
                         onClick={() => handleEdit(cat)}
-                        className="p-1.5 text-gray-400 hover:text-[#F59E0B] hover:bg-orange-50 rounded-md transition-colors"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => confirmDelete(cat.id)}
-                        className="p-1.5 text-gray-400 hover:text-[#EF4444] hover:bg-red-50 rounded-md transition-colors"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -268,36 +291,36 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-4 border-b border-gray-50">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+          <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-50 rounded-lg">
-                <Tag className="h-5 w-5 text-[#059568]" />
+              <div className="p-2 bg-green-50 dark:bg-[#10B981]/20 rounded-lg">
+                <Tag className="h-5 w-5 text-[#059568] dark:text-[#10B981]" />
               </div>
-              <CardTitle className="text-[#059568]">Categorias de Receita</CardTitle>
+              <CardTitle className="text-[#059568] dark:text-[#10B981]">Categorias de Receita</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
             <ul className="space-y-2">
               {receitas.length === 0 ? (
-                <li className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-lg border border-dashed">Nenhuma categoria cadastrada.</li>
+                <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
               ) : (
                 receitas.map((cat) => (
                   <li
                     key={cat.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 p-3 hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-700">{cat.nome}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
                     <div className="flex space-x-1">
                       <button
                         onClick={() => handleEdit(cat)}
-                        className="p-1.5 text-gray-400 hover:text-[#F59E0B] hover:bg-orange-50 rounded-md transition-colors"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => confirmDelete(cat.id)}
-                        className="p-1.5 text-gray-400 hover:text-[#EF4444] hover:bg-red-50 rounded-md transition-colors"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -315,7 +338,7 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
         onClose={() => setDeleteModalOpen(false)}
         title="Confirmar Exclusão"
       >
-        <p className="mb-6 text-sm text-gray-600">
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
           Tem certeza que deseja excluir esta categoria? Não será possível excluir se houver lançamentos vinculados a ela.
         </p>
         <div className="flex justify-end space-x-3">

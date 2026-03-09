@@ -10,6 +10,8 @@ import { Configuracoes } from '@/pages/configuracoes';
 import { Veiculos } from '@/pages/veiculos';
 import { useFinanceData } from '@/hooks/useFinanceData';
 
+import { ThemeProvider } from '@/components/theme-provider';
+
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -41,7 +43,11 @@ export default function App() {
     return <Auth />;
   }
 
-  return <MainApp user={user} activeTab={activeTab} setActiveTab={setActiveTab} />;
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="atlas-theme">
+      <MainApp user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+    </ThemeProvider>
+  );
 }
 
 function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: string; setActiveTab: (tab: string) => void }) {
@@ -49,8 +55,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB]">
-        <div className="text-lg font-medium text-gray-500">Carregando dados...</div>
+      <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] dark:bg-gray-950">
+        <div className="text-lg font-medium text-gray-500 dark:text-gray-400">Carregando dados...</div>
       </div>
     );
   }
