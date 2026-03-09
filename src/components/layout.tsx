@@ -1,15 +1,17 @@
 import React from 'react';
-import { LogOut, Home, List, BarChart2, Car, Settings } from 'lucide-react';
+import { LogOut, Home, List, BarChart2, Car, Settings, User as UserIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { User } from '@/types';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  user?: User;
 }
 
-export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
+export function Layout({ children, activeTab, setActiveTab, user }: LayoutProps) {
   const tabs = [
     { id: 'inicio', label: 'Início', icon: Home },
     { id: 'lancamentos', label: 'Lançamentos', icon: List },
@@ -56,7 +58,17 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                <div className="h-6 w-6 rounded-full bg-[#F59E0B] flex items-center justify-center text-[10px] text-white font-bold">
+                  {user.nome ? user.nome.charAt(0).toUpperCase() : <UserIcon className="h-3 w-3" />}
+                </div>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
+                  {user.nome ? user.nome.trim().split(' ')[0] : user.email.split('@')[0]}
+                </span>
+              </div>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"

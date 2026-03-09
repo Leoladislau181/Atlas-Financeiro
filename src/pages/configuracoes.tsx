@@ -25,10 +25,21 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [newPassword, setNewPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileNome, setProfileNome] = useState(user.nome || '');
+  const [profileTelefone, setProfileTelefone] = useState(user.telefone || '');
+  const [profileLoading, setProfileLoading] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+
+  React.useEffect(() => {
+    setProfileNome(user.nome || '');
+    setProfileTelefone(user.telefone || '');
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,21 +100,65 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!currentPassword) {
+      alert('Por favor, informe sua senha atual.');
+      return;
+    }
+
     if (!newPassword || newPassword.length < 6) {
-      alert('A senha deve ter pelo menos 6 caracteres.');
+      alert('A nova senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert('A nova senha e a confirmação não coincidem.');
       return;
     }
 
     setPasswordLoading(true);
     try {
+      // First verify current password by re-authenticating
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Senha atual incorreta.');
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      
       alert('Senha atualizada com sucesso!');
       setNewPassword('');
+      setCurrentPassword('');
+      setConfirmPassword('');
+      setIsPasswordFormOpen(false);
     } catch (error: any) {
       alert(error.message || 'Erro ao atualizar senha.');
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          nome: profileNome,
+          telefone: profileTelefone
+        }
+      });
+      if (error) throw error;
+      alert('Perfil atualizado com sucesso!');
+    } catch (error: any) {
+      alert(error.message || 'Erro ao atualizar perfil.');
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -136,29 +191,91 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
           
           {isProfileOpen && (
             <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-                <Input type="email" value={user.email} disabled className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400" />
-              </div>
-
-              <form onSubmit={handlePasswordChange} className="space-y-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Alterar Senha</h4>
+              <form onSubmit={handleProfileUpdate} className="space-y-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome</label>
+                    <Input 
+                      type="text" 
+                      value={profileNome} 
+                      onChange={(e) => setProfileNome(e.target.value)} 
+                      placeholder="Seu nome completo" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Telefone</label>
+                    <Input 
+                      type="tel" 
+                      value={profileTelefone} 
+                      onChange={(e) => setProfileTelefone(e.target.value)} 
+                      placeholder="(00) 00000-0000" 
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Senha</label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                  />
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                  <Input type="email" value={user.email} disabled className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400" />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">O email não pode ser alterado.</p>
                 </div>
-                <Button type="submit" disabled={passwordLoading} className="w-full sm:w-auto">
-                  {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
+                <Button type="submit" disabled={profileLoading} className="w-full sm:w-auto">
+                  {profileLoading ? 'Salvando...' : 'Salvar Detalhes'}
                 </Button>
               </form>
+
+              <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+                <button 
+                  onClick={() => setIsPasswordFormOpen(!isPasswordFormOpen)}
+                  className="flex items-center justify-between w-full group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Alterar Senha</h4>
+                  </div>
+                  <div className="text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
+                    {isPasswordFormOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </div>
+                </button>
+
+                {isPasswordFormOpen && (
+                  <form onSubmit={handlePasswordChange} className="space-y-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Senha Atual</label>
+                      <Input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="Sua senha atual"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Senha</label>
+                        <Input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar Nova Senha</label>
+                        <Input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Repita a nova senha"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <Button type="submit" disabled={passwordLoading} className="w-full sm:w-auto">
+                      {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
+                    </Button>
+                  </form>
+                )}
+              </div>
 
               <div className="space-y-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
                 <div className="flex items-center gap-2 mb-2">

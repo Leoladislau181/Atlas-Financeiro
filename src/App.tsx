@@ -21,7 +21,12 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email || '' });
+        setUser({ 
+          id: session.user.id, 
+          email: session.user.email || '',
+          nome: session.user.user_metadata?.nome || '',
+          telefone: session.user.user_metadata?.telefone || ''
+        });
       }
     });
 
@@ -30,7 +35,12 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email || '' });
+        setUser({ 
+          id: session.user.id, 
+          email: session.user.email || '',
+          nome: session.user.user_metadata?.nome || '',
+          telefone: session.user.user_metadata?.telefone || ''
+        });
       } else {
         setUser(null);
       }
@@ -62,8 +72,16 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {activeTab === 'inicio' && <Dashboard lancamentos={lancamentos} />}
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={user}>
+      {activeTab === 'inicio' && (
+        <Dashboard 
+          lancamentos={lancamentos} 
+          categorias={categorias} 
+          vehicles={vehicles} 
+          refetch={refetch}
+          userId={user.id}
+        />
+      )}
       {activeTab === 'lancamentos' && (
         <Lancamentos
           categorias={categorias}
