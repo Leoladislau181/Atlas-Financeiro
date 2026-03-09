@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
@@ -25,6 +25,9 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
 
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +51,7 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
       setNome('');
       setTipo('despesa');
       setEditingId(null);
+      setIsCategoryFormOpen(false);
       refetch();
     } catch (error: any) {
       alert(error.message || 'Erro ao salvar categoria.');
@@ -60,6 +64,8 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
     setEditingId(cat.id);
     setNome(cat.nome);
     setTipo(cat.tipo);
+    setIsCategoryFormOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const confirmDelete = (id: string) => {
@@ -105,91 +111,118 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-4 border-b border-gray-50">
-            <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4">
+        <Card className="border-none shadow-sm bg-white overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+          >
+            <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-50 rounded-lg">
                 <UserIcon className="h-5 w-5 text-blue-500" />
               </div>
-              <CardTitle>Dados do Usuário</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Email</label>
-              <Input type="email" value={user.email} disabled className="bg-gray-50 text-gray-500" />
-            </div>
-
-            <form onSubmit={handlePasswordChange} className="space-y-4 pt-6 border-t border-gray-100">
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className="h-4 w-4 text-gray-400" />
-                <h4 className="text-sm font-semibold text-gray-900">Alterar Senha</h4>
+              <div>
+                <h3 className="font-bold text-gray-900">Perfil</h3>
+                <p className="text-xs text-gray-500">Preferências e informações particulares</p>
               </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400">
+              {isProfileOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+          
+          {isProfileOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nova Senha</label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                />
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <Input type="email" value={user.email} disabled className="bg-gray-50 text-gray-500" />
               </div>
-              <Button type="submit" disabled={passwordLoading} className="w-full sm:w-auto">
-                {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
-              </Button>
-            </form>
-          </CardContent>
+
+              <form onSubmit={handlePasswordChange} className="space-y-4 pt-6 mt-6 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="h-4 w-4 text-gray-400" />
+                  <h4 className="text-sm font-semibold text-gray-900">Alterar Senha</h4>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Nova Senha</label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+                <Button type="submit" disabled={passwordLoading} className="w-full sm:w-auto">
+                  {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
+                </Button>
+              </form>
+            </CardContent>
+          )}
         </Card>
 
-        <Card className="border-none shadow-sm bg-white">
-          <CardHeader className="pb-4 border-b border-gray-50">
-            <div className="flex items-center gap-2">
+        <Card className="border-none shadow-sm bg-white overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
+          >
+            <div className="flex items-center gap-3">
               <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
                 <Settings className="h-5 w-5 text-[#F59E0B]" />
               </div>
-              <CardTitle>{editingId ? 'Editar Categoria' : 'Nova Categoria'}</CardTitle>
+              <div>
+                <h3 className="font-bold text-gray-900">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
+                <p className="text-xs text-gray-500">Cadastre ou edite categorias de lançamentos</p>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nome da Categoria</label>
-                <Input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  placeholder="Ex: Alimentação, Salário..."
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Tipo</label>
-                <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoLancamento)}>
-                  <option value="despesa">Despesa</option>
-                  <option value="receita">Receita</option>
-                </Select>
-              </div>
-              <div className="flex justify-end space-x-2 pt-4">
-                {editingId && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setEditingId(null);
-                      setNome('');
-                      setTipo('despesa');
-                    }}
-                  >
-                    Cancelar
+            <Button variant="ghost" size="sm" className="text-gray-400">
+              {isCategoryFormOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isCategoryFormOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-200">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Nome da Categoria</label>
+                    <Input
+                      type="text"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                      placeholder="Ex: Alimentação, Salário..."
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Tipo</label>
+                    <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoLancamento)}>
+                      <option value="despesa">Despesa</option>
+                      <option value="receita">Receita</option>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2 pt-4">
+                  {editingId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingId(null);
+                        setNome('');
+                        setTipo('despesa');
+                        setIsCategoryFormOpen(false);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
+                    {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Criar Categoria'}
                   </Button>
-                )}
-                <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
-                  {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Criar Categoria'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
+                </div>
+              </form>
+            </CardContent>
+          )}
         </Card>
       </div>
 
