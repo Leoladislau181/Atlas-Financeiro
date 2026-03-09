@@ -30,7 +30,7 @@ export function Layout({ children, activeTab, setActiveTab, user }: LayoutProps)
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <img 
-              src="/Logo.png" 
+              src="/logo.png" 
               alt="Atlas Logo" 
               className="h-9 w-9 rounded-xl shadow-sm object-contain"
               referrerPolicy="no-referrer"

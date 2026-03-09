@@ -60,7 +60,7 @@ export function Auth() {
         <div className="text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg mb-6 overflow-hidden">
             <img 
-              src="/Logo.png" 
+              src="/logo.png" 
               alt="Atlas Logo" 
               className="h-full w-full object-contain"
               referrerPolicy="no-referrer"
