@@ -73,10 +73,6 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
   };
 
   const handleEdit = (cat: Categoria) => {
-    if (cat.nome === 'Combustível') {
-      alert('A categoria "Combustível" não pode ser editada.');
-      return;
-    }
     setEditingId(cat.id);
     setNome(cat.nome);
     setTipo(cat.tipo);
@@ -85,11 +81,6 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
   };
 
   const confirmDelete = (id: string) => {
-    const cat = categorias.find(c => c.id === id);
-    if (cat?.nome === 'Combustível') {
-      alert('A categoria "Combustível" não pode ser excluída.');
-      return;
-    }
     setDeletingId(id);
     setDeleteModalOpen(true);
   };
@@ -398,22 +389,18 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
                   >
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
                     <div className="flex space-x-1">
-                      {cat.nome !== 'Combustível' && (
-                        <>
-                          <button
-                            onClick={() => handleEdit(cat)}
-                            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => confirmDelete(cat.id)}
-                            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={() => handleEdit(cat)}
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => confirmDelete(cat.id)}
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </li>
                 ))
