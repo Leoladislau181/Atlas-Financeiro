@@ -63,6 +63,15 @@ export default function App() {
 function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: string; setActiveTab: (tab: string) => void }) {
   const { categorias, lancamentos, vehicles, loading, refetch } = useFinanceData();
 
+  useEffect(() => {
+    if (!loading && !categorias.find(c => c.nome === 'Combustível')) {
+      supabase
+        .from('categorias')
+        .insert([{ user_id: user.id, nome: 'Combustível', tipo: 'despesa' }])
+        .then(() => refetch());
+    }
+  }, [loading, categorias, user.id, refetch]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] dark:bg-gray-950">
