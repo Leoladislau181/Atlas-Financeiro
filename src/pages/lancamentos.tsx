@@ -236,46 +236,26 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-gray-900">
-        <div 
-          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          onClick={() => setIsFormOpen(!isFormOpen)}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Lançamentos</h2>
+        <Button 
+          onClick={() => {
+            setEditingId(null);
+            setIsFormOpen(true);
+          }}
+          className="bg-[#F59E0B] hover:bg-[#D97706] text-white shadow-sm gap-2"
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-              <Plus className="h-5 w-5 text-[#F59E0B]" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-gray-100">
-                {editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {isFormOpen ? 'Preencha os dados abaixo' : 'Clique para adicionar uma receita ou despesa'}
-              </p>
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5 dark:hover:bg-[#F59E0B]/10"
-          >
-            {isFormOpen ? (
-              <div className="flex items-center gap-2">
-                <span>Recolher</span>
-                <ChevronUp className="h-4 w-4" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                <span>Adicionar</span>
-              </div>
-            )}
-          </Button>
-        </div>
+          <Plus className="h-4 w-4" />
+          Novo Lançamento
+        </Button>
+      </div>
 
-        {isFormOpen && (
-          <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-800">
-            <form onSubmit={handleSubmit} className="space-y-4 pt-6">
+      <Modal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 pt-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
@@ -422,10 +402,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
                 {loading ? 'Salvando...' : editingId ? 'Atualizar Lançamento' : 'Salvar Lançamento'}
               </Button>
             </div>
-          </form>
-        </CardContent>
-        )}
-      </Card>
+        </form>
+      </Modal>
 
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
         <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
@@ -620,7 +598,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
               </tbody>
             </table>
           </div>
-
+          
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
             {visibleLancamentos.length === 0 ? (

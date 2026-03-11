@@ -6,8 +6,9 @@ import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
+import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
@@ -191,6 +192,9 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
           
           {isProfileOpen && (
             <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex justify-center mb-8">
+                <ProfilePhotoUpload user={user} onUpdate={refetch} />
+              </div>
               <form onSubmit={handleProfileUpdate} className="space-y-4 mb-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">

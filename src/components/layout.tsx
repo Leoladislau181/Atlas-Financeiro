@@ -64,8 +64,17 @@ export function Layout({ children, activeTab, setActiveTab, user }: LayoutProps)
           <div className="flex items-center gap-4">
             {user && (
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                <div className="h-6 w-6 rounded-full bg-[#F59E0B] flex items-center justify-center text-[10px] text-white font-bold">
-                  {user.nome ? user.nome.charAt(0).toUpperCase() : <UserIcon className="h-3 w-3" />}
+                <div className="h-6 w-6 rounded-full bg-[#F59E0B] flex items-center justify-center text-[10px] text-white font-bold overflow-hidden">
+                  {user.foto_url ? (
+                    <img 
+                      src={user.foto_url} 
+                      alt={user.nome} 
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    user.nome ? user.nome.charAt(0).toUpperCase() : <UserIcon className="h-3 w-3" />
+                  )}
                 </div>
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
                   {user.nome ? user.nome.trim().split(' ')[0] : user.email.split('@')[0]}

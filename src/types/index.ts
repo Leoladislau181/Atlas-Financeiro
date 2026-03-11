@@ -48,4 +48,5 @@ export interface User {
   email: string;
   nome?: string;
   telefone?: string;
+  foto_url?: string;
 }

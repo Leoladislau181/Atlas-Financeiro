@@ -25,7 +25,8 @@ export default function App() {
           id: session.user.id, 
           email: session.user.email || '',
           nome: session.user.user_metadata?.nome || '',
-          telefone: session.user.user_metadata?.telefone || ''
+          telefone: session.user.user_metadata?.telefone || '',
+          foto_url: session.user.user_metadata?.foto_url || ''
         });
       }
     });
@@ -39,7 +40,8 @@ export default function App() {
           id: session.user.id, 
           email: session.user.email || '',
           nome: session.user.user_metadata?.nome || '',
-          telefone: session.user.user_metadata?.telefone || ''
+          telefone: session.user.user_metadata?.telefone || '',
+          foto_url: session.user.user_metadata?.foto_url || ''
         });
       } else {
         setUser(null);
