@@ -179,43 +179,43 @@ export function Dashboard({ lancamentos, categorias, vehicles, refetch, userId }
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
+        <Card className="col-span-2 md:col-span-1 border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-4">
           <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <ArrowUpCircle className="h-4 w-4 text-[#059568] dark:text-[#10B981]" />
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Receitas do Mês</CardTitle>
+            <DollarSign className={`h-6 w-6 md:h-6 md:w-6 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
+            <CardTitle className="text-base md:text-lg font-medium text-gray-500 dark:text-gray-400">Lucro Líquido</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#059568] dark:text-[#10B981]">
+          <CardContent className="px-2">
+            <div
+              className={`text-3xl md:text-4xl font-bold break-words ${
+                stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
+              }`}
+            >
+              {formatCurrency(stats.lucroLiquido)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-4">
+          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
+            <ArrowUpCircle className="h-5 w-5 md:h-6 md:w-6 text-[#059568] dark:text-[#10B981]" />
+            <CardTitle className="text-sm md:text-lg font-medium text-gray-500 dark:text-gray-400">Receitas</CardTitle>
+          </CardHeader>
+          <CardContent className="px-2">
+            <div className="text-lg md:text-3xl font-bold text-[#059568] dark:text-[#10B981] break-words">
               {formatCurrency(stats.receitasMes)}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-4">
           <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <ArrowDownCircle className="h-4 w-4 text-[#EF4444] dark:text-[#F87171]" />
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Despesas do Mês</CardTitle>
+            <ArrowDownCircle className="h-5 w-5 md:h-6 md:w-6 text-[#EF4444] dark:text-[#F87171]" />
+            <CardTitle className="text-sm md:text-lg font-medium text-gray-500 dark:text-gray-400">Despesas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#EF4444] dark:text-[#F87171]">
+          <CardContent className="px-2">
+            <div className="text-lg md:text-3xl font-bold text-[#EF4444] dark:text-[#F87171] break-words">
               {formatCurrency(stats.despesasMes)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
-          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Lucro Líquido</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-2xl font-bold ${
-                stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
-              }`}
-            >
-              {formatCurrency(stats.lucroLiquido)}
             </div>
           </CardContent>
         </Card>
