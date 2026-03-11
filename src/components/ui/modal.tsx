@@ -7,15 +7,19 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-200">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
+      <div className={cn(
+        "w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-200 my-auto overflow-hidden",
+        className
+      )}>
+        <div className="p-6 pb-0 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-900 z-10">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
           <button
             onClick={onClose}
@@ -24,7 +28,9 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div>{children}</div>
+        <div className="p-6 max-h-[calc(100vh-12rem)] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
+          {children}
+        </div>
       </div>
     </div>
   );

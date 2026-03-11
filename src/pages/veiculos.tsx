@@ -337,8 +337,8 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
 
         {isFormOpen && (
           <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-800">
-            <form onSubmit={handleSubmit} className="space-y-4 pt-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <form onSubmit={handleSubmit} className="space-y-6 pt-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome do Veículo *</label>
                   <Input
@@ -396,7 +396,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
               </div>
 
               {type === 'rented' ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor do Contrato</label>
                     <Input
@@ -455,25 +455,25 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta de Lucro Mensal</label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="R$ 0,00"
-                      value={profitGoalStr}
-                      onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reserva Manutenção Mensal</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reserva de Manutenção</label>
                     <Input
                       type="text"
                       inputMode="decimal"
                       placeholder="R$ 0,00"
                       value={maintenanceReserveStr}
                       onChange={(e) => setMaintenanceReserveStr(formatCurrencyInput(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta de Lucro</label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="R$ 0,00"
+                      value={profitGoalStr}
+                      onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
                     />
                   </div>
                 </div>
@@ -664,29 +664,30 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
         isOpen={renewModalOpen}
         onClose={() => setRenewModalOpen(false)}
         title={`Renovar Contrato - ${renewingVehicle?.name}`}
+        className="max-w-lg"
       >
-        <form onSubmit={handleRenewSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo Valor do Contrato</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              placeholder="R$ 0,00"
-              value={renewContractValueStr}
-              onChange={(e) => setRenewContractValueStr(formatCurrencyInput(e.target.value))}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Meta de Lucro</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              placeholder="R$ 0,00"
-              value={renewProfitGoalStr}
-              onChange={(e) => setRenewProfitGoalStr(formatCurrencyInput(e.target.value))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleRenewSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo Valor do Contrato</label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={renewContractValueStr}
+                onChange={(e) => setRenewContractValueStr(formatCurrencyInput(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Meta de Lucro</label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="R$ 0,00"
+                value={renewProfitGoalStr}
+                onChange={(e) => setRenewProfitGoalStr(formatCurrencyInput(e.target.value))}
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Data Início</label>
               <Input
@@ -703,28 +704,29 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                 onChange={(e) => setRenewEndDate(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo KM Inicial do Contrato</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="Ex: 50000"
+                value={renewInitialKm}
+                onChange={(e) => setRenewInitialKm(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Franquia de KM (Limite)</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="Ex: 5000"
+                value={renewContractKmLimit}
+                onChange={(e) => setRenewContractKmLimit(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo KM Inicial do Contrato</label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="Ex: 50000"
-              value={renewInitialKm}
-              onChange={(e) => setRenewInitialKm(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400">O KM inicial foi preenchido automaticamente com o último odômetro registrado.</p>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Franquia de KM (Limite)</label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="Ex: 5000"
-              value={renewContractKmLimit}
-              onChange={(e) => setRenewContractKmLimit(e.target.value)}
-            />
-          </div>
+          
+          <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">O KM inicial foi preenchido automaticamente com o último odômetro registrado.</p>
           <div className="flex items-center space-x-2 pt-2">
             <input
               type="checkbox"

@@ -18,23 +18,46 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        setUser({ 
-          id: session.user.id, 
-          email: session.user.email || '',
-          nome: session.user.user_metadata?.nome || '',
-          telefone: session.user.user_metadata?.telefone || '',
-          foto_url: session.user.user_metadata?.foto_url || ''
-        });
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Erro ao recuperar sessão:', error.message);
+          // Se o token de atualização for inválido ou não encontrado, limpa a sessão local
+          if (error.message.includes('Refresh Token Not Found') || error.message.includes('Invalid Refresh Token')) {
+            await supabase.auth.signOut();
+          }
+          setSession(null);
+          setUser(null);
+          return;
+        }
+
+        setSession(session);
+        if (session?.user) {
+          setUser({ 
+            id: session.user.id, 
+            email: session.user.email || '',
+            nome: session.user.user_metadata?.nome || '',
+            telefone: session.user.user_metadata?.telefone || '',
+            foto_url: session.user.user_metadata?.foto_url || ''
+          });
+        }
+      } catch (err) {
+        console.error('Erro inesperado na autenticação:', err);
+        setSession(null);
+        setUser(null);
       }
-    });
+    };
+
+    initializeAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth Event:', event);
       setSession(session);
+      
       if (session?.user) {
         setUser({ 
           id: session.user.id, 
@@ -45,6 +68,14 @@ export default function App() {
         });
       } else {
         setUser(null);
+      }
+
+      // Se a sessão for invalidada ou o usuário sair, garante que o estado local seja limpo
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        // Limpa qualquer dado residual do localStorage se necessário
+        localStorage.removeItem('supabase.auth.token');
       }
     });
 

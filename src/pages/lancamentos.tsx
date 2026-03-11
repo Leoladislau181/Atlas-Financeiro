@@ -254,9 +254,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         title={editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
+        className="max-w-2xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-4 pt-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <form onSubmit={handleSubmit} className="space-y-6 pt-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
                 <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoLancamento)}>
@@ -315,7 +316,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
             </div>
 
             {useVehicle && (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo *</label>
                   <Select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>

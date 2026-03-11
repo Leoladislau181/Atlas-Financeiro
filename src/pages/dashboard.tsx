@@ -289,6 +289,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, refetch, userId }
         isOpen={quickEntryOpen}
         onClose={() => setQuickEntryOpen(false)}
         title="Abastecimento Rápido"
+        className="max-w-lg"
       >
         <form onSubmit={handleQuickEntry} className="space-y-4">
           <div className="space-y-2">

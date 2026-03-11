@@ -5,12 +5,15 @@ import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, parseLocalDate } from '@/lib/utils';
 import { Lancamento, Vehicle, User } from '@/types';
-import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
+import { Modal } from '@/components/ui/modal';
 
 interface RelatoriosProps {
   lancamentos: Lancamento[];
@@ -27,6 +30,12 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [chartMonthsFilter, setChartMonthsFilter] = useState<number>(6);
   const [showChartFilter, setShowChartFilter] = useState(false);
+  const [exportNotes, setExportNotes] = useState('');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const chartRef = React.useRef<HTMLDivElement>(null);
+  const reportChartRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (window.innerWidth < 768) {
@@ -107,6 +116,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       lucroLiquido: receitas - despesas,
       saldoAcumulado,
       porCategoria: Object.values(porCategoria).sort((a, b) => b.valor - a.valor),
+      porCategoriaRaw: porCategoria
     };
   }, [filteredLancamentos, lancamentos, filterType, selectedMonth, endDate, selectedVehicleId]);
 
@@ -140,83 +150,390 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
     return data;
   }, [lancamentos, chartMonthsFilter, selectedVehicleId]);
 
-  const exportToPDF = async () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
+  const reportChartData = useMemo(() => {
+    let start: Date;
+    let end: Date;
     
-    // Header
-    doc.setFillColor(245, 158, 11); // #F59E0B
-    doc.rect(0, 0, pageWidth, 40, 'F');
+    if (filterType === 'month') {
+      const [year, month] = selectedMonth.split('-');
+      start = startOfMonth(new Date(Number(year), Number(month) - 1));
+      end = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else {
+      start = parseLocalDate(startDate);
+      end = parseLocalDate(endDate);
+    }
+
+    const now = new Date();
+    // Se o período selecionado inclui o dia de hoje, usamos o dia de hoje para decidir a granularidade (ex: 11 dias de Março)
+    const isCurrentPeriod = isWithinInterval(now, { start, end });
+    const effectiveEndForGranularity = isCurrentPeriod ? now : end;
+    const daysCount = differenceInDays(effectiveEndForGranularity, start) + 1;
     
-    // User Photo as Logo in PDF
-    if (user.foto_url) {
-      try {
-        const img = new Image();
-        img.src = user.foto_url;
-        img.crossOrigin = "Anonymous";
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
+    const data: any[] = [];
+
+    if (daysCount <= 6) {
+      // Daily
+      for (let i = 0; i < daysCount; i++) {
+        const targetDate = addDays(start, i);
+        let receitas = 0;
+        let despesas = 0;
+        filteredLancamentos.forEach(l => {
+          if (isSameDay(parseLocalDate(l.data), targetDate)) {
+            if (l.tipo === 'receita') receitas += Number(l.valor);
+            else despesas += Number(l.valor);
+          }
         });
-        doc.addImage(img, 'JPEG', 15, 5, 30, 30);
-      } catch (e) {
-        console.error("Error adding image to PDF", e);
+        data.push({
+          name: format(targetDate, 'dd/MM'),
+          Receitas: receitas,
+          Despesas: despesas
+        });
       }
+    } else if (daysCount <= 20) {
+      // Weekly
+      const weeksCount = Math.ceil(daysCount / 7);
+      for (let i = 0; i < weeksCount; i++) {
+        const weekStart = addDays(start, i * 7);
+        const weekEnd = addDays(weekStart, 6) > end ? end : addDays(weekStart, 6);
+        let receitas = 0;
+        let despesas = 0;
+        filteredLancamentos.forEach(l => {
+          const lDate = parseLocalDate(l.data);
+          if (isWithinInterval(lDate, { start: weekStart, end: weekEnd })) {
+            if (l.tipo === 'receita') receitas += Number(l.valor);
+            else despesas += Number(l.valor);
+          }
+        });
+        data.push({
+          name: `Semana ${i + 1}`,
+          Receitas: receitas,
+          Despesas: despesas
+        });
+      }
+    } else {
+      // Fortnightly (Quinzena)
+      const midPoint = addDays(start, 14);
+      
+      let r1 = 0, d1 = 0, r2 = 0, d2 = 0;
+      filteredLancamentos.forEach(l => {
+        const lDate = parseLocalDate(l.data);
+        if (lDate <= midPoint) {
+          if (l.tipo === 'receita') r1 += Number(l.valor);
+          else d1 += Number(l.valor);
+        } else {
+          if (l.tipo === 'receita') r2 += Number(l.valor);
+          else d2 += Number(l.valor);
+        }
+      });
+      
+      data.push({ name: '1ª Quinzena', Receitas: r1, Despesas: d1 });
+      data.push({ name: '2ª Quinzena', Receitas: r2, Despesas: d2 });
     }
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.text('Atlas Financeiro', 55, 20);
-    doc.setFontSize(12);
-    doc.text(`Relatório de: ${user.nome || user.email}`, 55, 30);
-    
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(10);
-    const periodText = filterType === 'month' 
-      ? `Período: ${format(parseLocalDate(selectedMonth + '-01'), 'MMMM yyyy', { locale: ptBR })}`
-      : `Período: ${format(parseLocalDate(startDate), 'dd/MM/yyyy')} até ${format(parseLocalDate(endDate), 'dd/MM/yyyy')}`;
-    doc.text(periodText, 15, 50);
-    
-    if (selectedVehicleId !== 'all') {
-      const vehicle = vehicles.find(v => v.id === selectedVehicleId);
-      doc.text(`Veículo: ${vehicle?.name} (${vehicle?.plate})`, 15, 55);
-    }
+    return data;
+  }, [filteredLancamentos, filterType, selectedMonth, startDate, endDate]);
 
-    // Stats Table
-    autoTable(doc, {
-      startY: 65,
-      head: [['Resumo Financeiro', 'Valor']],
-      body: [
-        ['Total Receitas', formatCurrency(stats.receitas)],
-        ['Total Despesas', formatCurrency(stats.despesas)],
-        ['Lucro Líquido', formatCurrency(stats.lucroLiquido)],
-        ['Saldo Acumulado', formatCurrency(stats.saldoAcumulado)],
-      ],
-      theme: 'striped',
-      headStyles: { fillColor: [245, 158, 11] },
-    });
-
-    // Transactions Table
-    const tableData = filteredLancamentos.map(l => [
-      format(parseLocalDate(l.data), 'dd/MM/yyyy'),
-      l.descricao,
-      l.categorias?.nome || '-',
-      l.tipo.toUpperCase(),
-      formatCurrency(Number(l.valor))
-    ]);
-
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 15,
-      head: [['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [55, 65, 81] },
-      columnStyles: {
-        4: { halign: 'right' }
+  const exportToPDF = async () => {
+    setExportLoading(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Header
+      doc.setFillColor(245, 158, 11); // #F59E0B
+      doc.rect(0, 0, pageWidth, 45, 'F');
+      
+      // User Photo as Logo in PDF
+      if (user.foto_url) {
+        try {
+          const img = new Image();
+          img.src = user.foto_url;
+          img.crossOrigin = "Anonymous";
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          doc.addImage(img, 'JPEG', 15, 7, 30, 30);
+        } catch (e) {
+          console.error("Error adding image to PDF", e);
+        }
       }
-    });
 
-    doc.save(`relatorio-financeiro-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.text('Atlas Financeiro', 55, 22);
+      doc.setFontSize(12);
+      doc.text(`Relatório de: ${user.nome || user.email}`, 55, 32);
+      
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(10);
+      const periodText = filterType === 'month' 
+        ? `Período: ${format(parseLocalDate(selectedMonth + '-01'), 'MMMM yyyy', { locale: ptBR })}`
+        : `Período: ${format(parseLocalDate(startDate), 'dd/MM/yyyy')} até ${format(parseLocalDate(endDate), 'dd/MM/yyyy')}`;
+      
+      doc.text(periodText, 15, 55);
+      
+      let currentY = 60;
+      if (selectedVehicleId !== 'all') {
+        const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+        doc.text(`Veículo: ${vehicle?.name} (${vehicle?.plate})`, 15, currentY);
+        currentY += 5;
+      }
+
+      // Add Export Notes if any
+      if (exportNotes) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        const splitNotes = doc.splitTextToSize(`Observações: ${exportNotes}`, pageWidth - 30);
+        doc.text(splitNotes, 15, currentY + 5);
+        currentY += (splitNotes.length * 5) + 10;
+      } else {
+        currentY += 10;
+      }
+
+      // Add Chart to PDF FIRST
+      if (reportChartRef.current) {
+        try {
+          const canvas = await html2canvas(reportChartRef.current, {
+            scale: 3, // Higher scale for better quality (less "print" look)
+            backgroundColor: '#ffffff',
+            logging: false,
+            useCORS: true,
+            onclone: (clonedDoc) => {
+              // Force a clean white background for the chart capture
+              const chartContainer = clonedDoc.getElementById('report-chart-container');
+              if (chartContainer) {
+                chartContainer.style.backgroundColor = '#ffffff';
+                chartContainer.style.color = '#111827';
+                chartContainer.style.padding = '20px';
+                chartContainer.style.borderRadius = '0px';
+                chartContainer.style.boxShadow = 'none';
+              }
+              
+              // The html2canvas parser fails on oklch() in the CSS.
+              const styleTags = clonedDoc.getElementsByTagName('style');
+              for (let i = 0; i < styleTags.length; i++) {
+                try {
+                  styleTags[i].innerHTML = styleTags[i].innerHTML.replace(/oklch\([^)]+\)/g, '#71717a');
+                } catch (e) {
+                  console.warn("Could not sanitize style tag", e);
+                }
+              }
+              
+              const linkTags = clonedDoc.getElementsByTagName('link');
+              for (let i = 0; i < linkTags.length; i++) {
+                if (linkTags[i].rel === 'stylesheet') {
+                  linkTags[i].remove();
+                }
+              }
+
+              const elements = clonedDoc.getElementsByTagName('*');
+              for (let i = 0; i < elements.length; i++) {
+                const el = elements[i] as HTMLElement;
+                
+                // Force dark text and remove dark mode classes for the capture
+                if (el.classList) {
+                  el.classList.remove('dark');
+                  el.classList.remove('dark:bg-gray-900');
+                  el.classList.remove('dark:text-gray-400');
+                  el.classList.remove('bg-white');
+                  el.classList.remove('dark:bg-gray-800');
+                }
+
+                if (el.style) {
+                  for (let j = 0; j < el.style.length; j++) {
+                    const prop = el.style[j];
+                    const val = el.style.getPropertyValue(prop);
+                    if (val && val.includes('oklch')) {
+                      el.style.setProperty(prop, '#71717a');
+                    }
+                  }
+                }
+              }
+            }
+          });
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Check if we need a new page for the chart
+          if (currentY + 80 > pageHeight) {
+            doc.addPage();
+            currentY = 20;
+          }
+
+          doc.setFontSize(14);
+          doc.text('Comparativo do Período', 15, currentY);
+          
+          // Add a subtle border around the chart image
+          doc.setDrawColor(240, 240, 240);
+          doc.rect(15, currentY + 5, pageWidth - 30, 70);
+          
+          doc.addImage(imgData, 'PNG', 15, currentY + 5, pageWidth - 30, 70);
+          currentY += 85;
+        } catch (e) {
+          console.error("Error adding chart to PDF", e);
+        }
+      }
+
+      // Stats Table
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Resumo Financeiro', 'Valor']],
+        body: [
+          ['Total Receitas', formatCurrency(stats.receitas)],
+          ['Total Despesas', formatCurrency(stats.despesas)],
+          ['Lucro Líquido', formatCurrency(stats.lucroLiquido)],
+          ['Saldo Acumulado', formatCurrency(stats.saldoAcumulado)],
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [245, 158, 11] },
+        columnStyles: {
+          1: { halign: 'right', fontStyle: 'bold' }
+        }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 15;
+
+      // Category Summary Table
+      doc.setFontSize(14);
+      doc.setTextColor(55, 65, 81);
+      doc.text('Resumo por Categoria', 15, currentY);
+      
+      const categoryData = stats.porCategoria.map(c => [
+        c.nome,
+        c.tipo === 'receita' ? 'Receita' : 'Despesa',
+        formatCurrency(c.valor)
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Categoria', 'Tipo', 'Total']],
+        body: categoryData,
+        theme: 'grid',
+        headStyles: { fillColor: [107, 114, 128] },
+        columnStyles: {
+          2: { halign: 'right' }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 1) {
+            if (data.cell.text[0] === 'Receita') {
+              data.cell.styles.textColor = [5, 149, 104];
+            } else {
+              data.cell.styles.textColor = [239, 68, 68];
+            }
+          }
+        }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 15;
+
+      // Transactions Table
+      if (currentY + 40 > pageHeight) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.text('Detalhamento de Transações', 15, currentY);
+
+      const tableData = filteredLancamentos.map(l => [
+        format(parseLocalDate(l.data), 'dd/MM/yyyy'),
+        l.descricao,
+        l.categorias?.nome || '-',
+        l.tipo === 'receita' ? 'RECEITA' : 'DESPESA',
+        formatCurrency(Number(l.valor))
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [55, 65, 81] },
+        columnStyles: {
+          4: { halign: 'right' }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 3) {
+            if (data.cell.text[0] === 'RECEITA') {
+              data.cell.styles.textColor = [5, 149, 104];
+            } else {
+              data.cell.styles.textColor = [239, 68, 68];
+            }
+          }
+        }
+      });
+
+      // Footer with page numbers
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Gerado em ${format(new Date(), 'dd/MM/yyyy HH:mm')} - Atlas Financeiro`,
+          15,
+          pageHeight - 10
+        );
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth - 30,
+          pageHeight - 10
+        );
+      }
+
+      doc.save(`relatorio-financeiro-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      setIsExportModalOpen(false);
+    } catch (error) {
+      console.error("Export error:", error);
+      alert("Erro ao exportar PDF.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+
+  const exportToExcel = (fileFormat: 'xlsx' | 'csv') => {
+    setExportLoading(true);
+    try {
+      // Prepare data for Excel
+      const data = filteredLancamentos.map(l => ({
+        'Data': format(parseLocalDate(l.data), 'dd/MM/yyyy'),
+        'Descrição': l.descricao,
+        'Categoria': l.categorias?.nome || '-',
+        'Tipo': l.tipo === 'receita' ? 'Receita' : 'Despesa',
+        'Valor': Number(l.valor),
+        'Veículo': l.vehicles?.name || '-',
+        'Placa': l.vehicles?.plate || '-'
+      }));
+
+      // Add summary sheet or rows
+      const summary = [
+        { 'Item': 'Total Receitas', 'Valor': stats.receitas },
+        { 'Item': 'Total Despesas', 'Valor': stats.despesas },
+        { 'Item': 'Lucro Líquido', 'Valor': stats.lucroLiquido },
+        { 'Item': 'Saldo Acumulado', 'Valor': stats.saldoAcumulado }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const wsTransactions = XLSX.utils.json_to_sheet(data);
+      const wsSummary = XLSX.utils.json_to_sheet(summary);
+
+      XLSX.utils.book_append_sheet(wb, wsTransactions, 'Transações');
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo');
+
+      if (fileFormat === 'xlsx') {
+        XLSX.writeFile(wb, `atlas-financeiro-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      } else {
+        XLSX.writeFile(wb, `atlas-financeiro-${format(new Date(), 'yyyy-MM-dd')}.csv`, { bookType: 'csv' });
+      }
+      setIsExportModalOpen(false);
+    } catch (error) {
+      console.error("Excel export error:", error);
+      alert("Erro ao exportar arquivo.");
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   return (
@@ -297,17 +614,71 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
 
               <div className="sm:col-span-2 lg:col-span-1">
                 <Button 
-                  onClick={exportToPDF}
+                  onClick={() => setIsExportModalOpen(true)}
                   className="w-full bg-[#F59E0B] hover:bg-[#D97706] text-white flex items-center justify-center gap-2"
                 >
                   <Download className="h-4 w-4" />
-                  Exportar PDF
+                  Exportar Relatório
                 </Button>
               </div>
             </div>
           </CardContent>
         )}
       </Card>
+
+      <Modal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="Exportar Relatório"
+      >
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-gray-400" />
+              Notas e Observações (opcional)
+            </label>
+            <textarea
+              className="w-full min-h-[100px] p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-[#F59E0B] transition-all outline-none"
+              placeholder="Adicione observações que aparecerão no topo do relatório..."
+              value={exportNotes}
+              onChange={(e) => setExportNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Button
+              onClick={exportToPDF}
+              disabled={exportLoading}
+              className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              PDF
+            </Button>
+            <Button
+              onClick={() => exportToExcel('xlsx')}
+              disabled={exportLoading}
+              className="bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel (XLSX)
+            </Button>
+            <Button
+              onClick={() => exportToExcel('csv')}
+              disabled={exportLoading}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2"
+            >
+              <FileJson className="h-4 w-4" />
+              CSV
+            </Button>
+          </div>
+
+          {exportLoading && (
+            <p className="text-center text-xs text-gray-500 animate-pulse">
+              Gerando arquivo, por favor aguarde...
+            </p>
+          )}
+        </div>
+      </Modal>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
@@ -459,25 +830,24 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2" ref={chartRef}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-gray-200 dark:text-gray-800" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-500 dark:text-gray-400" dy={10} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value) => `R$ ${value}`}
-                  tick={{ fill: 'currentColor', fontSize: 12 }}
-                  className="text-gray-500 dark:text-gray-400"
+                  tick={{ fill: '#6b7280', fontSize: 12 }}
                   dx={-10}
                 />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
-                  cursor={{ fill: 'currentColor', opacity: 0.1 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: 'var(--tw-colors-white)' }}
-                  itemStyle={{ color: 'var(--tw-colors-gray-900)' }}
-                  labelStyle={{ color: 'var(--tw-colors-gray-500)', marginBottom: '8px' }}
+                  cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
+                  itemStyle={{ color: '#111827' }}
+                  labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
@@ -487,6 +857,33 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Hidden Chart for PDF Export */}
+      <div 
+        id="report-chart-container"
+        style={{ position: 'absolute', top: '-9999px', left: '-9999px', width: '800px', height: '400px' }}
+        ref={reportChartRef}
+      >
+        <div className="bg-white p-8 w-full h-full">
+          <h3 className="text-lg font-bold mb-4 text-gray-800">Comparativo do Período</h3>
+          <ResponsiveContainer width="100%" height="80%">
+            <BarChart data={reportChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(value) => `R$ ${value}`}
+                tick={{ fill: '#6b7280', fontSize: 12 }}
+                dx={-10}
+              />
+              <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+              <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
+              <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   );
 }
