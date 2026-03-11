@@ -5,7 +5,7 @@ import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, parseLocalDate } from '@/lib/utils';
 import { Lancamento, Vehicle, User } from '@/types';
-import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare } from 'lucide-react';
@@ -22,8 +22,9 @@ interface RelatoriosProps {
 }
 
 export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
-  const [filterType, setFilterType] = useState<'month' | 'custom'>('month');
+  const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('all');
@@ -51,6 +52,9 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       const [year, month] = selectedMonth.split('-');
       start = startOfMonth(new Date(Number(year), Number(month) - 1));
       end = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else if (filterType === 'year') {
+      start = startOfYear(new Date(Number(selectedYear), 0));
+      end = endOfYear(new Date(Number(selectedYear), 0));
     } else {
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
@@ -69,12 +73,15 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
     let despesas = 0;
     let saldoAcumulado = 0;
     const porCategoria: Record<string, { nome: string; valor: number; tipo: string }> = {};
+    const porVeiculo: Record<string, { nome: string; placa: string; receitas: number; despesas: number; saldo: number }> = {};
 
     // Calculate accumulated balance up to the end date of the filter
     let endFilterDate: Date;
     if (filterType === 'month') {
       const [year, month] = selectedMonth.split('-');
       endFilterDate = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else if (filterType === 'year') {
+      endFilterDate = endOfYear(new Date(Number(selectedYear), 0));
     } else {
       endFilterDate = parseLocalDate(endDate);
     }
@@ -108,6 +115,25 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
         }
         porCategoria[l.categorias.id].valor += valor;
       }
+
+      if (l.vehicle_id && l.vehicles) {
+        if (!porVeiculo[l.vehicle_id]) {
+          porVeiculo[l.vehicle_id] = {
+            nome: l.vehicles.name,
+            placa: l.vehicles.plate || '',
+            receitas: 0,
+            despesas: 0,
+            saldo: 0
+          };
+        }
+        if (l.tipo === 'receita') {
+          porVeiculo[l.vehicle_id].receitas += valor;
+          porVeiculo[l.vehicle_id].saldo += valor;
+        } else {
+          porVeiculo[l.vehicle_id].despesas += valor;
+          porVeiculo[l.vehicle_id].saldo -= valor;
+        }
+      }
     });
 
     return {
@@ -116,9 +142,10 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       lucroLiquido: receitas - despesas,
       saldoAcumulado,
       porCategoria: Object.values(porCategoria).sort((a, b) => b.valor - a.valor),
-      porCategoriaRaw: porCategoria
+      porCategoriaRaw: porCategoria,
+      porVeiculo: Object.values(porVeiculo).sort((a, b) => b.saldo - a.saldo)
     };
-  }, [filteredLancamentos, lancamentos, filterType, selectedMonth, endDate, selectedVehicleId]);
+  }, [filteredLancamentos, lancamentos, filterType, selectedMonth, selectedYear, endDate, selectedVehicleId]);
 
   const chartData = useMemo(() => {
     const data = [];
@@ -158,6 +185,9 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       const [year, month] = selectedMonth.split('-');
       start = startOfMonth(new Date(Number(year), Number(month) - 1));
       end = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else if (filterType === 'year') {
+      start = startOfYear(new Date(Number(selectedYear), 0));
+      end = endOfYear(new Date(Number(selectedYear), 0));
     } else {
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
@@ -427,6 +457,50 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
 
       currentY = (doc as any).lastAutoTable.finalY + 15;
 
+      // Vehicle Summary Table
+      if (stats.porVeiculo.length > 0) {
+        if (currentY + 40 > pageHeight) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.setTextColor(55, 65, 81);
+        doc.text('Resumo por Veículo', 15, currentY);
+        
+        const vehicleData = stats.porVeiculo.map(v => [
+          v.nome + (v.placa ? ` (${v.placa})` : ''),
+          formatCurrency(v.receitas),
+          formatCurrency(v.despesas),
+          formatCurrency(v.saldo)
+        ]);
+
+        autoTable(doc, {
+          startY: currentY + 5,
+          head: [['Veículo', 'Receitas', 'Despesas', 'Saldo']],
+          body: vehicleData,
+          theme: 'grid',
+          headStyles: { fillColor: [107, 114, 128] },
+          columnStyles: {
+            1: { halign: 'right' },
+            2: { halign: 'right' },
+            3: { halign: 'right', fontStyle: 'bold' }
+          },
+          didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 3) {
+              const rawValue = data.cell.raw as string;
+              if (!rawValue.includes('-') && rawValue !== 'R$ 0,00') {
+                data.cell.styles.textColor = [5, 149, 104];
+              } else if (rawValue.includes('-')) {
+                data.cell.styles.textColor = [239, 68, 68];
+              }
+            }
+          }
+        });
+
+        currentY = (doc as any).lastAutoTable.finalY + 15;
+      }
+
       // Transactions Table
       if (currentY + 40 > pageHeight) {
         doc.addPage();
@@ -438,23 +512,24 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
 
       const tableData = filteredLancamentos.map(l => [
         format(parseLocalDate(l.data), 'dd/MM/yyyy'),
-        l.descricao,
+        l.observacao || '-',
         l.categorias?.nome || '-',
+        l.vehicles?.name || '-',
         l.tipo === 'receita' ? 'RECEITA' : 'DESPESA',
         formatCurrency(Number(l.valor))
       ]);
 
       autoTable(doc, {
         startY: currentY + 5,
-        head: [['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor']],
+        head: [['Data', 'Descrição', 'Categoria', 'Veículo', 'Tipo', 'Valor']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [55, 65, 81] },
         columnStyles: {
-          4: { halign: 'right' }
+          5: { halign: 'right' }
         },
         didParseCell: (data) => {
-          if (data.section === 'body' && data.column.index === 3) {
+          if (data.section === 'body' && data.column.index === 4) {
             if (data.cell.text[0] === 'RECEITA') {
               data.cell.styles.textColor = [5, 149, 104];
             } else {
@@ -499,7 +574,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       // Prepare data for Excel
       const data = filteredLancamentos.map(l => ({
         'Data': format(parseLocalDate(l.data), 'dd/MM/yyyy'),
-        'Descrição': l.descricao,
+        'Descrição': l.observacao || '-',
         'Categoria': l.categorias?.nome || '-',
         'Tipo': l.tipo === 'receita' ? 'Receita' : 'Despesa',
         'Valor': Number(l.valor),
@@ -515,12 +590,25 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
         { 'Item': 'Saldo Acumulado', 'Valor': stats.saldoAcumulado }
       ];
 
+      const vehicleSummary = stats.porVeiculo.map(v => ({
+        'Veículo': v.nome,
+        'Placa': v.placa,
+        'Receitas': v.receitas,
+        'Despesas': v.despesas,
+        'Saldo': v.saldo
+      }));
+
       const wb = XLSX.utils.book_new();
       const wsTransactions = XLSX.utils.json_to_sheet(data);
       const wsSummary = XLSX.utils.json_to_sheet(summary);
-
+      
       XLSX.utils.book_append_sheet(wb, wsTransactions, 'Transações');
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo');
+
+      if (vehicleSummary.length > 0) {
+        const wsVehicleSummary = XLSX.utils.json_to_sheet(vehicleSummary);
+        XLSX.utils.book_append_sheet(wb, wsVehicleSummary, 'Resumo por Veículo');
+      }
 
       if (fileFormat === 'xlsx') {
         XLSX.writeFile(wb, `atlas-financeiro-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
@@ -566,18 +654,53 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Filtro</label>
                 <Select value={filterType} onChange={(e) => setFilterType(e.target.value as any)}>
                   <option value="month">Por Mês</option>
+                  <option value="year">Por Ano</option>
                   <option value="custom">Período Personalizado</option>
                 </Select>
               </div>
 
               {filterType === 'month' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ano</label>
+                    <Select 
+                      value={selectedMonth.split('-')[0]} 
+                      onChange={(e) => setSelectedMonth(`${e.target.value}-${selectedMonth.split('-')[1]}`)}
+                    >
+                      {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                        <option key={year} value={year.toString()}>{year}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mês</label>
+                    <Select 
+                      value={selectedMonth.split('-')[1]} 
+                      onChange={(e) => setSelectedMonth(`${selectedMonth.split('-')[0]}-${e.target.value}`)}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const monthNum = (i + 1).toString().padStart(2, '0');
+                        const monthName = format(new Date(2000, i, 1), 'MMMM', { locale: ptBR });
+                        return (
+                          <option key={monthNum} value={monthNum} className="capitalize">
+                            {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                  </div>
+                </div>
+              ) : filterType === 'year' ? (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mês</label>
-                  <Input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                  />
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ano</label>
+                  <Select 
+                    value={selectedYear} 
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                  >
+                    {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                      <option key={year} value={year.toString()}>{year}</option>
+                    ))}
+                  </Select>
                 </div>
               ) : (
                 <>

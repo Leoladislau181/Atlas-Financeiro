@@ -106,6 +106,8 @@ export default function App() {
 
 function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: string; setActiveTab: (tab: string) => void }) {
   const { categorias, lancamentos, vehicles, loading, refetch } = useFinanceData();
+  const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
+  const [forceOpenProfile, setForceOpenProfile] = useState(false);
 
   if (loading) {
     return (
@@ -115,8 +117,24 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
     );
   }
 
+  const handleNewLancamento = () => {
+    setActiveTab('lancamentos');
+    setIsNewLancamentoOpen(true);
+  };
+
+  const handleProfileClick = () => {
+    setActiveTab('configuracoes');
+    setForceOpenProfile(true);
+  };
+
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={user}>
+    <Layout 
+      activeTab={activeTab} 
+      setActiveTab={setActiveTab} 
+      onNewLancamento={handleNewLancamento}
+      onProfileClick={handleProfileClick}
+      user={user}
+    >
       {activeTab === 'inicio' && (
         <Dashboard 
           lancamentos={lancamentos} 
@@ -133,6 +151,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
           vehicles={vehicles}
           refetch={refetch}
           userId={user.id}
+          forceOpenForm={isNewLancamentoOpen}
+          onFormClose={() => setIsNewLancamentoOpen(false)}
         />
       )}
       {activeTab === 'relatorios' && <Relatorios lancamentos={lancamentos} vehicles={vehicles} user={user} />}
@@ -145,7 +165,14 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         />
       )}
       {activeTab === 'configuracoes' && (
-        <Configuracoes categorias={categorias} user={user} refetch={refetch} />
+        <Configuracoes 
+          categorias={categorias} 
+          user={user} 
+          refetch={refetch} 
+          onNavigateToRelatorios={() => setActiveTab('relatorios')}
+          forceOpenProfile={forceOpenProfile}
+          onProfileOpened={() => setForceOpenProfile(false)}
+        />
       )}
     </Layout>
   );

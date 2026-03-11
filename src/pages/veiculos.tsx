@@ -307,7 +307,7 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
             <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
               <Car className="h-5 w-5 text-[#F59E0B]" />
             </div>
-            <div>
+            <div className="hidden sm:block">
               <h3 className="font-bold text-gray-900 dark:text-gray-100">
                 {editingId ? 'Editar Veículo' : 'Novo Veículo'}
               </h3>
@@ -315,11 +315,19 @@ export function Veiculos({ vehicles, lancamentos, refetch, userId }: VeiculosPro
                 {isFormOpen ? 'Preencha os dados abaixo' : 'Clique para cadastrar um novo veículo'}
               </p>
             </div>
+            <div className="sm:hidden">
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">
+                {editingId ? 'Editar Veículo' : 'Cadastrar veículo'}
+              </h3>
+            </div>
+          </div>
+          <div className="text-[#F59E0B] sm:hidden">
+            {isFormOpen ? <ChevronUp className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
           </div>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5 dark:hover:bg-[#F59E0B]/10"
+            className="hidden sm:flex text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/5 dark:hover:bg-[#F59E0B]/10"
           >
             {isFormOpen ? (
               <div className="flex items-center gap-2">

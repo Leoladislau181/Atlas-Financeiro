@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 
@@ -14,9 +14,12 @@ interface ConfiguracoesProps {
   categorias: Categoria[];
   user: User;
   refetch: () => void;
+  onNavigateToRelatorios?: () => void;
+  forceOpenProfile?: boolean;
+  onProfileOpened?: () => void;
 }
 
-export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps) {
+export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorios, forceOpenProfile, onProfileOpened }: ConfiguracoesProps) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<TipoLancamento>('despesa');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -41,6 +44,14 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
     setProfileNome(user.nome || '');
     setProfileTelefone(user.telefone || '');
   }, [user]);
+
+  React.useEffect(() => {
+    if (forceOpenProfile) {
+      setIsProfileOpen(true);
+      onProfileOpened?.();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [forceOpenProfile, onProfileOpened]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +206,7 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
               <div className="flex justify-center mb-8">
                 <ProfilePhotoUpload user={user} onUpdate={refetch} />
               </div>
+
               <form onSubmit={handleProfileUpdate} className="space-y-4 mb-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -303,6 +315,26 @@ export function Configuracoes({ categorias, user, refetch }: ConfiguracoesProps)
               </div>
             </CardContent>
           )}
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={onNavigateToRelatorios}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <BarChart2 className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Relatórios Detalhados</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Consulte gráficos e exporte seus dados</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              <ChevronDown className="h-5 w-5 -rotate-90" />
+            </Button>
+          </div>
         </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">

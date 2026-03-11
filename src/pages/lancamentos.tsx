@@ -4,11 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
-import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
+import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface LancamentosProps {
   categorias: Categoria[];
@@ -16,9 +20,12 @@ interface LancamentosProps {
   vehicles: Vehicle[];
   refetch: () => void;
   userId: string;
+  forceOpenForm?: boolean;
+  onFormClose?: () => void;
 }
 
-export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId }: LancamentosProps) {
+export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId, forceOpenForm, onFormClose }: LancamentosProps) {
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [tipo, setTipo] = useState<TipoLancamento>('despesa');
   const [categoriaId, setCategoriaId] = useState('');
   const [valorStr, setValorStr] = useState('');
@@ -38,6 +45,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // History Filters
   const [filterMonth, setFilterMonth] = useState('');
@@ -46,6 +56,21 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
   const [filterVehicleId, setFilterVehicleId] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (forceOpenForm) {
+      setIsFormOpen(true);
+    }
+  }, [forceOpenForm]);
+
+  useEffect(() => {
+    if (!isFormOpen && onFormClose) {
+      onFormClose();
+    }
+  }, [isFormOpen, onFormClose]);
+
+  const nextMonth = () => setSelectedDate(addMonths(selectedDate, 1));
+  const prevMonth = () => setSelectedDate(subMonths(selectedDate, 1));
 
   const filteredCategorias = categorias.filter((c) => c.tipo === tipo);
 
@@ -212,7 +237,11 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
   };
 
   const filteredLancamentos = lancamentos.filter((l) => {
-    const matchesMonth = !filterMonth || l.data.startsWith(filterMonth);
+    const dataLancamento = parseLocalDate(l.data);
+    const monthStart = startOfMonth(selectedDate);
+    const monthEnd = endOfMonth(selectedDate);
+    
+    const matchesMonth = isWithinInterval(dataLancamento, { start: monthStart, end: monthEnd });
     const matchesTipo = filterTipo === 'all' || l.tipo === filterTipo;
     const matchesCategoria = filterCategoriaId === 'all' || l.categoria_id === filterCategoriaId;
     const matchesVehicle = filterVehicleId === 'all' || l.vehicle_id === filterVehicleId;
@@ -231,24 +260,297 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
+  const monthSummary = React.useMemo(() => {
+    let receitas = 0;
+    let despesas = 0;
+    filteredLancamentos.forEach(l => {
+      if (l.tipo === 'receita') receitas += Number(l.valor);
+      else despesas += Number(l.valor);
+    });
+    return { receitas, despesas, saldo: receitas - despesas };
+  }, [filteredLancamentos]);
+
+  const exportToExcel = (fileFormat: 'xlsx' | 'csv') => {
+    setExportLoading(true);
+    try {
+      const data = sortedLancamentos.map(l => ({
+        'Data': format(parseLocalDate(l.data), 'dd/MM/yyyy'),
+        'Descrição': l.observacao || '',
+        'Categoria': l.categorias?.nome || '-',
+        'Tipo': l.tipo === 'receita' ? 'Receita' : 'Despesa',
+        'Valor': Number(l.valor),
+        'Veículo': l.vehicles?.name || '-',
+        'Placa': l.vehicles?.plate || '-'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Lançamentos');
+      
+      if (fileFormat === 'xlsx') {
+        XLSX.writeFile(wb, `lancamentos-${format(selectedDate, 'yyyy-MM')}.xlsx`);
+      } else {
+        XLSX.writeFile(wb, `lancamentos-${format(selectedDate, 'yyyy-MM')}.csv`, { bookType: 'csv' });
+      }
+      setIsExportModalOpen(false);
+    } catch (error) {
+      console.error("Export error:", error);
+      alert("Erro ao exportar arquivo.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const exportToPDF = () => {
+    setExportLoading(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+
+      doc.setFontSize(20);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Relatório de Lançamentos', 15, 20);
+
+      doc.setFontSize(12);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Período: ${format(selectedDate, 'MMMM yyyy', { locale: ptBR })}`, 15, 30);
+
+      let currentY = 40;
+
+      const tableData = sortedLancamentos.map(l => [
+        format(parseLocalDate(l.data), 'dd/MM/yyyy'),
+        l.observacao || '-',
+        l.categorias?.nome || '-',
+        l.vehicles?.name || '-',
+        l.tipo === 'receita' ? 'RECEITA' : 'DESPESA',
+        formatCurrency(Number(l.valor))
+      ]);
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Data', 'Descrição', 'Categoria', 'Veículo', 'Tipo', 'Valor']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [55, 65, 81] },
+        columnStyles: {
+          5: { halign: 'right' }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 4) {
+            if (data.cell.text[0] === 'RECEITA') {
+              data.cell.styles.textColor = [5, 149, 104];
+            } else {
+              data.cell.styles.textColor = [239, 68, 68];
+            }
+          }
+        }
+      });
+
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(156, 163, 175);
+        doc.text(
+          `Gerado em ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+          15,
+          pageHeight - 10
+        );
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth - 30,
+          pageHeight - 10
+        );
+      }
+
+      doc.save(`lancamentos-${format(selectedDate, 'yyyy-MM')}.pdf`);
+      setIsExportModalOpen(false);
+    } catch (error) {
+      console.error("Export error:", error);
+      alert("Erro ao exportar PDF.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const visibleLancamentos = sortedLancamentos.slice(0, visibleCount);
   const hasMore = visibleCount < sortedLancamentos.length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Lançamentos</h2>
-        <Button 
-          onClick={() => {
-            setEditingId(null);
-            setIsFormOpen(true);
-          }}
-          className="bg-[#F59E0B] hover:bg-[#D97706] text-white shadow-sm gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Lançamento
-        </Button>
+      {/* Month Selector Header */}
+      <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="w-10 sm:hidden"></div> {/* Spacer for mobile centering balance */}
+        <div className="flex items-center justify-center flex-1">
+          <Button
+            variant="ghost"
+            onClick={prevMonth}
+            className="h-10 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full px-2 sm:px-3 flex items-center gap-1"
+          >
+            <ChevronLeft className="h-5 w-5" />
+            <span className="hidden sm:inline text-xs capitalize">{format(subMonths(selectedDate, 1), 'MMM', { locale: ptBR })}</span>
+          </Button>
+          
+          <div className="text-center mx-1 sm:mx-4 min-w-[120px] sm:min-w-[140px]">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 capitalize">
+              {format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
+            </h2>
+            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+              {filteredLancamentos.length} lançamentos
+            </p>
+          </div>
+
+          <Button
+            variant="ghost"
+            onClick={nextMonth}
+            className="h-10 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full px-2 sm:px-3 flex items-center gap-1"
+          >
+            <span className="hidden sm:inline text-xs capitalize">{format(addMonths(selectedDate, 1), 'MMM', { locale: ptBR })}</span>
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-end w-10 sm:w-auto sm:ml-4 gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsExportModalOpen(true)}
+            title="Exportar"
+            className="flex h-9 w-9 sm:h-11 sm:w-11 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          >
+            <Download className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition-all",
+              showFilters 
+                ? "bg-[#F59E0B] text-white border-[#F59E0B] hover:bg-[#D97706]" 
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+            )}
+          >
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
+        </div>
       </div>
+
+      {/* Month Summary Cards */}
+      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Receitas</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                {formatCurrency(monthSummary.receitas)}
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
+              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Despesas</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                {formatCurrency(monthSummary.despesas)}
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={cn(
+              "p-3 rounded-xl",
+              monthSummary.saldo >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"
+            )}>
+              <DollarSign className={cn(
+                "h-5 w-5",
+                monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+              )} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo do Mês</p>
+              <h3 className={cn(
+                "text-lg font-bold",
+                monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+              )}>
+                {formatCurrency(monthSummary.saldo)}
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {showFilters && (
+        <Card className="border-none shadow-md bg-white dark:bg-gray-900 animate-in fade-in slide-in-from-top-4 duration-300">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Busca</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="O que você procura?"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</label>
+                <Select
+                  value={filterTipo}
+                  onChange={(e) => setFilterTipo(e.target.value as any)}
+                  className="h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                >
+                  <option value="all">Todos os Tipos</option>
+                  <option value="receita">Receitas</option>
+                  <option value="despesa">Despesas</option>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</label>
+                <Select
+                  value={filterCategoriaId}
+                  onChange={(e) => setFilterCategoriaId(e.target.value)}
+                  className="h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                >
+                  <option value="all">Todas as Categorias</option>
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Veículo</label>
+                <Select
+                  value={filterVehicleId}
+                  onChange={(e) => setFilterVehicleId(e.target.value)}
+                  className="h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                >
+                  <option value="all">Todos os Veículos</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} - {v.plate}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Modal
         isOpen={isFormOpen}
@@ -406,188 +708,78 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
         </form>
       </Modal>
 
-      <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-        <CardHeader className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
-          <div className="flex items-center justify-between w-full md:w-auto">
-            <CardTitle className="text-gray-900 dark:text-gray-100">Histórico de Lançamentos</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="md:hidden text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
-            </Button>
-          </div>
-          
-          <div className="hidden md:flex items-center space-x-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
-              <Input
-                type="text"
-                placeholder="Buscar lançamentos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9 w-[200px] lg:w-[250px] text-sm"
-              />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
-            </Button>
-          </div>
-        </CardHeader>
-
-        {/* Mobile Search Bar */}
-        <div className="md:hidden px-6 pb-4">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
-            <Input
-              type="text"
-              placeholder="Buscar lançamentos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 h-9 w-full text-sm bg-gray-50 dark:bg-gray-800/50 border-transparent focus:bg-white dark:focus:bg-gray-800"
-            />
-          </div>
-        </div>
-
-        {showFilters && (
-          <CardContent className="pt-0 pb-4 border-b border-gray-50 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="grid grid-cols-2 gap-4 md:flex md:items-center md:space-x-4">
-              <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Mês</label>
-                <Input
-                  type="month"
-                  value={filterMonth}
-                  onChange={(e) => setFilterMonth(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tipo</label>
-                <Select
-                  value={filterTipo}
-                  onChange={(e) => setFilterTipo(e.target.value as any)}
-                  className="h-9"
-                >
-                  <option value="all">Todos</option>
-                  <option value="receita">Receitas</option>
-                  <option value="despesa">Despesas</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Categoria</label>
-                <Select
-                  value={filterCategoriaId}
-                  onChange={(e) => setFilterCategoriaId(e.target.value)}
-                  className="h-9"
-                >
-                  <option value="all">Todas</option>
-                  {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-1.5 flex-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Veículo</label>
-                <Select
-                  value={filterVehicleId}
-                  onChange={(e) => setFilterVehicleId(e.target.value)}
-                  className="h-9"
-                >
-                  <option value="all">Todos</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        )}
-
-        <CardContent className={showFilters ? "pt-6" : "pt-6"}>
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+        <CardContent className="p-0">
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
-              <thead className="bg-gray-50 dark:bg-gray-800/50 text-xs uppercase text-gray-700 dark:text-gray-400">
+              <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">
                 <tr>
-                  <th className="px-4 py-3">Data</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Veículo</th>
-                  <th className="px-4 py-3">Observação</th>
-                  <th className="px-4 py-3 text-right">Valor</th>
-                  <th className="px-4 py-3 text-center">Ações</th>
+                  <th className="px-6 py-4">Data</th>
+                  <th className="px-6 py-4">Tipo</th>
+                  <th className="px-6 py-4">Categoria</th>
+                  <th className="px-6 py-4">Veículo</th>
+                  <th className="px-6 py-4">Observação</th>
+                  <th className="px-6 py-4 text-right">Valor</th>
+                  <th className="px-6 py-4 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleLancamentos.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                      Nenhum lançamento encontrado.
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                      Nenhum lançamento encontrado para este período.
                     </td>
                   </tr>
                 ) : (
                   visibleLancamentos.map((l) => (
-                    <tr key={l.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                    <tr key={l.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                         {format(parseLocalDate(l.data), 'dd/MM/yyyy')}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4">
                         <span
-                          className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                             l.tipo === 'receita'
-                              ? 'bg-green-100 dark:bg-[#059568]/20 text-[#059568] dark:text-[#10B981]'
-                              : 'bg-red-100 dark:bg-[#EF4444]/20 text-[#EF4444] dark:text-[#F87171]'
+                              ? 'bg-green-50 dark:bg-[#059568]/10 text-[#059568] dark:text-[#10B981]'
+                              : 'bg-red-50 dark:bg-[#EF4444]/10 text-[#EF4444] dark:text-[#F87171]'
                           }`}
                         >
                           {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</td>
+                      <td className="px-6 py-4">
                         {l.vehicles ? (
-                          <span className="inline-flex items-center rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                            <Car className="h-3 w-3" />
                             {l.vehicles.name}
                           </span>
                         ) : (
-                          <span className="text-gray-500 dark:text-gray-400">-</span>
+                          <span className="text-gray-400 dark:text-gray-500">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 max-w-[200px] truncate text-gray-600 dark:text-gray-400" title={l.observacao}>
+                      <td className="px-6 py-4 max-w-[200px] truncate text-xs text-gray-500 dark:text-gray-400" title={l.observacao}>
                         {l.observacao || '-'}
                       </td>
                       <td
-                        className={`px-4 py-3 text-right font-medium whitespace-nowrap ${
+                        className={`px-6 py-4 text-right font-bold text-sm whitespace-nowrap ${
                           l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
                         }`}
                       >
-                        {formatCurrency(l.valor)}
+                        {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center space-x-2">
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleEdit(l)}
-                            className="text-gray-400 hover:text-[#F59E0B] transition-colors"
-                            title="Editar"
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-lg transition-colors"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => confirmDelete(l.id)}
-                            className="text-gray-400 hover:text-[#EF4444] transition-colors"
-                            title="Excluir"
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-lg transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -601,62 +793,67 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           </div>
           
           {/* Mobile Card View */}
-          <div className="md:hidden space-y-4">
+          <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-800">
             {visibleLancamentos.length === 0 ? (
-              <div className="py-8 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed dark:border-gray-700">
-                Nenhum lançamento encontrado.
+              <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                Nenhum lançamento encontrado para este período.
               </div>
             ) : (
               visibleLancamentos.map((l) => (
-                <div key={l.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-all duration-200">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">{format(parseLocalDate(l.data), 'dd/MM/yyyy')}</p>
-                      <h4 className="font-bold text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</h4>
+                <div key={l.id} className="p-4 active:bg-gray-50 dark:active:bg-gray-800/50 transition-colors">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2.5 rounded-xl",
+                        l.tipo === 'receita' ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"
+                      )}>
+                        {l.tipo === 'receita' ? (
+                          <ChevronUp className="h-5 w-5 text-[#059568] dark:text-[#10B981]" />
+                        ) : (
+                          <ChevronUp className="h-5 w-5 text-[#EF4444] dark:text-[#F87171] rotate-180" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</p>
+                        <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          {format(parseLocalDate(l.data), 'dd MMM yyyy', { locale: ptBR })}
+                        </p>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold text-lg ${l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
-                        {l.tipo === 'receita' ? '+' : '-'} {formatCurrency(l.valor)}
+                      <p className={cn(
+                        "text-sm font-bold",
+                        l.tipo === 'receita' ? "text-[#059568] dark:text-[#10B981]" : "text-[#EF4444] dark:text-[#F87171]"
+                      )}>
+                        {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
                       </p>
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mt-1 ${
-                          l.tipo === 'receita'
-                            ? 'bg-green-50 dark:bg-[#059568]/20 text-[#059568] dark:text-[#10B981]'
-                            : 'bg-red-50 dark:bg-[#EF4444]/20 text-[#EF4444] dark:text-[#F87171]'
-                        }`}
-                      >
-                        {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {(l.vehicles || l.observacao) && (
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-50 dark:border-gray-800 mt-3">
                       {l.vehicles && (
-                        <span className="inline-flex items-center rounded-lg bg-gray-50 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700">
-                          <Car className="h-3 w-3 mr-1 text-gray-400 dark:text-gray-500" /> {l.vehicles.name}
-                        </span>
-                      )}
-                      {l.observacao && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-full w-full mt-1">
-                          "{l.observacao}"
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center justify-end gap-1 mt-0.5">
+                          <Car className="h-2.5 w-2.5" />
+                          {l.vehicles.name}
                         </p>
                       )}
                     </div>
+                  </div>
+                  
+                  {l.observacao && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 pl-12 italic">"{l.observacao}"</p>
                   )}
 
-                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-50 dark:border-gray-800 mt-2">
+                  <div className="flex items-center justify-end gap-2 pl-12">
                     <button
                       onClick={() => handleEdit(l)}
-                      className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-[#F59E0B] px-2 py-1 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <Edit2 className="h-3 w-3" /> Editar
+                      <Edit2 className="h-3.5 w-3.5" />
+                      Editar
                     </button>
                     <button
                       onClick={() => confirmDelete(l.id)}
-                      className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-[#EF4444] px-2 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                     >
-                      <Trash2 className="h-3 w-3" /> Excluir
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Excluir
                     </button>
                   </div>
                 </div>
@@ -665,13 +862,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           </div>
 
           {hasMore && (
-            <div className="mt-6 flex justify-center">
+            <div className="p-6 border-t border-gray-50 dark:border-gray-800 text-center">
               <Button
-                variant="outline"
-                onClick={() => setVisibleCount((prev) => prev + 20)}
-                className="w-full sm:w-auto"
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisibleCount(prev => prev + 20)}
+                className="text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-100"
               >
-                Ver Mais Lançamentos
+                Carregar mais lançamentos
               </Button>
             </div>
           )}
@@ -693,6 +891,47 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, userId
           <Button variant="destructive" onClick={handleDelete}>
             Confirmar Exclusão
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="Exportar Lançamentos"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Escolha o formato para exportar os lançamentos do mês selecionado.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 hover:border-red-500 hover:text-red-600 dark:hover:border-red-400 dark:hover:text-red-400"
+              onClick={exportToPDF}
+              disabled={exportLoading}
+            >
+              <Download className="h-6 w-6" />
+              <span>PDF</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 hover:border-green-500 hover:text-green-600 dark:hover:border-green-400 dark:hover:text-green-400"
+              onClick={() => exportToExcel('xlsx')}
+              disabled={exportLoading}
+            >
+              <Download className="h-6 w-6" />
+              <span>Excel (.xlsx)</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center gap-2 hover:border-blue-500 hover:text-blue-600 dark:hover:border-blue-400 dark:hover:text-blue-400"
+              onClick={() => exportToExcel('csv')}
+              disabled={exportLoading}
+            >
+              <Download className="h-6 w-6" />
+              <span>CSV</span>
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>
