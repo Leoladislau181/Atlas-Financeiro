@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
+import { isPremium } from '@/lib/utils';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
@@ -42,6 +43,8 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
   const [isReferralOpen, setIsReferralOpen] = useState(false);
   const [referralCode, setReferralCode] = useState(user.referral_code || '');
   const [referralLoading, setReferralLoading] = useState(false);
+  const [isPlanOpen, setIsPlanOpen] = useState(false);
+  const [planLoading, setPlanLoading] = useState(false);
 
   React.useEffect(() => {
     setProfileNome(user.nome || '');
@@ -204,6 +207,29 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
 
   const despesas = categorias.filter((c) => c.tipo === 'despesa');
 
+  const handleTestPremium = async () => {
+    setPlanLoading(true);
+    try {
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          premium_until: nextMonth.toISOString()
+        }
+      });
+      
+      if (error) throw error;
+      
+      alert('Plano Premium ativado com sucesso para testes (válido por 1 mês)! Recarregue a página para aplicar as alterações.');
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.message || 'Erro ao ativar plano premium.');
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -336,6 +362,55 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
                     <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                     <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={() => setIsPlanOpen(!isPlanOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Shield className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Meu Plano</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {isPremium(user) ? 'Você é Premium 🌟' : 'Plano Gratuito'}
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              {isPlanOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isPlanOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="space-y-4">
+                <div className={`p-4 rounded-xl border ${isPremium(user) ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30' : 'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700'}`}>
+                  <h4 className={`font-semibold mb-2 ${isPremium(user) ? 'text-amber-800 dark:text-amber-300' : 'text-gray-800 dark:text-gray-300'}`}>
+                    {isPremium(user) ? 'Plano Premium Ativo' : 'Plano Gratuito'}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    {isPremium(user) 
+                      ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo leitura de notas fiscais com IA, veículos ilimitados e exportação de relatórios.'
+                      : 'Faça o upgrade para desbloquear leitura de notas fiscais com IA, veículos ilimitados, exportação de relatórios e muito mais.'}
+                  </p>
+                  
+                  {!isPremium(user) && (
+                    <Button 
+                      onClick={handleTestPremium} 
+                      disabled={planLoading} 
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                    >
+                      {planLoading ? 'Ativando...' : 'Ativar Premium (Modo Teste)'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
