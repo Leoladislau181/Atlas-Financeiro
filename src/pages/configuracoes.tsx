@@ -355,7 +355,12 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Aparência</h4>
                 </div>
                 <div 
-                  onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                  onClick={() => {
+                    const currentTheme = theme === "system" 
+                      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+                      : theme;
+                    setTheme(currentTheme === "light" ? "dark" : "light");
+                  }}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 group"
                 >
                   <div>
