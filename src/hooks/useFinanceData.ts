@@ -12,13 +12,17 @@ export function useFinanceData() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
+      const [userResult, catResult, vehResult, manResult, lanResult] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('categorias').select('*').order('nome'),
+        supabase.from('vehicles').select('*').order('name'),
+        supabase.from('manutencoes').select('*').order('created_at', { ascending: false }),
+        supabase.from('lancamentos').select('*, categorias(*), vehicles(*)').order('data', { ascending: false })
+      ]);
 
-      let { data: catData, error: catError } = await supabase
-        .from('categorias')
-        .select('*')
-        .order('nome');
+      const userId = userResult.data.user?.id;
+      let catData = catResult.data;
+      const catError = catResult.error;
       
       if (catError) throw catError;
 
@@ -49,29 +53,17 @@ export function useFinanceData() {
 
       setCategorias(catData || []);
 
-      const { data: vehData, error: vehError } = await supabase
-        .from('vehicles')
-        .select('*')
-        .order('name');
-      
+      const vehError = vehResult.error;
       if (vehError && vehError.code !== '42P01') throw vehError; // Ignore if table doesn't exist yet
-      setVehicles(vehData || []);
+      setVehicles(vehResult.data || []);
 
-      const { data: manData, error: manError } = await supabase
-        .from('manutencoes')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
+      const manError = manResult.error;
       if (manError && manError.code !== '42P01') throw manError;
-      setManutencoes(manData || []);
+      setManutencoes(manResult.data || []);
 
-      const { data: lanData, error: lanError } = await supabase
-        .from('lancamentos')
-        .select('*, categorias(*), vehicles(*)')
-        .order('data', { ascending: false });
-
+      const lanError = lanResult.error;
       if (lanError) throw lanError;
-      setLancamentos(lanData || []);
+      setLancamentos(lanResult.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {

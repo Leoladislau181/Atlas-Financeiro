@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 import { isPremium } from '@/lib/utils';
 import { Auth } from '@/pages/auth';
 import { Layout } from '@/components/layout';
-import { Dashboard } from '@/pages/dashboard';
-import { Lancamentos } from '@/pages/lancamentos';
-import { Relatorios } from '@/pages/relatorios';
-import { Configuracoes } from '@/pages/configuracoes';
-import { Veiculos } from '@/pages/veiculos';
-import { Premium } from '@/pages/premium';
 import { useFinanceData } from '@/hooks/useFinanceData';
-
 import { ThemeProvider } from '@/components/theme-provider';
+
+const Dashboard = React.lazy(() => import('@/pages/dashboard').then(m => ({ default: m.Dashboard })));
+const Lancamentos = React.lazy(() => import('@/pages/lancamentos').then(m => ({ default: m.Lancamentos })));
+const Relatorios = React.lazy(() => import('@/pages/relatorios').then(m => ({ default: m.Relatorios })));
+const Configuracoes = React.lazy(() => import('@/pages/configuracoes').then(m => ({ default: m.Configuracoes })));
+const Veiculos = React.lazy(() => import('@/pages/veiculos').then(m => ({ default: m.Veiculos })));
+const Premium = React.lazy(() => import('@/pages/premium').then(m => ({ default: m.Premium })));
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -120,8 +120,16 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] dark:bg-gray-950">
-        <div className="text-lg font-medium text-gray-500 dark:text-gray-400">Carregando dados...</div>
+      <div className="flex min-h-screen flex-col bg-[#F9FAFB] dark:bg-gray-950">
+        <div className="h-16 w-full bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 animate-pulse"></div>
+        <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8 space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-32 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 animate-pulse"></div>
+            ))}
+          </div>
+          <div className="h-96 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 animate-pulse"></div>
+        </div>
       </div>
     );
   }
@@ -162,55 +170,64 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
       onProfileClick={handleProfileClick}
       user={user}
     >
-      {activeTab === 'inicio' && (
-        <Dashboard 
-          lancamentos={lancamentos} 
-          categorias={categorias} 
-          vehicles={vehicles} 
-          manutencoes={manutencoes}
-          refetch={refetch}
-          user={user}
-          onReadReceipt={handleOpenReceiptReader}
-        />
-      )}
-      {activeTab === 'lancamentos' && (
-        <Lancamentos
-          categorias={categorias}
-          lancamentos={lancamentos}
-          vehicles={vehicles}
-          refetch={refetch}
-          user={user}
-          forceOpenForm={isNewLancamentoOpen}
-          onFormClose={() => setIsNewLancamentoOpen(false)}
-          forceOpenReceiptReader={forceOpenReceiptReader}
-          onReceiptReaderClose={() => setForceOpenReceiptReader(false)}
-        />
-      )}
-      {activeTab === 'relatorios' && <Relatorios lancamentos={lancamentos} vehicles={vehicles} user={user} />}
-      {activeTab === 'veiculos' && (
-        <Veiculos
-          vehicles={vehicles}
-          lancamentos={lancamentos}
-          manutencoes={manutencoes}
-          refetch={refetch}
-          user={user}
-        />
-      )}
-      {activeTab === 'premium' && (
-        <Premium user={user} refetch={refetch} />
-      )}
-      {activeTab === 'configuracoes' && (
-        <Configuracoes 
-          categorias={categorias} 
-          user={user} 
-          refetch={refetch} 
-          onNavigateToRelatorios={() => setActiveTab('relatorios')}
-          onNavigateToPremium={() => setActiveTab('premium')}
-          onNavigateToVeiculos={() => setActiveTab('veiculos')}
-          forceOpenProfile={forceOpenProfile}
-          onProfileOpened={() => setForceOpenProfile(false)}
-        />
-      )}
+      <Suspense fallback={
+        <div className="flex h-[50vh] items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#F59E0B] dark:border-gray-800 dark:border-t-[#F59E0B]"></div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Carregando interface...</p>
+          </div>
+        </div>
+      }>
+        {activeTab === 'inicio' && (
+          <Dashboard 
+            lancamentos={lancamentos} 
+            categorias={categorias} 
+            vehicles={vehicles} 
+            manutencoes={manutencoes}
+            refetch={refetch}
+            user={user}
+            onReadReceipt={handleOpenReceiptReader}
+          />
+        )}
+        {activeTab === 'lancamentos' && (
+          <Lancamentos
+            categorias={categorias}
+            lancamentos={lancamentos}
+            vehicles={vehicles}
+            refetch={refetch}
+            user={user}
+            forceOpenForm={isNewLancamentoOpen}
+            onFormClose={() => setIsNewLancamentoOpen(false)}
+            forceOpenReceiptReader={forceOpenReceiptReader}
+            onReceiptReaderClose={() => setForceOpenReceiptReader(false)}
+          />
+        )}
+        {activeTab === 'relatorios' && <Relatorios lancamentos={lancamentos} vehicles={vehicles} user={user} />}
+        {activeTab === 'veiculos' && (
+          <Veiculos
+            vehicles={vehicles}
+            lancamentos={lancamentos}
+            manutencoes={manutencoes}
+            refetch={refetch}
+            user={user}
+          />
+        )}
+        {activeTab === 'premium' && (
+          <Premium user={user} refetch={refetch} />
+        )}
+        {activeTab === 'configuracoes' && (
+          <Configuracoes 
+            categorias={categorias} 
+            user={user} 
+            refetch={refetch} 
+            onNavigateToRelatorios={() => setActiveTab('relatorios')}
+            onNavigateToPremium={() => setActiveTab('premium')}
+            onNavigateToVeiculos={() => setActiveTab('veiculos')}
+            forceOpenProfile={forceOpenProfile}
+            onProfileOpened={() => setForceOpenProfile(false)}
+          />
+        )}
+      </Suspense>
     </Layout>
   );
 }
