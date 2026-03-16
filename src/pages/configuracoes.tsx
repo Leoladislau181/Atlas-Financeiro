@@ -7,7 +7,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { isPremium } from '@/lib/utils';
@@ -19,11 +19,22 @@ interface ConfiguracoesProps {
   onNavigateToRelatorios?: () => void;
   onNavigateToPremium?: () => void;
   onNavigateToVeiculos?: () => void;
+  onNavigateToAdmin?: () => void;
   forceOpenProfile?: boolean;
   onProfileOpened?: () => void;
 }
 
-export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorios, onNavigateToPremium, onNavigateToVeiculos, forceOpenProfile, onProfileOpened }: ConfiguracoesProps) {
+export function Configuracoes({ 
+  categorias, 
+  user, 
+  refetch, 
+  onNavigateToRelatorios, 
+  onNavigateToPremium, 
+  onNavigateToVeiculos, 
+  onNavigateToAdmin,
+  forceOpenProfile, 
+  onProfileOpened 
+}: ConfiguracoesProps) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<TipoLancamento>('despesa');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +59,8 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
   const [referralLoading, setReferralLoading] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   React.useEffect(() => {
     setProfileNome(user.nome || '');
@@ -87,7 +100,7 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
       setIsCategoryFormOpen(false);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao salvar categoria.');
+      setErrorMsg(error.message || 'Erro ao salvar categoria.');
     } finally {
       setLoading(false);
     }
@@ -115,7 +128,7 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
       setDeletingId(null);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao excluir categoria. Verifique se há lançamentos vinculados.');
+      setErrorMsg(error.message || 'Erro ao excluir categoria. Verifique se há lançamentos vinculados.');
     }
   };
 
@@ -123,17 +136,17 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
     e.preventDefault();
     
     if (!currentPassword) {
-      alert('Por favor, informe sua senha atual.');
+      setErrorMsg('Por favor, informe sua senha atual.');
       return;
     }
 
     if (!newPassword || newPassword.length < 6) {
-      alert('A nova senha deve ter pelo menos 6 caracteres.');
+      setErrorMsg('A nova senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      alert('A nova senha e a confirmação não coincidem.');
+      setErrorMsg('A nova senha e a confirmação não coincidem.');
       return;
     }
 
@@ -152,13 +165,13 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       
-      alert('Senha atualizada com sucesso!');
+      setSuccessMsg('Senha atualizada com sucesso!');
       setNewPassword('');
       setCurrentPassword('');
       setConfirmPassword('');
       setIsPasswordFormOpen(false);
     } catch (error: any) {
-      alert(error.message || 'Erro ao atualizar senha.');
+      setErrorMsg(error.message || 'Erro ao atualizar senha.');
     } finally {
       setPasswordLoading(false);
     }
@@ -175,9 +188,9 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
         }
       });
       if (error) throw error;
-      alert('Perfil atualizado com sucesso!');
+      setSuccessMsg('Perfil atualizado com sucesso!');
     } catch (error: any) {
-      alert(error.message || 'Erro ao atualizar perfil.');
+      setErrorMsg(error.message || 'Erro ao atualizar perfil.');
     } finally {
       setProfileLoading(false);
     }
@@ -192,9 +205,9 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
       });
       if (error) throw error;
       setReferralCode(code);
-      alert('Código gerado com sucesso!');
+      setSuccessMsg('Código gerado com sucesso!');
     } catch (error: any) {
-      alert(error.message || 'Erro ao gerar código.');
+      setErrorMsg(error.message || 'Erro ao gerar código.');
     } finally {
       setReferralLoading(false);
     }
@@ -203,7 +216,7 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
   const copyReferralLink = () => {
     const link = `${window.location.origin}?ref=${referralCode}`;
     navigator.clipboard.writeText(link);
-    alert('Link copiado para a área de transferência!');
+    setSuccessMsg('Link copiado para a área de transferência!');
   };
 
   const receitas = categorias.filter((c) => c.tipo === 'receita');
@@ -225,10 +238,10 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
       
       if (error) throw error;
       
-      alert('Plano Premium ativado com sucesso para testes (válido por 1 mês)! Recarregue a página para aplicar as alterações.');
+      setSuccessMsg('Plano Premium ativado com sucesso para testes (válido por 1 mês)! Recarregue a página para aplicar as alterações.');
       window.location.reload();
     } catch (error: any) {
-      alert(error.message || 'Erro ao ativar plano premium.');
+      setErrorMsg(error.message || 'Erro ao ativar plano premium.');
     } finally {
       setPlanLoading(false);
     }
@@ -236,6 +249,28 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
 
   return (
     <div className="space-y-6">
+      {(errorMsg || successMsg) && (
+        <div className={`p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 duration-200 ${
+          errorMsg 
+            ? 'bg-red-50 border-red-100 text-red-600 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400' 
+            : 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800/50 dark:text-emerald-400'
+        }`}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">{errorMsg || successMsg}</p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setErrorMsg('');
+                setSuccessMsg('');
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-4">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
@@ -496,6 +531,28 @@ export function Configuracoes({ categorias, user, refetch, onNavigateToRelatorio
                 </div>
               </div>
               <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+                <ChevronDown className="h-5 w-5 -rotate-90" />
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {user.email === 'leoladislau181@gmail.com' && onNavigateToAdmin && (
+          <Card className="border-none shadow-sm bg-indigo-50 dark:bg-indigo-900/10 overflow-hidden border border-indigo-100 dark:border-indigo-900/30">
+            <div 
+              className="p-4 flex items-center justify-between cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/20 transition-colors"
+              onClick={onNavigateToAdmin}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                  <Shield className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-indigo-900 dark:text-indigo-100">Painel Administrativo</h3>
+                  <p className="text-xs text-indigo-700 dark:text-indigo-300">Acesso exclusivo para gerenciamento</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="text-indigo-400 dark:text-indigo-500">
                 <ChevronDown className="h-5 w-5 -rotate-90" />
               </Button>
             </div>

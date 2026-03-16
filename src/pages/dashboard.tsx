@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { supabase } from '@/lib/supabase';
+import { PremiumModal } from '@/components/premium-modal';
 
 interface DashboardProps {
   lancamentos: Lancamento[];
@@ -26,6 +27,9 @@ interface DashboardProps {
 }
 
 export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onReadReceipt }: DashboardProps) {
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const now = new Date();
   const start = startOfMonth(now);
   const end = endOfMonth(now);
@@ -91,6 +95,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
 
   const handleQuickEntry = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!quickValueStr || !quickKM) return;
 
     if (!isPremium(user)) {
@@ -102,14 +107,15 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       });
 
       if (transactionsThisMonth.length >= 50) {
-        alert('Usuários do plano gratuito têm um limite de 50 lançamentos por mês. Faça o upgrade para lançamentos ilimitados.');
+        setPremiumFeatureName('Lançamentos Ilimitados');
+        setIsPremiumModalOpen(true);
         return;
       }
     }
 
     const valorNum = parseCurrency(quickValueStr);
     if (valorNum <= 0) {
-      alert('O valor deve ser maior que zero.');
+      setErrorMsg('O valor deve ser maior que zero.');
       return;
     }
 
@@ -117,12 +123,12 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
     const selectedVehicle = vehicles.find(v => v.id === quickVehicleId);
 
     if (!fuelCategory) {
-      alert('Categoria "Combustível" não encontrada. Por favor, crie uma categoria de despesa com esse nome primeiro nas configurações.');
+      setErrorMsg('Categoria "Combustível" não encontrada. Por favor, crie uma categoria de despesa com esse nome primeiro nas configurações.');
       return;
     }
 
     if (!selectedVehicle) {
-      alert('Selecione um veículo.');
+      setErrorMsg('Selecione um veículo.');
       return;
     }
 
@@ -156,9 +162,8 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       setQuickPricePerLiterStr('');
       setQuickEntryOpen(false);
       refetch();
-      alert('Abastecimento registrado com sucesso!');
     } catch (error: any) {
-      alert(error.message || 'Erro ao registrar abastecimento.');
+      setErrorMsg(error.message || 'Erro ao registrar abastecimento.');
     } finally {
       setQuickLoading(false);
     }
@@ -232,17 +237,18 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
 
   const handleConfirmPerform = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!performManutencao || !performVehicle || !performKm || !performValueStr || !performDate) return;
 
     const valorNum = parseCurrency(performValueStr);
     if (valorNum <= 0) {
-      alert('O valor deve ser maior que zero.');
+      setErrorMsg('O valor deve ser maior que zero.');
       return;
     }
 
     const maintCategory = categorias.find(c => c.nome.toLowerCase().includes('manuten'));
     if (!maintCategory) {
-      alert('Categoria "Manutenção" não encontrada. Por favor, crie uma categoria de despesa com esse nome primeiro nas configurações.');
+      setErrorMsg('Categoria "Manutenção" não encontrada. Por favor, crie uma categoria de despesa com esse nome primeiro nas configurações.');
       return;
     }
 
@@ -272,9 +278,8 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
 
       setPerformModalOpen(false);
       refetch();
-      alert('Manutenção registrada com sucesso!');
     } catch (error: any) {
-      alert(error.message || 'Erro ao registrar manutenção.');
+      setErrorMsg(error.message || 'Erro ao registrar manutenção.');
     } finally {
       setPerformLoading(false);
     }
@@ -450,11 +455,19 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
 
       <Modal
         isOpen={quickEntryOpen}
-        onClose={() => setQuickEntryOpen(false)}
+        onClose={() => {
+          setQuickEntryOpen(false);
+          setErrorMsg('');
+        }}
         title="Registrar Abastecimento"
         className="max-w-lg"
       >
         <form onSubmit={handleQuickEntry} className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
             <CustomSelect 
@@ -519,11 +532,19 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
 
       <Modal
         isOpen={performModalOpen}
-        onClose={() => setPerformModalOpen(false)}
+        onClose={() => {
+          setPerformModalOpen(false);
+          setErrorMsg('');
+        }}
         title="Realizar Manutenção"
         className="max-w-md"
       >
         <form onSubmit={handleConfirmPerform} className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo e Serviço</label>
             <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -579,6 +600,12 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
           </div>
         </form>
       </Modal>
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+      />
     </div>
   );
 }

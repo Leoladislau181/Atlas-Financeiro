@@ -15,6 +15,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import { Modal } from '@/components/ui/modal';
+import { PremiumModal } from '@/components/premium-modal';
 
 interface RelatoriosProps {
   lancamentos: Lancamento[];
@@ -23,6 +24,8 @@ interface RelatoriosProps {
 }
 
 export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -35,6 +38,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
   const [exportNotes, setExportNotes] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const chartRef = React.useRef<HTMLDivElement>(null);
   const reportChartRef = React.useRef<HTMLDivElement>(null);
@@ -562,7 +566,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       setIsExportModalOpen(false);
     } catch (error) {
       console.error("Export error:", error);
-      alert("Erro ao exportar PDF.");
+      setErrorMsg("Erro ao exportar PDF.");
     } finally {
       setExportLoading(false);
     }
@@ -619,7 +623,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       setIsExportModalOpen(false);
     } catch (error) {
       console.error("Excel export error:", error);
-      alert("Erro ao exportar arquivo.");
+      setErrorMsg("Erro ao exportar arquivo.");
     } finally {
       setExportLoading(false);
     }
@@ -742,7 +746,8 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
                 <Button 
                   onClick={() => {
                     if (!isPremium(user)) {
-                      alert('A exportação de relatórios é uma funcionalidade exclusiva do plano Premium.');
+                      setPremiumFeatureName('Exportação de Relatórios');
+                      setIsPremiumModalOpen(true);
                       return;
                     }
                     setIsExportModalOpen(true);
@@ -760,10 +765,18 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
 
       <Modal
         isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
+        onClose={() => {
+          setIsExportModalOpen(false);
+          setErrorMsg('');
+        }}
         title="Exportar Relatório"
       >
         <div className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm dark:bg-red-900/20 dark:text-red-400">
+              {errorMsg}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
               <MessageSquare className="h-4 w-4 text-gray-400" />
@@ -1016,6 +1029,12 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
           </ResponsiveContainer>
         </div>
       </div>
+      
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+      />
     </div>
   );
 }

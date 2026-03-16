@@ -19,6 +19,8 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
@@ -26,6 +28,8 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
   }, []);
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg('');
+    setSuccessMsg('');
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       const reader = new FileReader();
@@ -41,6 +45,7 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
     if (!imageSrc || !croppedAreaPixels) return;
 
     setLoading(true);
+    setErrorMsg('');
     try {
       const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
       if (!croppedImageBlob) throw new Error('Falha ao processar imagem.');
@@ -79,10 +84,10 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
       setIsModalOpen(false);
       setImageSrc(null);
       onUpdate();
-      alert('Foto de perfil atualizada!');
+      setSuccessMsg('Foto de perfil atualizada!');
     } catch (error: any) {
       console.error('Error uploading photo:', error);
-      alert(error.message || 'Erro ao fazer upload da foto.');
+      setErrorMsg(error.message || 'Erro ao fazer upload da foto.');
     } finally {
       setLoading(false);
     }
@@ -90,6 +95,13 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
 
   return (
     <div className="flex flex-col items-center gap-4">
+      {(errorMsg || successMsg) && (
+        <div className={`w-full p-3 rounded-lg text-sm text-center ${
+          errorMsg ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+        }`}>
+          {errorMsg || successMsg}
+        </div>
+      )}
       <div className="relative group">
         <div className="h-24 w-24 rounded-full border-4 border-white dark:border-gray-800 shadow-md overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
           {user.foto_url ? (

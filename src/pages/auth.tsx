@@ -11,6 +11,7 @@ export function Auth() {
   const [referredBy, setReferredBy] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export function Auth() {
           }
         });
         if (error) throw error;
-        alert('Conta criada com sucesso! Verifique seu email ou faça login.');
+        setSuccess('Conta criada com sucesso! Verifique seu email ou faça login.');
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -62,7 +63,7 @@ export function Auth() {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) throw error;
-      alert('Email de recuperação enviado!');
+      setSuccess('Email de recuperação enviado!');
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro.');
     } finally {
@@ -145,6 +146,11 @@ export function Auth() {
               {error && (
                 <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-sm text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800">
                   {error}
+                </div>
+              )}
+              {success && (
+                <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-sm text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">
+                  {success}
                 </div>
               )}
               <Button type="submit" className="w-full h-12 text-base font-semibold bg-[#F59E0B] hover:bg-[#D97706] shadow-md hover:shadow-lg transition-all" disabled={loading}>

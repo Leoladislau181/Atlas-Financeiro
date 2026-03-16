@@ -13,11 +13,15 @@ const Relatorios = React.lazy(() => import('@/pages/relatorios').then(m => ({ de
 const Configuracoes = React.lazy(() => import('@/pages/configuracoes').then(m => ({ default: m.Configuracoes })));
 const Veiculos = React.lazy(() => import('@/pages/veiculos').then(m => ({ default: m.Veiculos })));
 const Premium = React.lazy(() => import('@/pages/premium').then(m => ({ default: m.Premium })));
+const Admin = React.lazy(() => import('@/pages/admin').then(m => ({ default: m.Admin })));
+import { PremiumModal } from '@/components/premium-modal';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('inicio');
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -117,6 +121,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
   const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
   const [forceOpenProfile, setForceOpenProfile] = useState(false);
   const [forceOpenReceiptReader, setForceOpenReceiptReader] = useState(false);
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
 
   if (loading) {
     return (
@@ -144,7 +150,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
       });
 
       if (transactionsThisMonth.length >= 50) {
-        alert('Usuários do plano gratuito têm um limite de 50 lançamentos por mês. Faça o upgrade para lançamentos ilimitados.');
+        setPremiumFeatureName('Lançamentos Ilimitados');
+        setIsPremiumModalOpen(true);
         return;
       }
     }
@@ -202,7 +209,13 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onReceiptReaderClose={() => setForceOpenReceiptReader(false)}
           />
         )}
-        {activeTab === 'relatorios' && <Relatorios lancamentos={lancamentos} vehicles={vehicles} user={user} />}
+        {activeTab === 'relatorios' && (
+          <Relatorios 
+            lancamentos={lancamentos} 
+            vehicles={vehicles} 
+            user={user} 
+          />
+        )}
         {activeTab === 'veiculos' && (
           <Veiculos
             vehicles={vehicles}
@@ -211,6 +224,9 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             refetch={refetch}
             user={user}
           />
+        )}
+        {activeTab === 'admin' && user.email === 'leoladislau181@gmail.com' && (
+          <Admin />
         )}
         {activeTab === 'premium' && (
           <Premium user={user} refetch={refetch} />
@@ -223,11 +239,18 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onNavigateToRelatorios={() => setActiveTab('relatorios')}
             onNavigateToPremium={() => setActiveTab('premium')}
             onNavigateToVeiculos={() => setActiveTab('veiculos')}
+            onNavigateToAdmin={() => setActiveTab('admin')}
             forceOpenProfile={forceOpenProfile}
             onProfileOpened={() => setForceOpenProfile(false)}
           />
         )}
       </Suspense>
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+      />
     </Layout>
   );
 }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
+import { PremiumModal } from '@/components/premium-modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium } from '@/lib/utils';
 import { Lancamento, Vehicle, Manutencao, User } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -64,6 +65,9 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
   const [deletingMaintenanceId, setDeletingMaintenanceId] = useState<string | null>(null);
   
   const [expandedInfo, setExpandedInfo] = useState<Record<string, boolean>>({});
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
 
   const toggleInfo = (id: string) => {
     setExpandedInfo(prev => ({ ...prev, [id]: !prev[id] }));
@@ -80,13 +84,15 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!name || !plate || !initialOdometer) {
-      alert('Preencha os campos obrigatórios.');
+      setErrorMsg('Preencha os campos obrigatórios.');
       return;
     }
 
     if (!editingId && !isPremium(user) && vehicles.length >= 1) {
-      alert('Usuários do plano gratuito podem cadastrar apenas 1 veículo. Faça o upgrade para cadastrar mais veículos.');
+      setPremiumFeatureName('Múltiplos Veículos');
+      setIsPremiumModalOpen(true);
       return;
     }
 
@@ -146,7 +152,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       setIsFormOpen(false);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao salvar veículo.');
+      setErrorMsg(error.message || 'Erro ao salvar veículo.');
     } finally {
       setLoading(false);
     }
@@ -261,7 +267,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       setRenewingVehicle(null);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao renovar contrato.');
+      setErrorMsg(error.message || 'Erro ao renovar contrato.');
     } finally {
       setLoading(false);
     }
@@ -281,19 +287,21 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       setDeletingId(null);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao excluir veículo.');
+      setErrorMsg(error.message || 'Erro ao excluir veículo.');
     }
   };
 
   const handleSaveMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!maintenanceVehicle || !maintenanceTipo || !maintenanceIntervaloKm || !maintenanceUltimoKm || !maintenanceAvisoKm) {
-      alert('Preencha todos os campos.');
+      setErrorMsg('Preencha todos os campos.');
       return;
     }
 
     if (!isPremium(user)) {
-      alert('O plano de manutenção é uma funcionalidade exclusiva do plano Premium.');
+      setPremiumFeatureName('Plano de Manutenção');
+      setIsPremiumModalOpen(true);
       return;
     }
 
@@ -323,7 +331,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       setEditingMaintenanceId(null);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao salvar manutenção.');
+      setErrorMsg(error.message || 'Erro ao salvar manutenção.');
     } finally {
       setLoading(false);
     }
@@ -351,7 +359,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       setDeletingMaintenanceId(null);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao excluir manutenção.');
+      setErrorMsg(error.message || 'Erro ao excluir manutenção.');
     }
   };
 
@@ -418,7 +426,8 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
           className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
           onClick={() => {
             if (!isFormOpen && !editingId && !isPremium(user) && vehicles.length >= 1) {
-              alert('Usuários do plano gratuito podem cadastrar apenas 1 veículo. Faça o upgrade para cadastrar mais veículos.');
+              setPremiumFeatureName('Cadastro de Múltiplos Veículos');
+              setIsPremiumModalOpen(true);
               return;
             }
             setIsFormOpen(true);
@@ -463,11 +472,17 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
         onClose={() => {
           setIsFormOpen(false);
           resetForm();
+          setErrorMsg('');
         }}
         title={editingId ? 'Editar Veículo' : 'Novo Veículo'}
         className="max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome do Veículo *</label>
@@ -802,11 +817,19 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
 
       <Modal
         isOpen={renewModalOpen}
-        onClose={() => setRenewModalOpen(false)}
+        onClose={() => {
+          setRenewModalOpen(false);
+          setErrorMsg('');
+        }}
         title={`Renovar Contrato - ${renewingVehicle?.name}`}
         className="max-w-lg"
       >
         <form onSubmit={handleRenewSubmit} className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Novo Valor do Contrato</label>
@@ -892,11 +915,19 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
 
       <Modal
         isOpen={maintenanceModalOpen}
-        onClose={() => setMaintenanceModalOpen(false)}
+        onClose={() => {
+          setMaintenanceModalOpen(false);
+          setErrorMsg('');
+        }}
         title={`Plano de Manutenção - ${maintenanceVehicle?.name}`}
         className="max-w-2xl"
       >
         <div className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
           <form onSubmit={handleSaveMaintenance} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
             <div className="space-y-2">
               <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Tipo (ex: Óleo)</label>
@@ -1007,6 +1038,12 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
           </Button>
         </div>
       </Modal>
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+      />
     </div>
   );
 }

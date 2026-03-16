@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/modal';
 import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Camera, Loader2, Lock } from 'lucide-react';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Loader2, Lock } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { parseReceiptImage } from '@/services/geminiService';
@@ -25,7 +25,12 @@ interface LancamentosProps {
   onReceiptReaderClose?: () => void;
 }
 
+import { PremiumModal } from '@/components/premium-modal';
+
 export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose, forceOpenReceiptReader, onReceiptReaderClose }: LancamentosProps) {
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [tipo, setTipo] = useState<TipoLancamento>('despesa');
   const [categoriaId, setCategoriaId] = useState('');
@@ -68,14 +73,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   useEffect(() => {
     if (forceOpenReceiptReader) {
       if (!isPremium(user)) {
-        alert('A Leitura de Nota Fiscal com IA é uma funcionalidade exclusiva do plano Premium.');
+        setPremiumFeatureName('Leitura de Nota Fiscal com IA');
+        setIsPremiumModalOpen(true);
         if (onReceiptReaderClose) onReceiptReaderClose();
         return;
       }
       
-      setIsFormOpen(true);
-      
-      // Small timeout to ensure the form is rendered and ref is available
+      // Small timeout to ensure the ref is available
       setTimeout(() => {
         if (fileInputRef.current) {
           fileInputRef.current.click();
@@ -114,7 +118,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
 
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isPremium(user)) {
-      alert('A Leitura de Nota Fiscal com IA é uma funcionalidade exclusiva do plano Premium.');
+      setPremiumFeatureName('Leitura de Nota Fiscal com IA');
+      setIsPremiumModalOpen(true);
       return;
     }
 
@@ -148,7 +153,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
           setObservacao('Lançamento via Leitor de Nota Fiscal');
           setIsFormOpen(true);
         } catch (error: any) {
-          alert('Erro ao ler a nota fiscal: ' + error.message);
+          setErrorMsg('Erro ao ler a nota fiscal: ' + error.message);
         } finally {
           setIsReadingReceipt(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -157,35 +162,36 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       reader.readAsDataURL(file);
     } catch (error) {
       setIsReadingReceipt(false);
-      alert('Erro ao processar imagem.');
+      setErrorMsg('Erro ao processar imagem.');
     }
   };
 
   const isCombustivel = () => {
     const cat = categorias.find(c => c.id === categoriaId);
-    return cat?.nome.toLowerCase().includes('combustível') || cat?.nome.toLowerCase().includes('combustivel');
+    return (cat?.nome || '').toLowerCase().includes('combustível') || (cat?.nome || '').toLowerCase().includes('combustivel');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!categoriaId || !valorStr || !data) {
-      alert('Preencha os campos obrigatórios.');
+      setErrorMsg('Preencha os campos obrigatórios.');
       return;
     }
 
     if (useVehicle && !vehicleId) {
-      alert('Selecione um veículo.');
+      setErrorMsg('Selecione um veículo.');
       return;
     }
 
     if (useVehicle && tipo === 'despesa' && !odometer) {
-      alert('O odômetro é obrigatório para despesas atreladas a um veículo.');
+      setErrorMsg('O odômetro é obrigatório para despesas atreladas a um veículo.');
       return;
     }
 
     const valorNum = parseCurrency(valorStr);
     if (valorNum <= 0) {
-      alert('O valor deve ser maior que zero.');
+      setErrorMsg('O valor deve ser maior que zero.');
       return;
     }
 
@@ -198,7 +204,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       });
 
       if (transactionsThisMonth.length >= 50) {
-        alert('Usuários do plano gratuito têm um limite de 50 lançamentos por mês. Faça o upgrade para lançamentos ilimitados.');
+        setPremiumFeatureName('Lançamentos Ilimitados');
+        setIsPremiumModalOpen(true);
         return;
       }
     }
@@ -220,7 +227,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
          // Actually, let's just warn or block. The prompt says "Não pode ser menor que último odômetro registrado"
          // If editing, it might be the last one, so it's fine. Let's just do a simple check.
          if (odoNum < lastOdo && !editingId) {
-            alert(`O odômetro atual (${odoNum}) não pode ser menor que o último registrado (${lastOdo}).`);
+            setErrorMsg(`O odômetro atual (${odoNum}) não pode ser menor que o último registrado (${lastOdo}).`);
             return;
          }
       }
@@ -270,7 +277,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       setIsFormOpen(false);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao salvar lançamento.');
+      setErrorMsg(error.message || 'Erro ao salvar lançamento.');
     } finally {
       setLoading(false);
     }
@@ -316,7 +323,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       setDeletingId(null);
       refetch();
     } catch (error: any) {
-      alert(error.message || 'Erro ao excluir lançamento.');
+      setErrorMsg(error.message || 'Erro ao excluir lançamento.');
     }
   };
 
@@ -545,11 +552,19 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
 
       <Modal
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setIsFormOpen(false);
+          setErrorMsg('');
+        }}
         title={editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
         className="max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
@@ -874,6 +889,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
           </Button>
         </div>
       </Modal>
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+      />
     </div>
   );
 }

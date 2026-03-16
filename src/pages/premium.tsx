@@ -6,6 +6,8 @@ import { User } from '@/types';
 import { isPremium } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
+import { Modal } from '@/components/ui/modal';
+
 interface PremiumProps {
   user: User;
   refetch: () => void;
@@ -13,11 +15,16 @@ interface PremiumProps {
 
 export function Premium({ user, refetch }: PremiumProps) {
   const [loading, setLoading] = useState(false);
+  const [isComingSoonOpen, setIsComingSoonOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: string } | null>(null);
   const isUserPremium = isPremium(user);
 
   const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
-    // Aqui no futuro chamaremos a API do Stripe/Mercado Pago
-    alert(`Em breve! Integração com pagamento para o plano ${plan === 'monthly' ? 'Mensal (R$ 14,90)' : 'Anual (R$ 99,90)'}.`);
+    setSelectedPlan({
+      name: plan === 'monthly' ? 'Mensal' : 'Anual',
+      price: plan === 'monthly' ? 'R$ 14,90' : 'R$ 99,90'
+    });
+    setIsComingSoonOpen(true);
   };
 
   return (
@@ -146,6 +153,34 @@ export function Premium({ user, refetch }: PremiumProps) {
           Pagamento seguro via PIX ou Cartão de Crédito. Cancele quando quiser.
         </p>
       </div>
+
+      <Modal
+        isOpen={isComingSoonOpen}
+        onClose={() => setIsComingSoonOpen(false)}
+        title="Em Breve!"
+        className="max-w-md"
+      >
+        <div className="flex flex-col items-center justify-center py-8 space-y-4 text-center">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-full">
+            <Zap className="h-12 w-12 text-amber-500" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Integração em Andamento</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Estamos finalizando a integração com o sistema de pagamentos para o plano <strong>{selectedPlan?.name} ({selectedPlan?.price})</strong>.
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 pt-2">
+              Em poucos dias você poderá assinar e desbloquear todos os recursos premium automaticamente!
+            </p>
+          </div>
+          <Button 
+            onClick={() => setIsComingSoonOpen(false)}
+            className="w-full bg-[#F59E0B] hover:bg-[#D97706] text-white mt-4"
+          >
+            Entendido
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
