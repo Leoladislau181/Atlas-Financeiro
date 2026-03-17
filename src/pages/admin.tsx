@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Shield, Users, Star, Search, CheckCircle, XCircle, Download, Activity, Car, Wrench, Clock, MoreVertical } from 'lucide-react';
+import { Shield, Users, Star, Search, CheckCircle, XCircle, Download, Activity, Car, Wrench, Clock, MoreVertical, AlertCircle } from 'lucide-react';
 import { format, addMonths, addYears } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Modal } from '@/components/ui/modal';
 
 export function Admin() {
   const [users, setUsers] = useState<any[]>([]);
@@ -19,6 +20,10 @@ export function Admin() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [userDetails, setUserDetails] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  
+  // Custom Alert/Confirm Modals
+  const [alertMessage, setAlertMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState<{ message: string, onConfirm: () => void } | null>(null);
 
   const fetchUsersAndStats = async () => {
     try {
@@ -95,28 +100,32 @@ export function Admin() {
       setIsPremiumModalOpen(false);
       fetchUsersAndStats();
     } catch (err: any) {
-      alert(err.message);
+      setAlertMessage(err.message);
     }
   };
 
   const handleRemovePremium = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja remover o acesso Premium deste usuário?')) return;
-    try {
-      const response = await fetch(`/api/admin/users/${userId}/premium`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ premium_until: null })
-      });
-      
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Erro ao remover premium');
+    setConfirmAction({
+      message: 'Tem certeza que deseja remover o acesso Premium deste usuário?',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/admin/users/${userId}/premium`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ premium_until: null })
+          });
+          
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Erro ao remover premium');
+          }
+          
+          fetchUsersAndStats();
+        } catch (err: any) {
+          setAlertMessage(err.message);
+        }
       }
-      
-      fetchUsersAndStats();
-    } catch (err: any) {
-      alert(err.message);
-    }
+    });
   };
 
   const openUserDetails = async (user: any) => {
@@ -134,7 +143,7 @@ export function Admin() {
       if (!response.ok) throw new Error(data.error);
       setUserDetails(data);
     } catch (err: any) {
-      alert('Erro ao carregar detalhes: ' + err.message);
+      setAlertMessage('Erro ao carregar detalhes: ' + err.message);
     } finally {
       setDetailsLoading(false);
     }
@@ -472,6 +481,50 @@ export function Admin() {
           </Card>
         </div>
       )}
+
+      {/* Alert Modal */}
+      <Modal
+        isOpen={!!alertMessage}
+        onClose={() => setAlertMessage('')}
+        title="Aviso"
+      >
+        <div className="flex flex-col items-center justify-center text-center p-4">
+          <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+          <p className="text-gray-700 dark:text-gray-300 mb-6">{alertMessage}</p>
+          <Button onClick={() => setAlertMessage('')} className="w-full">
+            Entendi
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Confirm Modal */}
+      <Modal
+        isOpen={!!confirmAction}
+        onClose={() => setConfirmAction(null)}
+        title="Confirmação"
+      >
+        <div className="flex flex-col items-center justify-center text-center p-4">
+          <AlertCircle className="h-12 w-12 text-indigo-500 mb-4" />
+          <p className="text-gray-700 dark:text-gray-300 mb-6">{confirmAction?.message}</p>
+          <div className="flex gap-3 w-full">
+            <Button variant="outline" onClick={() => setConfirmAction(null)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => {
+                if (confirmAction) {
+                  confirmAction.onConfirm();
+                  setConfirmAction(null);
+                }
+              }} 
+              className="flex-1"
+            >
+              Confirmar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
