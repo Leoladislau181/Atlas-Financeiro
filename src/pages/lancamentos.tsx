@@ -168,12 +168,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
 
   const isCombustivel = () => {
     const cat = categorias.find(c => c.id === categoriaId);
-    return (cat?.nome || '').toLowerCase().includes('combustível') || (cat?.nome || '').toLowerCase().includes('combustivel');
-  };
-
-  const isManutencao = () => {
-    const cat = categorias.find(c => c.id === categoriaId);
-    return (cat?.nome || '').toLowerCase().includes('manutenção') || (cat?.nome || '').toLowerCase().includes('manutencao');
+    return cat?.nome.toLowerCase().includes('combustível') || cat?.nome.toLowerCase().includes('combustivel');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,10 +185,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     }
 
     if (useVehicle && tipo === 'despesa' && !odometer) {
-      if (isCombustivel() || isManutencao()) {
-        setErrorMsg('O odômetro é obrigatório para abastecimento e manutenção.');
-        return;
-      }
+      setErrorMsg('O odômetro é obrigatório para despesas atreladas a um veículo.');
+      return;
     }
 
     const valorNum = parseCurrency(valorStr);
@@ -217,7 +210,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       }
     }
 
-    if (useVehicle && tipo === 'despesa' && odometer) {
+    if (useVehicle && tipo === 'despesa') {
       const vehicle = vehicles.find(v => v.id === vehicleId);
       const odoNum = Number(odometer);
       
@@ -250,7 +243,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
         data,
         observacao,
         vehicle_id: useVehicle ? vehicleId : null,
-        odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
+        odometer: useVehicle && tipo === 'despesa' ? Number(odometer) : null,
         fuel_price_per_liter: null,
         fuel_liters: null,
       };
@@ -633,16 +626,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
               {useVehicle && tipo === 'despesa' && (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Odômetro Atual (KM) {(isCombustivel() || isManutencao()) ? '*' : '(Opcional)'}
-                    </label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Odômetro Atual (KM) *</label>
                     <Input
                       type="number"
                       inputMode="numeric"
                       placeholder="Ex: 50100"
                       value={odometer}
                       onChange={(e) => setOdometer(e.target.value)}
-                      required={useVehicle && tipo === 'despesa' && (isCombustivel() || isManutencao())}
+                      required={useVehicle && tipo === 'despesa'}
                     />
                   </div>
 
