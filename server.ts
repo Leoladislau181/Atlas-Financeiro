@@ -12,7 +12,25 @@ const PORT = 3000;
 app.use(express.json());
 
 // Admin API Routes
+app.use("/api", (req, res, next) => {
+  console.log(`[API Request] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Helper function to add timeout to promises
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+  let timeoutHandle: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+  return Promise.race([
+    promise,
+    timeoutPromise
+  ]).finally(() => clearTimeout(timeoutHandle));
+};
+
 app.get(["/api/admin/users", "/api/admin/users/"], async (req, res) => {
+  console.log("[API] Hit /api/admin/users");
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -30,7 +48,12 @@ app.get(["/api/admin/users", "/api/admin/users/"], async (req, res) => {
       }
     });
 
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users }, error } = await withTimeout(
+      supabaseAdmin.auth.admin.listUsers(),
+      15000,
+      "A requisição ao Supabase demorou muito. O projeto pode estar pausado ou a URL está incorreta."
+    );
+    
     if (error) throw error;
 
     const formattedUsers = users.map(u => ({
@@ -61,14 +84,20 @@ app.get(["/api/admin/stats", "/api/admin/stats/"], async (req, res) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    const { count: totalLancamentos } = await supabaseAdmin.from('lancamentos').select('*', { count: 'exact', head: true });
-    const { count: totalVeiculos } = await supabaseAdmin.from('vehicles').select('*', { count: 'exact', head: true });
-    const { count: totalManutencoes } = await supabaseAdmin.from('manutencoes').select('*', { count: 'exact', head: true });
+    const [lancamentosRes, veiculosRes, manutencoesRes] = await withTimeout(
+      Promise.all([
+        supabaseAdmin.from('lancamentos').select('*', { count: 'exact', head: true }),
+        supabaseAdmin.from('vehicles').select('*', { count: 'exact', head: true }),
+        supabaseAdmin.from('manutencoes').select('*', { count: 'exact', head: true })
+      ]),
+      15000,
+      "A requisição ao Supabase demorou muito. O projeto pode estar pausado ou a URL está incorreta."
+    );
 
     res.json({
-      totalLancamentos: totalLancamentos || 0,
-      totalVeiculos: totalVeiculos || 0,
-      totalManutencoes: totalManutencoes || 0
+      totalLancamentos: lancamentosRes.count || 0,
+      totalVeiculos: veiculosRes.count || 0,
+      totalManutencoes: manutencoesRes.count || 0
     });
   } catch (error: any) {
     console.error("Erro ao buscar estatísticas:", error);
@@ -90,14 +119,20 @@ app.get("/api/admin/users/:id/stats", async (req, res) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    const { count: totalLancamentos } = await supabaseAdmin.from('lancamentos').select('*', { count: 'exact', head: true }).eq('user_id', id);
-    const { count: totalVeiculos } = await supabaseAdmin.from('vehicles').select('*', { count: 'exact', head: true }).eq('user_id', id);
-    const { count: totalManutencoes } = await supabaseAdmin.from('manutencoes').select('*', { count: 'exact', head: true }).eq('user_id', id);
+    const [lancamentosRes, veiculosRes, manutencoesRes] = await withTimeout(
+      Promise.all([
+        supabaseAdmin.from('lancamentos').select('*', { count: 'exact', head: true }).eq('user_id', id),
+        supabaseAdmin.from('vehicles').select('*', { count: 'exact', head: true }).eq('user_id', id),
+        supabaseAdmin.from('manutencoes').select('*', { count: 'exact', head: true }).eq('user_id', id)
+      ]),
+      15000,
+      "A requisição ao Supabase demorou muito. O projeto pode estar pausado ou a URL está incorreta."
+    );
 
     res.json({
-      totalLancamentos: totalLancamentos || 0,
-      totalVeiculos: totalVeiculos || 0,
-      totalManutencoes: totalManutencoes || 0
+      totalLancamentos: lancamentosRes.count || 0,
+      totalVeiculos: veiculosRes.count || 0,
+      totalManutencoes: manutencoesRes.count || 0
     });
   } catch (error: any) {
     console.error("Erro ao buscar estatísticas do usuário:", error);
@@ -121,17 +156,25 @@ app.post("/api/admin/users/:id/premium", async (req, res) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    const { data: user, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(id);
+    const { data: user, error: fetchError } = await withTimeout(
+      supabaseAdmin.auth.admin.getUserById(id),
+      15000,
+      "A requisição ao Supabase demorou muito. O projeto pode estar pausado ou a URL está incorreta."
+    );
     if (fetchError) throw fetchError;
 
     const currentMetadata = user.user.user_metadata || {};
     
-    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(id, {
-      user_metadata: {
-        ...currentMetadata,
-        premium_until
-      }
-    });
+    const { data, error } = await withTimeout(
+      supabaseAdmin.auth.admin.updateUserById(id, {
+        user_metadata: {
+          ...currentMetadata,
+          premium_until
+        }
+      }),
+      15000,
+      "A requisição ao Supabase demorou muito. O projeto pode estar pausado ou a URL está incorreta."
+    );
 
     if (error) throw error;
     res.json({ success: true, user: data.user });
@@ -144,6 +187,12 @@ app.post("/api/admin/users/:id/premium", async (req, res) => {
 // Catch-all for API routes to prevent Vite from serving HTML for missing API endpoints
 app.use("/api", (req, res) => {
   res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Global error handler for API routes
+app.use("/api", (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global API Error:", err);
+  res.status(err.status || 500).json({ error: err.message || "Erro interno do servidor" });
 });
 
 async function startServer() {
