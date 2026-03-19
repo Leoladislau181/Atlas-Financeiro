@@ -2,7 +2,8 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#F9FAFB" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -13,21 +14,6 @@
     <title>Atlas Financeiro</title>
   </head>
   <body>
-    <!-- DEBUG ERROR CATCHER -->
-    <div id="debug-error-box" style="display: none; position: fixed; top: 0; left: 0; right: 0; background: red; color: white; padding: 20px; z-index: 999999; font-family: monospace; white-space: pre-wrap; max-height: 50vh; overflow-y: auto;"></div>
-    <script>
-      window.onerror = function(message, source, lineno, colno, error) {
-        var box = document.getElementById('debug-error-box');
-        box.style.display = 'block';
-        box.innerHTML += 'Error: ' + message + '\\n\\n';
-        if (error && error.stack) box.innerHTML += error.stack + '\\n\\n';
-      };
-      window.addEventListener('unhandledrejection', function(event) {
-        var box = document.getElementById('debug-error-box');
-        box.style.display = 'block';
-        box.innerHTML += 'Promise Error: ' + (event.reason ? (event.reason.stack || event.reason.message || event.reason) : event.reason) + '\\n\\n';
-      });
-    </script>
     <div id="root">
       <style>
         .initial-loader {

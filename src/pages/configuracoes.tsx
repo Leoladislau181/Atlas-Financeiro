@@ -7,7 +7,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { isPremium } from '@/lib/utils';
@@ -19,7 +19,6 @@ interface ConfiguracoesProps {
   onNavigateToRelatorios?: () => void;
   onNavigateToPremium?: () => void;
   onNavigateToVeiculos?: () => void;
-  onNavigateToAdmin?: () => void;
   forceOpenProfile?: boolean;
   onProfileOpened?: () => void;
 }
@@ -31,7 +30,6 @@ export function Configuracoes({
   onNavigateToRelatorios, 
   onNavigateToPremium, 
   onNavigateToVeiculos, 
-  onNavigateToAdmin,
   forceOpenProfile, 
   onProfileOpened 
 }: ConfiguracoesProps) {
@@ -61,6 +59,76 @@ export function Configuracoes({
   const [planLoading, setPlanLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminMetrics, setAdminMetrics] = useState<any>(null);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+
+  const fetchAdminData = async () => {
+    setAdminLoading(true);
+    try {
+      // Fetch all profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Fetch global metrics
+      const { count: totalUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: premiumUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .not('premium_until', 'is', null)
+        .gt('premium_until', new Date().toISOString());
+
+      const { count: totalLancamentos } = await supabase
+        .from('lancamentos')
+        .select('*', { count: 'exact', head: true });
+
+      setAdminUsers(profiles || []);
+      setAdminMetrics({
+        totalUsers,
+        premiumUsers,
+        totalLancamentos
+      });
+    } catch (error: any) {
+      console.error('Erro ao buscar dados administrativos:', error);
+      setErrorMsg('Erro ao carregar dados do painel administrativo.');
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const toggleUserPremium = async (userId: string, currentPremiumUntil: string | null) => {
+    try {
+      const isCurrentlyPremium = currentPremiumUntil && new Date(currentPremiumUntil) > new Date();
+      const newPremiumUntil = isCurrentlyPremium ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ premium_until: newPremiumUntil })
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      setSuccessMsg(`Status Premium do usuário atualizado!`);
+      fetchAdminData();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao atualizar status premium.');
+    }
+  };
+
+  React.useEffect(() => {
+    if (isAdminOpen && user.role === 'admin') {
+      fetchAdminData();
+    }
+  }, [isAdminOpen, user.role]);
 
   React.useEffect(() => {
     setProfileNome(user.nome || '');
@@ -537,28 +605,6 @@ export function Configuracoes({
           </Card>
         )}
 
-        {user.email === 'leoladislau181@gmail.com' && onNavigateToAdmin && (
-          <Card className="border-none shadow-sm bg-indigo-50 dark:bg-indigo-900/10 overflow-hidden border border-indigo-100 dark:border-indigo-900/30">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/20 transition-colors"
-              onClick={onNavigateToAdmin}
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                  <Shield className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-indigo-900 dark:text-indigo-100">Painel Administrativo</h3>
-                  <p className="text-xs text-indigo-700 dark:text-indigo-300">Acesso exclusivo para gerenciamento</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="text-indigo-400 dark:text-indigo-500">
-                <ChevronDown className="h-5 w-5 -rotate-90" />
-              </Button>
-            </div>
-          </Card>
-        )}
-
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -578,6 +624,133 @@ export function Configuracoes({
             </Button>
           </div>
         </Card>
+
+        {user.role === 'admin' && (
+          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden border-2 border-blue-100 dark:border-blue-900/30">
+            <div 
+              className="p-4 flex items-center justify-between cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
+              onClick={() => setIsAdminOpen(!isAdminOpen)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
+                  <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100">Painel Administrativo</h3>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Acesso restrito ao administrador</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+                {isAdminOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </Button>
+            </div>
+
+            {isAdminOpen && (
+              <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                {adminLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Total Usuários</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{adminMetrics?.totalUsers || 0}</p>
+                      </div>
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 uppercase font-bold tracking-wider mb-1">Usuários Premium</p>
+                        <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{adminMetrics?.premiumUsers || 0}</p>
+                      </div>
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-1">Total Lançamentos</p>
+                        <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{adminMetrics?.totalLancamentos || 0}</p>
+                      </div>
+                    </div>
+
+                    {/* Users List */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-gray-900 dark:text-gray-100">Gerenciar Usuários</h4>
+                        <Button variant="ghost" size="sm" onClick={fetchAdminData} className="text-xs">Atualizar Lista</Button>
+                      </div>
+                      
+                      <div className="overflow-x-auto -mx-6 px-6">
+                        <table className="w-full text-sm text-left">
+                          <thead>
+                            <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                              <th className="pb-3 font-medium">Usuário</th>
+                              <th className="pb-3 font-medium">Role</th>
+                              <th className="pb-3 font-medium">Plano</th>
+                              <th className="pb-3 font-medium text-right">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                            {adminUsers.map((u) => {
+                              const isUserPremium = u.premium_until && new Date(u.premium_until) > new Date();
+                              return (
+                                <tr key={u.id} className="group">
+                                  <td className="py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                                        {u.foto_url ? (
+                                          <img src={u.foto_url} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                          <UserIcon className="h-4 w-4 text-gray-400" />
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-gray-900 dark:text-gray-100">{u.nome || 'Sem nome'}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{u.email}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-4">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      u.role === 'admin' 
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                    }`}>
+                                      {u.role}
+                                    </span>
+                                  </td>
+                                  <td className="py-4">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      isUserPremium 
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
+                                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                    }`}>
+                                      {isUserPremium ? 'Premium' : 'Grátis'}
+                                    </span>
+                                  </td>
+                                  <td className="py-4 text-right">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className={`h-8 text-[10px] font-bold uppercase ${
+                                        isUserPremium 
+                                          ? 'text-red-600 hover:text-red-700 border-red-100 hover:bg-red-50' 
+                                          : 'text-emerald-600 hover:text-emerald-700 border-emerald-100 hover:bg-emerald-50'
+                                      }`}
+                                      onClick={() => toggleUserPremium(u.id, u.premium_until)}
+                                    >
+                                      {isUserPremium ? 'Remover Premium' : 'Dar Premium'}
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+        )}
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 

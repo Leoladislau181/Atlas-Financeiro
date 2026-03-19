@@ -27,14 +27,9 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
     userIsPremium 
       ? { id: 'veiculos', label: 'Veículos', icon: Car }
       : { id: 'premium', label: 'Premium', icon: Star },
+    ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
     { id: 'configuracoes', label: 'Mais', icon: Menu },
   ];
-
-  const isAdmin = user?.role === 'admin' || user?.email === 'leoladislau181@gmail.com';
-
-  if (isAdmin) {
-    tabs.splice(3, 0, { id: 'admin', label: 'Admin', icon: Shield });
-  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

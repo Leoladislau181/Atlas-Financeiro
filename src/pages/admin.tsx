@@ -1,288 +1,250 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Users, Star, Shield, TrendingUp, Search, Check, X, Mail, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { User } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw } from 'lucide-react';
 
-export function Admin() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    premiumUsers: 0,
-    admins: 0,
-    totalLancamentos: 0
-  });
+interface AdminProps {
+  user: User;
+}
 
-  const fetchData = async () => {
+export function Admin({ user }: AdminProps) {
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [adminMetrics, setAdminMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (user.role === 'admin') {
+      fetchAdminData();
+    }
+  }, [user.role]);
+
+  const fetchAdminData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch users from profiles
-      const { data: profiles, error: pError } = await supabase
+      // Fetch all profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (pError) throw pError;
-      setUsers(profiles || []);
+      if (profilesError) throw profilesError;
 
-      // 2. Fetch stats
+      // Fetch global metrics
+      const { count: totalUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: premiumUsers } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .not('premium_until', 'is', null)
+        .gt('premium_until', new Date().toISOString());
+
       const { count: totalLancamentos } = await supabase
         .from('lancamentos')
         .select('*', { count: 'exact', head: true });
 
-      setStats({
-        totalUsers: profiles?.length || 0,
-        premiumUsers: profiles?.filter(p => p.premium_until && new Date(p.premium_until) > new Date()).length || 0,
-        admins: profiles?.filter(p => p.role === 'admin').length || 0,
-        totalLancamentos: totalLancamentos || 0
+      setAdminUsers(profiles || []);
+      setAdminMetrics({
+        totalUsers,
+        premiumUsers,
+        totalLancamentos
       });
-    } catch (err) {
-      console.error('Erro ao buscar dados admin:', err);
+    } catch (error: any) {
+      console.error('Erro ao buscar dados administrativos:', error);
+      setErrorMsg('Erro ao carregar dados do painel administrativo.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const togglePremium = async (userId: string, currentPremiumUntil: string | null) => {
-    const newPremiumUntil = currentPremiumUntil && new Date(currentPremiumUntil) > new Date()
-      ? null
-      : new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
-
+  const toggleUserPremium = async (userId: string, currentPremiumUntil: string | null) => {
     try {
+      const isCurrentlyPremium = currentPremiumUntil && new Date(currentPremiumUntil) > new Date();
+      const newPremiumUntil = isCurrentlyPremium ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
       const { error } = await supabase
         .from('profiles')
         .update({ premium_until: newPremiumUntil })
         .eq('id', userId);
 
       if (error) throw error;
-      fetchData();
-    } catch (err) {
-      console.error('Erro ao atualizar premium:', err);
+      
+      setSuccessMsg(`Status Premium do usuário atualizado!`);
+      fetchAdminData();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao atualizar status premium.');
     }
   };
 
-  const toggleRole = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    
-    // Antigravidade: Don't let admin remove their own admin status easily if you want, 
-    // but here we just follow the change.
-    
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
-
-      if (error) throw error;
-      fetchData();
-    } catch (err) {
-      console.error('Erro ao atualizar role:', err);
-    }
-  };
-
-  const filteredUsers = users.filter(u => 
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.nome?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  if (user.role !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-full mb-4">
+          <Shield className="h-12 w-12 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Acesso Negado</h2>
+        <p className="text-gray-600 dark:text-gray-400 max-w-md">
+          Esta área é restrita apenas para administradores do sistema.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Painel Administrativo</h2>
-        <Button onClick={fetchData} variant="outline" size="sm" className="gap-2">
-           <TrendingUp className="h-4 w-4" /> Atualizar Dados
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Shield className="h-6 w-6 text-blue-600" />
+            Painel Administrativo
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie usuários e visualize métricas globais do sistema.</p>
+        </div>
+        <Button onClick={fetchAdminData} disabled={loading} variant="outline" className="flex items-center gap-2">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Atualizar Dados
         </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {(errorMsg || successMsg) && (
+        <div className={`p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 duration-200 ${
+          errorMsg 
+            ? 'bg-red-50 border-red-100 text-red-600 dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400' 
+            : 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:border-emerald-800/50 dark:text-emerald-400'
+        }`}>
+          <p className="text-sm font-medium">{errorMsg || successMsg}</p>
+        </div>
+      )}
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
                 <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Usuários</p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalUsers}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Total Usuários</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{adminMetrics?.totalUsers || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl">
                 <Star className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Usuários Premium</p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.premiumUsers}</h3>
+                <p className="text-xs text-amber-600 dark:text-amber-400 uppercase font-bold tracking-wider mb-1">Usuários Premium</p>
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{adminMetrics?.premiumUsers || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl">
+                <Database className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Administradores</p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.admins}</h3>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Lançamentos</p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalLancamentos}</h3>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-1">Total Lançamentos</p>
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{adminMetrics?.totalLancamentos || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Users Table */}
+      {/* Users List */}
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-        <CardHeader className="border-b border-gray-50 dark:border-gray-800 flex flex-row items-center justify-between space-y-0 p-6">
-          <CardTitle className="text-lg font-semibold">Gerenciar Usuários</CardTitle>
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input 
-              placeholder="Buscar por nome ou email..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 bg-gray-50 dark:bg-gray-800 border-none"
-            />
-          </div>
+        <CardHeader className="border-b border-gray-50 dark:border-gray-800">
+          <CardTitle className="text-lg font-bold">Gerenciar Usuários</CardTitle>
         </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
-                <th className="px-6 py-4">Usuário</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Permissão</th>
-                <th className="px-6 py-4">Criado em</th>
-                <th className="px-6 py-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-amber-500"></div>
-                      <span>Carregando usuários...</span>
-                    </div>
-                  </td>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-800/30">
+                  <th className="px-6 py-4 font-medium">Usuário</th>
+                  <th className="px-6 py-4 font-medium">Role</th>
+                  <th className="px-6 py-4 font-medium">Plano</th>
+                  <th className="px-6 py-4 font-medium">Criado em</th>
+                  <th className="px-6 py-4 font-medium text-right">Ações</th>
                 </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    Nenhum usuário encontrado.
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((u) => {
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+                {adminUsers.map((u) => {
                   const isUserPremium = u.premium_until && new Date(u.premium_until) > new Date();
                   return (
-                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                    <tr key={u.id} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center text-white font-bold overflow-hidden shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-200 dark:border-gray-700">
                             {u.foto_url ? (
-                              <img src={u.foto_url} alt={u.nome} className="h-full w-full object-cover" />
+                              <img src={u.foto_url} alt="" className="h-full w-full object-cover" />
                             ) : (
-                              u.nome ? u.nome.charAt(0).toUpperCase() : <Users className="h-5 w-5" />
+                              <UserIcon className="h-5 w-5 text-gray-400" />
                             )}
                           </div>
-                          <div className="flex flex-col truncate">
-                            <span className="font-semibold text-gray-900 dark:text-white truncate">
-                              {u.nome || 'Sem nome'}
-                            </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
-                              <Mail className="h-3 w-3" /> {u.email}
-                            </span>
+                          <div>
+                            <p className="font-bold text-gray-900 dark:text-gray-100">{u.nome || 'Sem nome'}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{u.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {isUserPremium ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                            <Star className="h-3 w-3 fill-amber-500" /> Premium
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                            Free
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {u.role === 'admin' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                            <Shield className="h-3 w-3" /> Admin
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                            User
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {u.created_at ? format(new Date(u.created_at), 'dd MMM yyyy', { locale: ptBR }) : '-'}
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          u.role === 'admin' 
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {u.role}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          isUserPremium 
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        }`}>
+                          {isUserPremium ? 'Premium' : 'Grátis'}
+                        </span>
+                        {isUserPremium && u.premium_until && (
+                          <p className="text-[10px] text-gray-400 mt-1">Até {new Date(u.premium_until).toLocaleDateString()}</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">
+                        {new Date(u.created_at).toLocaleDateString()}
+                      </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => togglePremium(u.id, u.premium_until)}
-                            className={isUserPremium ? "text-amber-600 border-amber-200" : ""}
-                          >
-                            {isUserPremium ? <X className="h-3.5 w-3.5 mr-1" /> : <Star className="h-3.5 w-3.5 mr-1" />}
-                            {isUserPremium ? 'Remover Premium' : 'Tornar Premium'}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => toggleRole(u.id, u.role)}
-                            className="text-gray-500 hover:text-purple-600"
-                          >
-                            {u.role === 'admin' ? 'Tornar User' : 'Tornar Admin'}
-                          </Button>
-                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className={`h-8 text-[10px] font-bold uppercase tracking-wider ${
+                            isUserPremium 
+                              ? 'text-red-600 hover:text-red-700 border-red-100 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20' 
+                              : 'text-emerald-600 hover:text-emerald-700 border-emerald-100 hover:bg-emerald-50 dark:border-emerald-900/30 dark:hover:bg-emerald-900/20'
+                          }`}
+                          onClick={() => toggleUserPremium(u.id, u.premium_until)}
+                        >
+                          {isUserPremium ? 'Remover Premium' : 'Dar Premium'}
+                        </Button>
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     </div>

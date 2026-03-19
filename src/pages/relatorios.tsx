@@ -5,11 +5,12 @@ import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, parseLocalDate, isPremium } from '@/lib/utils';
-import { Lancamento, Vehicle, User } from '@/types';
+import { Categoria, Lancamento, Vehicle, User } from '@/types';
 import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -20,10 +21,12 @@ import { PremiumModal } from '@/components/premium-modal';
 interface RelatoriosProps {
   lancamentos: Lancamento[];
   vehicles: Vehicle[];
+  categorias: Categoria[];
   user: User;
+  refetch: () => void;
 }
 
-export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
+export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }: RelatoriosProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
@@ -37,7 +40,9 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
   const [showChartFilter, setShowChartFilter] = useState(false);
   const [exportNotes, setExportNotes] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const chartRef = React.useRef<HTMLDivElement>(null);
@@ -583,6 +588,127 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
     }
   };
 
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportLoading(true);
+    setErrorMsg('');
+    
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const bstr = evt.target?.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+          if (data.length === 0) {
+            setErrorMsg('O arquivo está vazio.');
+            setImportLoading(false);
+            return;
+          }
+
+          const newLancamentos: any[] = [];
+          let skippedRows = 0;
+          
+          for (const row of data) {
+            // Try to map columns (handling both Portuguese and English common names)
+            const dataStr = row['Data'] || row['date'] || row['Date'];
+            const valorRaw = row['Valor'] || row['value'] || row['Amount'] || row['amount'];
+            const tipoRaw = row['Tipo'] || row['type'] || row['Type'];
+            const categoriaNome = row['Categoria'] || row['category'] || row['Category'];
+            const observacao = row['Descrição'] || row['description'] || row['Description'] || row['Observação'] || row['observacao'];
+            const veiculoNome = row['Veículo'] || row['vehicle'] || row['Vehicle'];
+            const placa = row['Placa'] || row['plate'] || row['Plate'];
+
+            if (!dataStr || !valorRaw || !tipoRaw) {
+              skippedRows++;
+              continue;
+            }
+
+            // Parse date
+            let finalDate = dataStr;
+            if (typeof dataStr === 'number') {
+              // Excel date serial number
+              const dateObj = XLSX.SSF.parse_date_code(dataStr);
+              finalDate = format(new Date(dateObj.y, dateObj.m - 1, dateObj.d), 'yyyy-MM-dd');
+            } else if (typeof dataStr === 'string' && dataStr.includes('/')) {
+              const parts = dataStr.split('/');
+              if (parts.length === 3) {
+                // Assume dd/mm/yyyy
+                finalDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              }
+            }
+
+            // Parse valor
+            let valor = 0;
+            if (typeof valorRaw === 'string') {
+              valor = parseFloat(valorRaw.replace(/[R$\s.]/g, '').replace(',', '.'));
+            } else {
+              valor = Number(valorRaw);
+            }
+
+            // Find category
+            let catId = null;
+            if (categoriaNome) {
+              const cat = categorias.find(c => c.nome.toLowerCase() === categoriaNome.toLowerCase());
+              if (cat) catId = cat.id;
+            }
+            
+            // If no category found, use a default one based on type
+            if (!catId) {
+              const defaultCat = categorias.find(c => c.tipo === (tipoRaw.toLowerCase().includes('receita') ? 'receita' : 'despesa'));
+              if (defaultCat) catId = defaultCat.id;
+            }
+
+            // Find vehicle
+            let vId = null;
+            if (veiculoNome || placa) {
+              const vehicle = vehicles.find(v => 
+                (veiculoNome && v.name.toLowerCase() === veiculoNome.toLowerCase()) || 
+                (placa && v.plate && v.plate.toLowerCase() === placa.toLowerCase())
+              );
+              if (vehicle) vId = vehicle.id;
+            }
+
+            newLancamentos.push({
+              user_id: user.id,
+              tipo: tipoRaw.toLowerCase().includes('receita') ? 'receita' : 'despesa',
+              categoria_id: catId,
+              valor: valor,
+              data: finalDate,
+              observacao: (observacao || 'Importado via relatório').substring(0, 255),
+              vehicle_id: vId,
+              created_at: new Date().toISOString()
+            });
+          }
+
+          if (newLancamentos.length > 0) {
+            const { error } = await supabase.from('lancamentos').insert(newLancamentos);
+            if (error) throw error;
+            
+            refetch();
+            setIsImportModalOpen(false);
+            alert(`${newLancamentos.length} lançamentos importados com sucesso!${skippedRows > 0 ? ` (${skippedRows} linhas ignoradas por falta de dados)` : ''}`);
+          } else {
+            setErrorMsg('Nenhum dado válido encontrado para importação.');
+          }
+        } catch (err: any) {
+          setErrorMsg('Erro ao processar arquivo: ' + err.message);
+        } finally {
+          setImportLoading(false);
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (error: any) {
+      setErrorMsg('Erro ao ler arquivo: ' + error.message);
+      setImportLoading(false);
+    }
+  };
+
 
   const exportToExcel = (fileFormat: 'xlsx' | 'csv') => {
     setExportLoading(true);
@@ -753,7 +879,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
                 />
               </div>
 
-              <div className="sm:col-span-2 lg:col-span-1">
+              <div className="sm:col-span-2 lg:col-span-1 flex flex-col sm:flex-row gap-2">
                 <Button 
                   onClick={() => {
                     if (!isPremium(user)) {
@@ -766,7 +892,22 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
                   className="w-full bg-[#F59E0B] hover:bg-[#D97706] text-white flex items-center justify-center gap-2"
                 >
                   <Download className="h-4 w-4" />
-                  Exportar Relatório
+                  Exportar
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (!isPremium(user)) {
+                      setPremiumFeatureName('Importação de Relatórios');
+                      setIsPremiumModalOpen(true);
+                      return;
+                    }
+                    setIsImportModalOpen(true);
+                  }}
+                  variant="outline"
+                  className="w-full border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10 flex items-center justify-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Importar
                 </Button>
               </div>
             </div>
@@ -832,6 +973,64 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
             <p className="text-center text-xs text-gray-500 animate-pulse">
               Gerando arquivo, por favor aguarde...
             </p>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          setErrorMsg('');
+        }}
+        title="Importar Relatório"
+      >
+        <div className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm dark:bg-red-900/20 dark:text-red-400 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              {errorMsg}
+            </div>
+          )}
+          
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+            <h4 className="text-sm font-bold text-blue-800 dark:text-blue-300 mb-2">Instruções de Importação</h4>
+            <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1 list-disc pl-4">
+              <li>O arquivo deve ser Excel (.xlsx) ou CSV.</li>
+              <li>Colunas necessárias: <strong>Data, Valor, Tipo</strong> (Receita ou Despesa).</li>
+              <li>Colunas opcionais: <strong>Descrição, Categoria, Veículo, Placa</strong>.</li>
+              <li>A data deve estar no formato DD/MM/AAAA ou ser um campo de data do Excel.</li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer relative group">
+            <input
+              type="file"
+              accept=".xlsx, .xls, .csv"
+              onChange={handleImport}
+              disabled={importLoading}
+              className="absolute inset-0 opacity-0 cursor-pointer z-10"
+            />
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                <Upload className="h-8 w-8 text-[#F59E0B]" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  {importLoading ? 'Processando...' : 'Clique ou arraste seu arquivo'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Suporta .xlsx, .xls e .csv
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {importLoading && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 animate-pulse">
+              <div className="h-4 w-4 border-2 border-[#F59E0B] border-t-transparent rounded-full animate-spin"></div>
+              Importando dados, por favor aguarde...
+            </div>
           )}
         </div>
       </Modal>
