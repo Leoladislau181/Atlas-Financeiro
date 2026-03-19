@@ -369,9 +369,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
     let totalReceitas = 0;
     let totalDespesas = 0;
     let totalCombustivel = 0;
-    let totalLitros = 0;
     let maxOdometer = vehicle.initial_odometer;
-    let maxFuelOdometer = vehicle.initial_odometer;
 
     // Identify contracts for rented vehicles
     const contracts: {
@@ -418,10 +416,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
 
         if (l.fuel_liters && l.fuel_liters > 0) {
           totalCombustivel += valor;
-          totalLitros += Number(l.fuel_liters);
-          if (l.odometer && l.odometer > maxFuelOdometer) {
-            maxFuelOdometer = l.odometer;
-          }
         }
       }
 
@@ -458,9 +452,36 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       c.saldo = c.receitas - c.despesas;
     });
 
+    let totalLitros = 0;
+    let kmRodadoCombustivel = 0;
+    const consumptionByFuelType: Record<string, { litros: number, km: number }> = {};
+
+    const sortedFuelEntries = vLancamentos
+      .filter(l => l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0 && l.odometer)
+      .sort((a, b) => a.odometer! - b.odometer!);
+
+    sortedFuelEntries.forEach((entry, index) => {
+      const consumedFuelType = index > 0 ? (sortedFuelEntries[index - 1].fuel_type || 'unknown') : (entry.fuel_type || 'unknown');
+      
+      if (!consumptionByFuelType[consumedFuelType]) {
+        consumptionByFuelType[consumedFuelType] = { litros: 0, km: 0 };
+      }
+      
+      const litros = Number(entry.fuel_liters);
+      totalLitros += litros;
+      consumptionByFuelType[consumedFuelType].litros += litros;
+
+      const prevOdometer = index > 0 ? sortedFuelEntries[index - 1].odometer! : (vehicle.initial_odometer || 0);
+      const distance = entry.odometer! - prevOdometer;
+      
+      if (distance > 0) {
+        kmRodadoCombustivel += distance;
+        consumptionByFuelType[consumedFuelType].km += distance;
+      }
+    });
+
     const lucroLiquido = totalReceitas - totalDespesas;
     const kmRodadoTotal = maxOdometer - vehicle.initial_odometer;
-    const kmRodadoCombustivel = maxFuelOdometer - vehicle.initial_odometer;
     const mediaKmL = totalLitros > 0 ? (kmRodadoCombustivel / totalLitros).toFixed(2) : '0.00';
 
     return {
@@ -469,6 +490,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       lucroLiquido,
       totalCombustivel,
       mediaKmL,
+      consumptionByFuelType,
       kmRodado: kmRodadoTotal,
       lastOdometer: maxOdometer,
       contracts
@@ -881,6 +903,17 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Média Consumo</p>
                         <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.mediaKmL} km/l</p>
+                        {Object.entries(metrics.consumptionByFuelType).map(([type, data]) => {
+                          if (data.litros > 0 && data.km > 0 && type !== 'unknown') {
+                            const avg = (data.km / data.litros).toFixed(2);
+                            return (
+                              <p key={type} className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 capitalize">
+                                {type}: {avg} km/l
+                              </p>
+                            );
+                          }
+                          return null;
+                        })}
                       </div>
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Gasto Combustível</p>

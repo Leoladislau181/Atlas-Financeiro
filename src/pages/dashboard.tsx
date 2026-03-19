@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
-import { Lancamento, Categoria, Vehicle, Manutencao, User } from '@/types';
+import { Lancamento, Categoria, Vehicle, Manutencao, User, FuelType } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, isWithinInterval, format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,6 +40,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
   const [quickValueStr, setQuickValueStr] = useState('');
   const [quickKM, setQuickKM] = useState('');
   const [quickPricePerLiterStr, setQuickPricePerLiterStr] = useState('');
+  const [quickFuelType, setQuickFuelType] = useState<FuelType | null>(null);
   const [quickVehicleId, setQuickVehicleId] = useState('');
   const [quickLoading, setQuickLoading] = useState(false);
 
@@ -76,13 +77,13 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
   }, []);
 
   useEffect(() => {
-    const triggerKey = `${quickVehicleId}`;
+    const triggerKey = `${quickVehicleId}-${quickFuelType}`;
 
     if (quickEntryOpen && quickVehicleId) {
       const vLancamentos = lancamentos.filter(l => l.vehicle_id === quickVehicleId);
       
       const fuelEntries = vLancamentos
-        .filter(l => l.fuel_price_per_liter && l.fuel_liters && l.odometer)
+        .filter(l => l.fuel_price_per_liter && l.fuel_liters && l.odometer && (!quickFuelType || l.fuel_type === quickFuelType))
         .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
       const lastFuelEntry = fuelEntries.length > 0 ? fuelEntries[0] : null;
@@ -96,18 +97,30 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       const lastOdo = odoEntries.length > 0 ? odoEntries[0].odometer! : (vehicle?.initial_odometer || null);
 
       let totalLitros = 0;
-      let maxFuelOdometer = vehicle?.initial_odometer || 0;
-      
-      vLancamentos.forEach(l => {
-        if (l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0) {
-          totalLitros += Number(l.fuel_liters);
-          if (l.odometer && l.odometer > maxFuelOdometer) {
-            maxFuelOdometer = l.odometer;
+      let kmRodadoCombustivel = 0;
+
+      // Sort all fuel entries by odometer
+      const sortedFuelEntries = vLancamentos
+        .filter(l => l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0 && l.odometer)
+        .sort((a, b) => a.odometer! - b.odometer!);
+
+      sortedFuelEntries.forEach((entry, index) => {
+        // The fuel consumed is the liters of the CURRENT entry.
+        // The distance driven is CURRENT odometer - PREVIOUS odometer.
+        // The fuel TYPE that was consumed is the PREVIOUS entry's fuel type.
+        // If it's the first entry, we assume the fuel type consumed was the same as the current entry's fuel type.
+        const consumedFuelType = index > 0 ? (sortedFuelEntries[index - 1].fuel_type || 'unknown') : (entry.fuel_type || 'unknown');
+        
+        if (!quickFuelType || consumedFuelType === quickFuelType) {
+          totalLitros += Number(entry.fuel_liters);
+          const prevOdometer = index > 0 ? sortedFuelEntries[index - 1].odometer! : (vehicle?.initial_odometer || 0);
+          const distance = entry.odometer! - prevOdometer;
+          if (distance > 0) {
+            kmRodadoCombustivel += distance;
           }
         }
       });
-      
-      const kmRodadoCombustivel = maxFuelOdometer - (vehicle?.initial_odometer || 0);
+
       const avgConsumption = totalLitros > 0 ? (kmRodadoCombustivel / totalLitros) : null;
 
       setLastQuickFuelData({
@@ -128,7 +141,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       setIsQuickOdometerManuallyEdited(false);
       setLastQuickAutoFillTrigger(triggerKey);
     }
-  }, [quickVehicleId, quickEntryOpen, lancamentos, vehicles, lastQuickAutoFillTrigger]);
+  }, [quickVehicleId, quickEntryOpen, lancamentos, vehicles, lastQuickAutoFillTrigger, quickFuelType]);
 
   useEffect(() => {
     if (quickEntryOpen && quickVehicleId && !isQuickOdometerManuallyEdited && lastQuickFuelData) {
@@ -233,6 +246,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
           odometer: Number(quickKM),
           fuel_price_per_liter: pricePerLiter > 0 ? pricePerLiter : null,
           fuel_liters: fuelLiters,
+          fuel_type: quickFuelType,
           observacao: 'Abastecimento'
         }]);
 
@@ -241,6 +255,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       setQuickValueStr('');
       setQuickKM('');
       setQuickPricePerLiterStr('');
+      setQuickFuelType(null);
       setQuickEntryOpen(false);
       refetch();
     } catch (error: any) {
@@ -580,6 +595,23 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
             </div>
 
             <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+              <CustomSelect
+                value={quickFuelType || ''}
+                onChange={(val) => setQuickFuelType(val as FuelType)}
+                options={[
+                  { value: 'gasolina', label: 'Gasolina' },
+                  { value: 'etanol', label: 'Etanol' },
+                  { value: 'diesel', label: 'Diesel' },
+                  { value: 'gnv', label: 'GNV' },
+                ]}
+                placeholder="Selecione"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Preço por Litro</label>
               <Input
                 type="text"
@@ -589,21 +621,21 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
                 placeholder="R$ 0,00"
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">KM Atual</label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={quickKM}
-              onChange={(e) => {
-                setQuickKM(e.target.value);
-                setIsQuickOdometerManuallyEdited(true);
-              }}
-              placeholder="0"
-              required
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">KM Atual</label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={quickKM}
+                onChange={(e) => {
+                  setQuickKM(e.target.value);
+                  setIsQuickOdometerManuallyEdited(true);
+                }}
+                placeholder="0"
+                required
+              />
+            </div>
           </div>
 
           <div className="pt-4">

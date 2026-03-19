@@ -79,6 +79,7 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
     let saldoAcumulado = 0;
     const porCategoria: Record<string, { nome: string; valor: number; tipo: string }> = {};
     const porVeiculo: Record<string, { nome: string; placa: string; receitas: number; despesas: number; saldo: number }> = {};
+    const porCombustivel: Record<string, { valor: number; litros: number }> = {};
 
     // Calculate accumulated balance up to the end date of the filter
     let endFilterDate: Date;
@@ -139,6 +140,15 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
           porVeiculo[l.vehicle_id].saldo -= valor;
         }
       }
+
+      if (l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0) {
+        const fuelType = l.fuel_type || 'Não especificado';
+        if (!porCombustivel[fuelType]) {
+          porCombustivel[fuelType] = { valor: 0, litros: 0 };
+        }
+        porCombustivel[fuelType].valor += valor;
+        porCombustivel[fuelType].litros += Number(l.fuel_liters);
+      }
     });
 
     return {
@@ -148,7 +158,8 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
       saldoAcumulado,
       porCategoria: Object.values(porCategoria).sort((a, b) => b.valor - a.valor),
       porCategoriaRaw: porCategoria,
-      porVeiculo: Object.values(porVeiculo).sort((a, b) => b.saldo - a.saldo)
+      porVeiculo: Object.values(porVeiculo).sort((a, b) => b.saldo - a.saldo),
+      porCombustivel: Object.entries(porCombustivel).map(([tipo, data]) => ({ tipo, ...data })).sort((a, b) => b.valor - a.valor)
     };
   }, [filteredLancamentos, lancamentos, filterType, selectedMonth, selectedYear, endDate, selectedVehicleId]);
 
@@ -937,6 +948,25 @@ export function Relatorios({ lancamentos, vehicles, user }: RelatoriosProps) {
           </CardContent>
         </Card>
       </div>
+
+      {stats.porCombustivel.length > 0 && (
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Resumo por Combustível</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {stats.porCombustivel.map((comb, index) => (
+                <div key={index} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                  <div className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">{comb.tipo}</div>
+                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(comb.valor)}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{comb.litros.toFixed(2)} Litros</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
         <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">

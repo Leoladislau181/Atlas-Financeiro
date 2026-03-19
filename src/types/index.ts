@@ -38,6 +38,8 @@ export interface Manutencao {
   created_at: string;
 }
 
+export type FuelType = 'gasolina' | 'etanol' | 'diesel' | 'gnv';
+
 export interface Lancamento {
   id: string;
   user_id: string;
@@ -52,6 +54,7 @@ export interface Lancamento {
   odometer?: number;
   fuel_liters?: number;
   fuel_price_per_liter?: number;
+  fuel_type?: FuelType;
   vehicles?: Vehicle; // Joined data
 }
 

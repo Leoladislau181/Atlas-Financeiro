@@ -6,7 +6,7 @@ import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium } from '@/lib/utils';
-import { Categoria, Lancamento, TipoLancamento, Vehicle, User } from '@/types';
+import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Loader2, Lock } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
@@ -43,6 +43,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const useVehicle = vehicleId !== '';
   const [odometer, setOdometer] = useState('');
   const [fuelPricePerLiterStr, setFuelPricePerLiterStr] = useState('');
+  const [fuelType, setFuelType] = useState<FuelType | null>(null);
 
   // Auto-fill states
   const [isOdometerManuallyEdited, setIsOdometerManuallyEdited] = useState(false);
@@ -167,6 +168,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
           if (result.litros && result.preco_litro) {
             setFuelPricePerLiterStr(formatCurrency(result.preco_litro));
           }
+          if (result.tipo_combustivel) {
+            const ft = result.tipo_combustivel.toLowerCase();
+            if (['gasolina', 'etanol', 'diesel', 'gnv'].includes(ft)) {
+              setFuelType(ft as FuelType);
+            }
+          }
 
           setIsOdometerManuallyEdited(false);
           setObservacao('Lançamento via Leitor de Nota Fiscal');
@@ -191,7 +198,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   };
 
   useEffect(() => {
-    const triggerKey = `${vehicleId}-${categoriaId}`;
+    const triggerKey = `${vehicleId}-${categoriaId}-${fuelType}`;
     const isCombustivelCat = () => {
       const cat = categorias.find(c => c.id === categoriaId);
       return cat?.nome.toLowerCase().includes('combustível') || cat?.nome.toLowerCase().includes('combustivel');
@@ -201,7 +208,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       const vLancamentos = lancamentos.filter(l => l.vehicle_id === vehicleId);
       
       const fuelEntries = vLancamentos
-        .filter(l => l.fuel_price_per_liter && l.fuel_liters && l.odometer)
+        .filter(l => l.fuel_price_per_liter && l.fuel_liters && l.odometer && (!fuelType || l.fuel_type === fuelType))
         .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
       const lastFuelEntry = fuelEntries.length > 0 ? fuelEntries[0] : null;
@@ -215,18 +222,30 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       const lastOdo = odoEntries.length > 0 ? odoEntries[0].odometer! : (vehicle?.initial_odometer || null);
 
       let totalLitros = 0;
-      let maxFuelOdometer = vehicle?.initial_odometer || 0;
-      
-      vLancamentos.forEach(l => {
-        if (l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0) {
-          totalLitros += Number(l.fuel_liters);
-          if (l.odometer && l.odometer > maxFuelOdometer) {
-            maxFuelOdometer = l.odometer;
+      let kmRodadoCombustivel = 0;
+
+      // Sort all fuel entries by odometer
+      const sortedFuelEntries = vLancamentos
+        .filter(l => l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0 && l.odometer)
+        .sort((a, b) => a.odometer! - b.odometer!);
+
+      sortedFuelEntries.forEach((entry, index) => {
+        // The fuel consumed is the liters of the CURRENT entry.
+        // The distance driven is CURRENT odometer - PREVIOUS odometer.
+        // The fuel TYPE that was consumed is the PREVIOUS entry's fuel type.
+        // If it's the first entry, we assume the fuel type consumed was the same as the current entry's fuel type.
+        const consumedFuelType = index > 0 ? (sortedFuelEntries[index - 1].fuel_type || 'unknown') : (entry.fuel_type || 'unknown');
+        
+        if (!fuelType || consumedFuelType === fuelType) {
+          totalLitros += Number(entry.fuel_liters);
+          const prevOdometer = index > 0 ? sortedFuelEntries[index - 1].odometer! : (vehicle?.initial_odometer || 0);
+          const distance = entry.odometer! - prevOdometer;
+          if (distance > 0) {
+            kmRodadoCombustivel += distance;
           }
         }
       });
-      
-      const kmRodadoCombustivel = maxFuelOdometer - (vehicle?.initial_odometer || 0);
+
       const avgConsumption = totalLitros > 0 ? (kmRodadoCombustivel / totalLitros) : null;
 
       setLastFuelData({
@@ -247,7 +266,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       setIsOdometerManuallyEdited(false);
       setLastAutoFillTrigger(triggerKey);
     }
-  }, [vehicleId, categoriaId, tipo, useVehicle, editingId, lancamentos, vehicles, lastAutoFillTrigger, categorias]);
+  }, [vehicleId, categoriaId, tipo, useVehicle, editingId, lancamentos, vehicles, lastAutoFillTrigger, categorias, fuelType]);
 
   useEffect(() => {
     const isCombustivelCat = () => {
@@ -346,6 +365,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
         odometer: useVehicle && tipo === 'despesa' ? Number(odometer) : null,
         fuel_price_per_liter: null,
         fuel_liters: null,
+        fuel_type: null,
       };
 
       if (useVehicle && tipo === 'despesa' && isCombustivel()) {
@@ -355,6 +375,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
         if (pricePerLiter > 0 && totalFuelValue > 0) {
            payload.fuel_price_per_liter = pricePerLiter;
            payload.fuel_liters = totalFuelValue / pricePerLiter;
+           payload.fuel_type = fuelType;
         }
       }
 
@@ -373,6 +394,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       setVehicleId('');
       setOdometer('');
       setFuelPricePerLiterStr('');
+      setFuelType(null);
       setEditingId(null);
       setIsFormOpen(false);
       refetch();
@@ -400,10 +422,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       } else {
         setFuelPricePerLiterStr('');
       }
+      setFuelType(lancamento.fuel_type || null);
     } else {
       setVehicleId('');
       setOdometer('');
       setFuelPricePerLiterStr('');
+      setFuelType(null);
     }
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -743,6 +767,20 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                   {isCombustivel() && (
                     <>
                       <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+                        <CustomSelect
+                          value={fuelType || ''}
+                          onChange={(val) => setFuelType(val as FuelType)}
+                          options={[
+                            { value: 'gasolina', label: 'Gasolina' },
+                            { value: 'etanol', label: 'Etanol' },
+                            { value: 'diesel', label: 'Diesel' },
+                            { value: 'gnv', label: 'GNV' },
+                          ]}
+                          placeholder="Selecione o combustível"
+                        />
+                      </div>
+                      <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
                         <Input
                           type="text"
@@ -842,7 +880,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                           {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {l.categorias?.nome || 'N/A'}
+                        {l.fuel_type && (
+                          <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                            {l.fuel_type}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         {l.vehicles ? (
                           <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
@@ -906,7 +951,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                         l.tipo === 'receita' ? "bg-[#10B981]" : "bg-[#EF4444]"
                       )} />
                       <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{l.categorias?.nome || 'N/A'}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {l.categorias?.nome || 'N/A'}
+                          {l.fuel_type && (
+                            <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                              {l.fuel_type}
+                            </span>
+                          )}
+                        </p>
                         <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
                           <span>{format(parseLocalDate(l.data), 'dd MMM yyyy', { locale: ptBR })}</span>
                           {l.vehicles && (
