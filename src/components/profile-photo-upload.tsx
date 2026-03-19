@@ -50,21 +50,22 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
       const croppedImageBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
       if (!croppedImageBlob) throw new Error('Falha ao processar imagem.');
 
-      const fileName = `${user.id}-${Date.now()}.jpg`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `${Date.now()}.jpg`;
+      const filePath = `${user.id}/${fileName}`;
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, croppedImageBlob, {
           contentType: 'image/jpeg',
+          cacheControl: '3600',
           upsert: true,
         });
 
       if (uploadError) {
         // If bucket doesn't exist, we might need to inform the user or handle it
-        if (uploadError.message.includes('bucket not found')) {
-          throw new Error('O bucket "avatars" não foi encontrado no Supabase Storage. Por favor, crie-o no console do Supabase.');
+        if (uploadError.message.toLowerCase().includes('bucket not found')) {
+          throw new Error('O bucket "avatars" não foi encontrado no Supabase Storage. Por favor, crie-o no console do Supabase e defina como público.');
         }
         throw uploadError;
       }
