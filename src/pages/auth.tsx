@@ -13,6 +13,9 @@ export function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const addLog = (msg: string) => setDebugLogs(prev => [...prev, `${new Date().toISOString().substring(11,19)} - ${msg}`]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -27,9 +30,12 @@ export function Auth() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setDebugLogs([]);
+    addLog('Iniciando handleAuth...');
 
     try {
       if (isSignUp) {
+        addLog('Chamando supabase.auth.signUp...');
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -39,20 +45,42 @@ export function Auth() {
             }
           }
         });
+        addLog('Retorno de signUp: ' + (error ? 'Erro' : 'Sucesso'));
         if (error) throw error;
         setSuccess('Conta criada com sucesso! Verifique seu email ou faça login.');
         setIsSignUp(false);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        addLog(`Teste de Fetch RAW para o Supabase Url: ${import.meta.env.VITE_SUPABASE_URL?.trim()}`);
+        try {
+            const rawRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL?.trim()}/auth/v1/token?grant_type=password`, {
+                method: 'POST',
+                headers: {
+                    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+            addLog(`REST API Respondeu com HTTP ${rawRes.status}`);
+            const text = await rawRes.text();
+            addLog(`Resposta: ${text.substring(0, 100)}`);
+            
+            // Agora tenta via Supabase
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+        } catch(fe) {
+            addLog(`Falha total de rede: ${fe}`);
+            throw fe;
+        }
       }
     } catch (err: any) {
+      addLog('Passou pelo Catch. Erro: ' + err.message);
       if (err.message === 'Failed to fetch') {
         setError('Erro de conexão. Verifique se as chaves do Supabase estão corretas nas configurações.');
       } else {
         setError(err.message || 'Ocorreu um erro.');
       }
     } finally {
+      addLog('Finalizou. setLoading(false)');
       setLoading(false);
     }
   };
@@ -99,6 +127,12 @@ export function Auth() {
 
         <Card className="border-none shadow-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-3xl overflow-hidden border dark:border-gray-800">
           <CardContent className="p-8">
+            {debugLogs.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-900 text-green-400 font-mono text-xs rounded-lg overflow-y-auto max-h-40">
+                <div className="font-bold text-white mb-2">Logs de Diagnóstico:</div>
+                {debugLogs.map((lg, i) => <div key={i}>{lg}</div>)}
+              </div>
+            )}
             {!isConfigured && (
               <div className="mb-6 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 p-4 text-sm text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800 flex items-start gap-3">
                 <div className="mt-0.5">⚠️</div>
@@ -109,19 +143,22 @@ export function Auth() {
             )}
             <form onSubmit={handleAuth} className="space-y-5">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email</label>
+                <label htmlFor="email" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email</label>
                 <Input
+                  id="email"
+                  name="email"
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                   className="h-12 bg-gray-50/50 dark:bg-gray-800/50"
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Senha</label>
+                  <label htmlFor="password" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Senha</label>
                   {!isSignUp && (
                     <button
                       type="button"
@@ -133,11 +170,14 @@ export function Auth() {
                   )}
                 </div>
                 <Input
+                  id="password"
+                  name="password"
                   type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                   className="h-12 bg-gray-50/50 dark:bg-gray-800/50"
                 />
               </div>

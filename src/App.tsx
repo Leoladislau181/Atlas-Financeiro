@@ -13,6 +13,7 @@ const Relatorios = React.lazy(() => import('@/pages/relatorios').then(m => ({ de
 const Configuracoes = React.lazy(() => import('@/pages/configuracoes').then(m => ({ default: m.Configuracoes })));
 const Veiculos = React.lazy(() => import('@/pages/veiculos').then(m => ({ default: m.Veiculos })));
 const Premium = React.lazy(() => import('@/pages/premium').then(m => ({ default: m.Premium })));
+const Admin = React.lazy(() => import('@/pages/admin').then(m => ({ default: m.Admin })));
 import { PremiumModal } from '@/components/premium-modal';
 
 function SupabaseSetupScreen() {
@@ -79,13 +80,59 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
+    const fetchProfile = async (userId: string, userMetadata: any = {}) => {
+      const meta = userMetadata || {};
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (error) {
+          console.warn('Erro ao buscar perfil:', error.message);
+          return {
+            id: userId,
+            email: meta.email || '',
+            nome: meta.nome || '',
+            telefone: meta.telefone || '',
+            foto_url: meta.foto_url || '',
+            referral_code: meta.referral_code || '',
+            referred_by: meta.referred_by || '',
+            premium_until: meta.premium_until || '',
+            role: 'user'
+          } as User;
+        }
+
+        return {
+          id: userId,
+          email: profile.email || meta.email || '',
+          nome: profile.nome || meta.nome || '',
+          telefone: meta.telefone || '', // Mantendo metadados se não estiver no perfil
+          foto_url: profile.foto_url || meta.foto_url || '',
+          referral_code: meta.referral_code || '',
+          referred_by: meta.referred_by || '',
+          premium_until: profile.premium_until || meta.premium_until || '',
+          role: profile.role || meta.role || 'user'
+        } as User;
+      } catch (err) {
+        console.error('Erro inesperado ao buscar perfil:', err);
+        // Fallback garantido para o usuário entrar mesmo em falha grave
+        return {
+            id: userId,
+            email: meta.email || 'usuário',
+            nome: meta.nome || 'Usuário',
+            role: meta.role || 'user'
+        } as User;
+      }
+    };
+
     const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Erro ao recuperar sessão:', error.message);
-          // Se o token de atualização for inválido ou não encontrado, limpa a sessão local
           if (error.message.includes('Refresh Token Not Found') || error.message.includes('Invalid Refresh Token')) {
             await supabase.auth.signOut();
           }
@@ -96,16 +143,8 @@ export default function App() {
 
         setSession(session);
         if (session?.user) {
-          setUser({ 
-            id: session.user.id, 
-            email: session.user.email || '',
-            nome: session.user.user_metadata?.nome || '',
-            telefone: session.user.user_metadata?.telefone || '',
-            foto_url: session.user.user_metadata?.foto_url || '',
-            referral_code: session.user.user_metadata?.referral_code || '',
-            referred_by: session.user.user_metadata?.referred_by || '',
-            premium_until: session.user.user_metadata?.premium_until || ''
-          });
+          const profile = await fetchProfile(session.user.id, session.user.user_metadata);
+          setUser(profile);
         }
       } catch (err) {
         console.error('Erro inesperado na autenticação:', err);
@@ -118,30 +157,20 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth Event:', event);
       setSession(session);
       
       if (session?.user) {
-        setUser({ 
-          id: session.user.id, 
-          email: session.user.email || '',
-          nome: session.user.user_metadata?.nome || '',
-          telefone: session.user.user_metadata?.telefone || '',
-          foto_url: session.user.user_metadata?.foto_url || '',
-          referral_code: session.user.user_metadata?.referral_code || '',
-          referred_by: session.user.user_metadata?.referred_by || '',
-          premium_until: session.user.user_metadata?.premium_until || ''
-        });
+        const profile = await fetchProfile(session.user.id, session.user.user_metadata);
+        setUser(profile);
       } else {
         setUser(null);
       }
 
-      // Se a sessão for invalidada ou o usuário sair, garante que o estado local seja limpo
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
-        // Limpa qualquer dado residual do localStorage se necessário
         localStorage.removeItem('supabase.auth.token');
       }
     });
@@ -286,6 +315,9 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         )}
         {activeTab === 'premium' && (
           <Premium user={user} refetch={refetch} />
+        )}
+        {activeTab === 'admin' && (
+          <Admin />
         )}
         {activeTab === 'configuracoes' && (
           <Configuracoes 

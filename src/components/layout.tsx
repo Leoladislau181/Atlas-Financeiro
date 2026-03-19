@@ -30,7 +30,9 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
     { id: 'configuracoes', label: 'Mais', icon: Menu },
   ];
 
-  if (user?.email === 'leoladislau181@gmail.com') {
+  const isAdmin = user?.role === 'admin' || user?.email === 'leoladislau181@gmail.com';
+
+  if (isAdmin) {
     tabs.splice(3, 0, { id: 'admin', label: 'Admin', icon: Shield });
   }
 

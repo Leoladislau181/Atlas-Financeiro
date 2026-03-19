@@ -67,4 +67,5 @@ export interface User {
   referral_code?: string;
   referred_by?: string;
   premium_until?: string;
+  role?: 'user' | 'admin';
 }
