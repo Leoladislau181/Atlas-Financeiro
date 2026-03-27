@@ -69,4 +69,5 @@ export interface User {
   referred_by?: string;
   premium_until?: string;
   role?: 'user' | 'admin';
+  status?: 'active' | 'blocked';
 }
