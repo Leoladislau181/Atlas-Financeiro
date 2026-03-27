@@ -70,4 +70,5 @@ export interface User {
   premium_until?: string;
   role?: 'user' | 'admin';
   status?: 'active' | 'blocked';
+  created_at?: string;
 }

@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw } from 'lucide-react';
+import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw, Search } from 'lucide-react';
+import { UserDetailsModal } from '@/components/user-details-modal';
+import { Input } from '@/components/ui/input';
 
 interface AdminProps {
   user: User;
@@ -15,12 +17,20 @@ export function Admin({ user }: AdminProps) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (user.role === 'admin') {
       fetchAdminData();
     }
   }, [user.role]);
+
+  const openUserDetails = (u: User) => {
+    setSelectedUser(u);
+    setIsDetailsModalOpen(true);
+  };
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -168,10 +178,21 @@ export function Admin({ user }: AdminProps) {
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie usuários e visualize métricas globais do sistema.</p>
         </div>
-        <Button onClick={fetchAdminData} disabled={loading} variant="outline" className="flex items-center gap-2">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Atualizar Dados
-        </Button>
+        <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Pesquisar e-mail..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-64"
+              />
+            </div>
+            <Button onClick={fetchAdminData} disabled={loading} variant="outline" className="flex items-center gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
       </div>
 
       {(errorMsg || successMsg) && (
@@ -246,11 +267,13 @@ export function Admin({ user }: AdminProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                {adminUsers.map((u) => {
+                {adminUsers
+                  .filter((u) => u.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((u) => {
                   const isUserPremium = u.premium_until && new Date(u.premium_until) > new Date();
                   const isBlocked = u.status === 'blocked';
                   return (
-                    <tr key={u.id} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors">
+                    <tr key={u.id} className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors cursor-pointer" onClick={() => openUserDetails(u)}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -360,6 +383,11 @@ export function Admin({ user }: AdminProps) {
           </div>
         </CardContent>
       </Card>
+      <UserDetailsModal 
+        isOpen={isDetailsModalOpen} 
+        onClose={() => setIsDetailsModalOpen(false)} 
+        user={selectedUser} 
+      />
     </div>
   );
 }
