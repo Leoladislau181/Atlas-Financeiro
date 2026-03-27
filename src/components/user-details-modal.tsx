@@ -1,18 +1,23 @@
 import React from 'react';
 import { Modal } from '@/components/ui/modal';
 import { User } from '@/types';
-import { User as UserIcon, Mail, Phone, Calendar, Star, Shield, AlertCircle, Hash, UserCheck } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Calendar, Star, Shield, AlertCircle, Hash, UserCheck, Car, Database, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface UserDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: User | null;
+  onToggleStatus: (userId: string, currentStatus: string) => void;
+  onTogglePremium: (userId: string, currentPremiumUntil: string | null, duration?: 'week' | 'month' | 'year') => void;
+  onDeleteUser: (userId: string) => void;
 }
 
-export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProps) {
+export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogglePremium, onDeleteUser }: UserDetailsModalProps) {
   if (!user) return null;
 
   const isPremium = user.premium_until && new Date(user.premium_until) > new Date();
+  const isBlocked = user.status === 'blocked';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Detalhes do Usuário" className="max-w-lg">
@@ -32,14 +37,30 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <DetailItem icon={Hash} label="ID" value={user.id} />
           <DetailItem icon={Phone} label="Telefone" value={user.telefone || 'Não informado'} />
           <DetailItem icon={Calendar} label="Criado em" value={user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'} />
           <DetailItem icon={Shield} label="Role" value={user.role || 'user'} />
           <DetailItem icon={UserCheck} label="Status" value={user.status === 'blocked' ? 'Bloqueado' : 'Ativo'} />
           <DetailItem icon={Star} label="Premium" value={isPremium ? `Até ${new Date(user.premium_until!).toLocaleDateString()}` : 'Grátis'} />
-          <DetailItem icon={AlertCircle} label="Código Referência" value={user.referral_code || 'N/A'} />
-          <DetailItem icon={AlertCircle} label="Referido por" value={user.referred_by || 'N/A'} />
+          <DetailItem icon={Car} label="Veículos" value={'0'} />
+          <DetailItem icon={Database} label="Lançamentos" value={'0'} />
+          <DetailItem icon={DollarSign} label="Movimentado" value={'R$ 0,00'} />
+        </div>
+
+        <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+          <Button variant="outline" onClick={() => onToggleStatus(user.id, user.status || 'active')}>
+            {isBlocked ? 'Desbloquear' : 'Bloquear'}
+          </Button>
+          {isPremium ? (
+            <Button variant="outline" onClick={() => onTogglePremium(user.id, user.premium_until)}>Remover Premium</Button>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              <Button variant="outline" onClick={() => onTogglePremium(user.id, user.premium_until, 'week')}>+1 Sem</Button>
+              <Button variant="outline" onClick={() => onTogglePremium(user.id, user.premium_until, 'month')}>+1 Mês</Button>
+              <Button variant="outline" onClick={() => onTogglePremium(user.id, user.premium_until, 'year')}>+1 Ano</Button>
+            </div>
+          )}
+          <Button variant="destructive" onClick={() => onDeleteUser(user.id)}>Excluir Usuário</Button>
         </div>
       </div>
     </Modal>

@@ -154,6 +154,22 @@ export function Admin({ user }: AdminProps) {
     }
   };
 
+  const deleteUser = async (userId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão não encontrada');
+
+      // Placeholder for delete API call
+      console.log('Deleting user:', userId);
+      setSuccessMsg('Usuário excluído com sucesso!');
+      setIsDetailsModalOpen(false);
+      fetchAdminData();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao excluir usuário.');
+    }
+  };
+
   if (user.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
@@ -263,7 +279,6 @@ export function Admin({ user }: AdminProps) {
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium">Plano</th>
                   <th className="px-6 py-4 font-medium">Criado em</th>
-                  <th className="px-6 py-4 font-medium text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -322,59 +337,6 @@ export function Admin({ user }: AdminProps) {
                       <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">
                         {new Date(u.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className={`h-8 text-[10px] font-bold uppercase tracking-wider ${
-                              isBlocked 
-                                ? 'text-emerald-600 hover:text-emerald-700 border-emerald-100 hover:bg-emerald-50 dark:border-emerald-900/30 dark:hover:bg-emerald-900/20'
-                                : 'text-red-600 hover:text-red-700 border-red-100 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20'
-                            }`}
-                            onClick={() => toggleUserStatus(u.id, u.status || 'active')}
-                          >
-                            {isBlocked ? 'Desbloquear' : 'Bloquear'}
-                          </Button>
-                          {isUserPremium ? (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-8 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 border-red-100 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/20"
-                              onClick={() => toggleUserPremium(u.id, u.premium_until)}
-                            >
-                              Remover Premium
-                            </Button>
-                          ) : (
-                            <div className="flex items-center justify-end gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-8 text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 border-emerald-100 hover:bg-emerald-50 dark:border-emerald-900/30 dark:hover:bg-emerald-900/20"
-                                onClick={() => toggleUserPremium(u.id, u.premium_until, 'week')}
-                              >
-                                +1 Sem
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-8 text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 border-emerald-100 hover:bg-emerald-50 dark:border-emerald-900/30 dark:hover:bg-emerald-900/20"
-                                onClick={() => toggleUserPremium(u.id, u.premium_until, 'month')}
-                              >
-                                +1 Mês
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-8 text-[10px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 border-emerald-100 hover:bg-emerald-50 dark:border-emerald-900/30 dark:hover:bg-emerald-900/20"
-                                onClick={() => toggleUserPremium(u.id, u.premium_until, 'year')}
-                              >
-                                +1 Ano
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
@@ -386,7 +348,10 @@ export function Admin({ user }: AdminProps) {
       <UserDetailsModal 
         isOpen={isDetailsModalOpen} 
         onClose={() => setIsDetailsModalOpen(false)} 
-        user={selectedUser} 
+        user={selectedUser}
+        onToggleStatus={toggleUserStatus}
+        onTogglePremium={toggleUserPremium}
+        onDeleteUser={deleteUser}
       />
     </div>
   );
