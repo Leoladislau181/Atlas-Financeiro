@@ -71,4 +71,7 @@ export interface User {
   role?: 'user' | 'admin';
   status?: 'active' | 'blocked';
   created_at?: string;
+  vehicle_count?: number;
+  lancamentos_count?: number;
+  total_movimentado?: number;
 }

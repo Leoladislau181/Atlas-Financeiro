@@ -14,6 +14,7 @@ interface UserDetailsModalProps {
 }
 
 export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogglePremium, onDeleteUser }: UserDetailsModalProps) {
+  console.log('User details modal user:', user);
   if (!user) return null;
 
   const isPremium = user.premium_until && new Date(user.premium_until) > new Date();
@@ -42,9 +43,9 @@ export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogg
           <DetailItem icon={Shield} label="Role" value={user.role || 'user'} />
           <DetailItem icon={UserCheck} label="Status" value={user.status === 'blocked' ? 'Bloqueado' : 'Ativo'} />
           <DetailItem icon={Star} label="Premium" value={isPremium ? `Até ${new Date(user.premium_until!).toLocaleDateString()}` : 'Grátis'} />
-          <DetailItem icon={Car} label="Veículos" value={'0'} />
-          <DetailItem icon={Database} label="Lançamentos" value={'0'} />
-          <DetailItem icon={DollarSign} label="Movimentado" value={'R$ 0,00'} />
+          <DetailItem icon={Car} label="Veículos" value={user.vehicle_count?.toString() || '0'} />
+          <DetailItem icon={Database} label="Lançamentos" value={user.lancamentos_count?.toString() || '0'} />
+          <DetailItem icon={DollarSign} label="Movimentado" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(user.total_movimentado || 0)} />
         </div>
 
         <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">

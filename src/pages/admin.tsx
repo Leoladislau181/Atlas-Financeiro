@@ -28,6 +28,7 @@ export function Admin({ user }: AdminProps) {
   }, [user.role]);
 
   const openUserDetails = (u: User) => {
+    console.log('Opening user details for:', u);
     setSelectedUser(u);
     setIsDetailsModalOpen(true);
   };
@@ -66,6 +67,7 @@ export function Admin({ user }: AdminProps) {
       }
 
       setAdminUsers(data.users || []);
+      console.log('Admin users with metrics:', data.users);
       setAdminMetrics({
         totalUsers: data.totalUsers || 0,
         premiumUsers: data.premiumUsers || 0,
