@@ -1,0 +1,1028 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { CustomSelect } from '@/components/ui/custom-select';
+import { Modal } from '@/components/ui/modal';
+import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, compressImage } from '@/lib/utils';
+import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType } from '@/types';
+import { supabase } from '@/lib/supabase';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Loader2, Lock } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { parseReceiptImage } from '@/services/geminiService';
+import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
+
+interface LancamentosProps {
+  categorias: Categoria[];
+  lancamentos: Lancamento[];
+  vehicles: Vehicle[];
+  refetch: () => void;
+  user: User;
+  forceOpenForm?: boolean;
+  onFormClose?: () => void;
+  forceOpenReceiptReader?: boolean;
+  onReceiptReaderClose?: () => void;
+}
+
+import { PremiumModal } from '@/components/premium-modal';
+
+export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose, forceOpenReceiptReader, onReceiptReaderClose }: LancamentosProps) {
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [tipo, setTipo] = useState<TipoLancamento>('despesa');
+  const [categoriaId, setCategoriaId] = useState('');
+  const [valorStr, setValorStr] = useState('');
+  const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [observacao, setObservacao] = useState('');
+  
+  // Vehicle fields
+  const [vehicleId, setVehicleId] = useState('');
+  const useVehicle = vehicleId !== '';
+  const [odometer, setOdometer] = useState('');
+  const [fuelPricePerLiterStr, setFuelPricePerLiterStr] = useState('');
+  const [fuelType, setFuelType] = useState<FuelType | null>(null);
+  const [isFullTank, setIsFullTank] = useState(true);
+
+  // Auto-fill states
+  const [isOdometerManuallyEdited, setIsOdometerManuallyEdited] = useState(false);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const [isReadingReceipt, setIsReadingReceipt] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const isCombustivel = () => {
+    const cat = categorias.find(c => c.id === categoriaId);
+    return cat?.nome.toLowerCase().includes('combustível') || cat?.nome.toLowerCase().includes('combustivel');
+  };
+
+  const isOdometerRequired = () => {
+    const cat = categorias.find(c => c.id === categoriaId);
+    if (!cat) return false;
+    const nome = cat.nome.toLowerCase();
+    return nome.includes('combustível') || 
+           nome.includes('combustivel') || 
+           nome.includes('aluguel') || 
+           nome.includes('manutenção') || 
+           nome.includes('manutencao');
+  };
+
+  const {
+    suggestedPricePerLiter,
+    suggestedOdometer,
+    setLastAutoFillTrigger
+  } = useFuelAutoFill({
+    vehicleId,
+    fuelType,
+    lancamentos,
+    vehicles,
+    isActive: !editingId && useVehicle && tipo === 'despesa' && (isCombustivel() ?? false),
+    valorStr,
+    pricePerLiterStr: fuelPricePerLiterStr,
+    isOdometerManuallyEdited,
+    triggerDependency: categoriaId
+  });
+
+  // History Filters
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
+  const [filterCategoriaId, setFilterCategoriaId] = useState('all');
+  const [filterVehicleId, setFilterVehicleId] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (forceOpenForm) {
+      setIsFormOpen(true);
+    }
+  }, [forceOpenForm]);
+
+  useEffect(() => {
+    if (forceOpenReceiptReader) {
+      if (!isPremium(user)) {
+        setPremiumFeatureName('Leitura de Nota Fiscal com IA');
+        setIsPremiumModalOpen(true);
+        if (onReceiptReaderClose) onReceiptReaderClose();
+        return;
+      }
+      
+      // Small timeout to ensure the ref is available
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+        if (onReceiptReaderClose) {
+          onReceiptReaderClose();
+        }
+      }, 100);
+    }
+  }, [forceOpenReceiptReader, onReceiptReaderClose, user]);
+
+  useEffect(() => {
+    if (!isFormOpen && onFormClose) {
+      onFormClose();
+    }
+  }, [isFormOpen, onFormClose]);
+
+  const nextMonth = () => setSelectedDate(addMonths(selectedDate, 1));
+  const prevMonth = () => setSelectedDate(subMonths(selectedDate, 1));
+
+  const filteredCategorias = categorias.filter((c) => c.tipo === tipo);
+
+  useEffect(() => {
+    const validCategory = filteredCategorias.find(c => c.id === categoriaId);
+    if (!validCategory && filteredCategorias.length > 0) {
+      setCategoriaId(filteredCategorias[0].id);
+    } else if (filteredCategorias.length === 0) {
+      setCategoriaId('');
+    }
+  }, [tipo, categorias, categoriaId]);
+
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCurrencyInput(e.target.value);
+    setValorStr(formatted);
+  };
+
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isPremium(user)) {
+      setPremiumFeatureName('Leitura de Nota Fiscal com IA');
+      setIsPremiumModalOpen(true);
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 1. Validate file type
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Por favor, selecione um arquivo de imagem válido (JPEG, PNG, etc).');
+      setIsFormOpen(true);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    // 2. Validate file size (max 10MB before compression)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      setErrorMsg('A imagem é muito grande. O tamanho máximo permitido é 10MB.');
+      setIsFormOpen(true);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setIsReadingReceipt(true);
+    try {
+      // 3. Compress image on the frontend
+      const compressedDataUrl = await compressImage(file, 1024, 1024, 0.8);
+      
+      const base64String = compressedDataUrl.split(',')[1];
+      const mimeType = 'image/jpeg'; // compressImage always returns image/jpeg
+      
+      const result = await parseReceiptImage(base64String, mimeType);
+      
+      setTipo('despesa');
+      
+      const fuelCategory = categorias.find(c => c.nome.toLowerCase().includes('combustível') || c.nome.toLowerCase().includes('combustivel'));
+      if (fuelCategory) {
+        setCategoriaId(fuelCategory.id);
+        const activeVehicle = vehicles.find(v => v.status === 'active') || vehicles[0];
+        if (activeVehicle) {
+          setVehicleId(activeVehicle.id);
+          if (result.litros && result.preco_litro) {
+            setLastAutoFillTrigger(`${activeVehicle.id}-${fuelCategory.id}`);
+          } else {
+            setLastAutoFillTrigger('');
+          }
+        }
+      }
+
+      if (result.valor) setValorStr(formatCurrency(result.valor));
+      if (result.data) setData(result.data);
+      
+      if (result.litros && result.preco_litro) {
+        setFuelPricePerLiterStr(formatCurrency(result.preco_litro));
+      }
+      if (result.tipo_combustivel) {
+        const ft = result.tipo_combustivel.toLowerCase();
+        if (['gasolina', 'etanol', 'diesel', 'gnv'].includes(ft)) {
+          setFuelType(ft as FuelType);
+        }
+      }
+
+      setIsOdometerManuallyEdited(false);
+      setObservacao('Lançamento via Leitor de Nota Fiscal');
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Não foi possível processar a imagem. Tente enviar um arquivo diferente.');
+    } finally {
+      setIsReadingReceipt(false);
+      setIsFormOpen(true);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  useEffect(() => {
+    if (suggestedPricePerLiter !== null) {
+      setFuelPricePerLiterStr(suggestedPricePerLiter);
+    }
+  }, [suggestedPricePerLiter]);
+
+  useEffect(() => {
+    if (suggestedOdometer !== null) {
+      setOdometer(suggestedOdometer);
+    }
+  }, [suggestedOdometer]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    if (!categoriaId || !valorStr || !data) {
+      setErrorMsg('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    if (useVehicle && !vehicleId) {
+      setErrorMsg('Selecione um veículo.');
+      return;
+    }
+
+    if (useVehicle && tipo === 'despesa' && isOdometerRequired() && !odometer) {
+      setErrorMsg('O odômetro é obrigatório para esta categoria de despesa.');
+      return;
+    }
+
+    const valorNum = parseCurrency(valorStr);
+    if (valorNum <= 0) {
+      setErrorMsg('O valor deve ser maior que zero.');
+      return;
+    }
+
+    if (!editingId && !isPremium(user)) {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const transactionsThisMonth = lancamentos.filter(l => {
+        const d = new Date(l.data);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+
+      if (transactionsThisMonth.length >= 50) {
+        setPremiumFeatureName('Lançamentos Ilimitados');
+        setIsPremiumModalOpen(true);
+        return;
+      }
+    }
+
+    if (useVehicle && tipo === 'despesa' && odometer) {
+      const vehicle = vehicles.find(v => v.id === vehicleId);
+      const odoNum = Number(odometer);
+      
+      // Find last odometer for this vehicle
+      const vLancamentos = lancamentos.filter(l => l.vehicle_id === vehicleId && l.odometer).sort((a, b) => {
+        const dateA = new Date(a.data).getTime();
+        const dateB = new Date(b.data).getTime();
+        return dateB - dateA;
+      });
+      
+      const lastOdo = vLancamentos.length > 0 ? vLancamentos[0].odometer! : (vehicle?.initial_odometer || 0);
+
+      if (odoNum < lastOdo && !editingId) { // Only validate if not editing, or we'd need more complex validation
+         // Actually, let's just warn or block. The prompt says "Não pode ser menor que último odômetro registrado"
+         // If editing, it might be the last one, so it's fine. Let's just do a simple check.
+         if (odoNum < lastOdo && !editingId) {
+            setErrorMsg(`O odômetro atual (${odoNum}) não pode ser menor que o último registrado (${lastOdo}).`);
+            return;
+         }
+      }
+    }
+
+    setLoading(true);
+    try {
+      const payload: any = {
+        user_id: user.id,
+        tipo,
+        categoria_id: categoriaId,
+        valor: valorNum,
+        data,
+        observacao,
+        vehicle_id: useVehicle ? vehicleId : null,
+        odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
+        fuel_price_per_liter: null,
+        fuel_liters: null,
+        fuel_type: null,
+        is_full_tank: null,
+      };
+
+      if (useVehicle && tipo === 'despesa' && isCombustivel()) {
+        const pricePerLiter = parseCurrency(fuelPricePerLiterStr);
+        const totalFuelValue = valorNum;
+        
+        payload.is_full_tank = isFullTank;
+
+        if (pricePerLiter > 0 && totalFuelValue > 0) {
+           payload.fuel_price_per_liter = pricePerLiter;
+           payload.fuel_liters = totalFuelValue / pricePerLiter;
+           payload.fuel_type = fuelType;
+        }
+      }
+
+      if (editingId) {
+        const { error } = await supabase.from('lancamentos').update(payload).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('lancamentos').insert([payload]);
+        if (error) throw error;
+      }
+
+      setTipo('despesa');
+      setValorStr('');
+      setData(format(new Date(), 'yyyy-MM-dd'));
+      setObservacao('');
+      setVehicleId('');
+      setOdometer('');
+      setFuelPricePerLiterStr('');
+      setFuelType(null);
+      setIsFullTank(true);
+      setEditingId(null);
+      setIsFormOpen(false);
+      refetch();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao salvar lançamento.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (lancamento: Lancamento) => {
+    setEditingId(lancamento.id);
+    setIsFormOpen(true);
+    setTipo(lancamento.tipo);
+    setCategoriaId(lancamento.categoria_id);
+    setValorStr(formatCurrency(lancamento.valor));
+    setData(lancamento.data);
+    setObservacao(lancamento.observacao || '');
+    
+    if (lancamento.vehicle_id) {
+      setVehicleId(lancamento.vehicle_id);
+      setOdometer(lancamento.odometer ? lancamento.odometer.toString() : '');
+      if (lancamento.fuel_price_per_liter) {
+        setFuelPricePerLiterStr(formatCurrency(lancamento.fuel_price_per_liter));
+      } else {
+        setFuelPricePerLiterStr('');
+      }
+      setFuelType(lancamento.fuel_type || null);
+      setIsFullTank(lancamento.is_full_tank ?? true);
+    } else {
+      setVehicleId('');
+      setOdometer('');
+      setFuelPricePerLiterStr('');
+      setFuelType(null);
+      setIsFullTank(true);
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const confirmDelete = (id: string) => {
+    setDeletingId(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+    try {
+      const { error } = await supabase.from('lancamentos').delete().eq('id', deletingId);
+      if (error) throw error;
+      setDeleteModalOpen(false);
+      setDeletingId(null);
+      refetch();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao excluir lançamento.');
+    }
+  };
+
+  const filteredLancamentos = lancamentos.filter((l) => {
+    const dataLancamento = parseLocalDate(l.data);
+    const monthStart = startOfMonth(selectedDate);
+    const monthEnd = endOfMonth(selectedDate);
+    
+    const matchesMonth = isWithinInterval(dataLancamento, { start: monthStart, end: monthEnd });
+    const matchesTipo = filterTipo === 'all' || l.tipo === filterTipo;
+    const matchesCategoria = filterCategoriaId === 'all' || l.categoria_id === filterCategoriaId;
+    const matchesVehicle = filterVehicleId === 'all' || l.vehicle_id === filterVehicleId;
+    const matchesSearch = !searchTerm || 
+      (l.observacao && l.observacao.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (l.categorias && l.categorias.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (l.valor.toString().includes(searchTerm));
+      
+    return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle && matchesSearch;
+  });
+
+  const sortedLancamentos = [...filteredLancamentos].sort((a, b) => {
+    const dateA = new Date(a.data).getTime();
+    const dateB = new Date(b.data).getTime();
+    if (dateA !== dateB) return dateB - dateA;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  const monthSummary = React.useMemo(() => {
+    let receitas = 0;
+    let despesas = 0;
+    filteredLancamentos.forEach(l => {
+      if (l.tipo === 'receita') receitas += Number(l.valor);
+      else despesas += Number(l.valor);
+    });
+    return { receitas, despesas, saldo: receitas - despesas };
+  }, [filteredLancamentos]);
+
+  const visibleLancamentos = sortedLancamentos.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedLancamentos.length;
+
+  return (
+    <div className="space-y-6">
+      {/* Month Selector Header */}
+      <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="w-10 sm:hidden"></div> {/* Spacer for mobile centering balance */}
+        <div className="flex items-center justify-center flex-1">
+          <Button
+            variant="ghost"
+            onClick={prevMonth}
+            className="h-10 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full px-2 sm:px-3 flex items-center gap-1"
+          >
+            <ChevronLeft className="h-5 w-5" />
+            <span className="hidden sm:inline text-xs capitalize">{format(subMonths(selectedDate, 1), 'MMM', { locale: ptBR })}</span>
+          </Button>
+          
+          <div className="text-center mx-1 sm:mx-4 min-w-[120px] sm:min-w-[140px]">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 capitalize">
+              {format(selectedDate, 'MMMM yyyy', { locale: ptBR })}
+            </h2>
+            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+              {filteredLancamentos.length} lançamentos
+            </p>
+          </div>
+
+          <Button
+            variant="ghost"
+            onClick={nextMonth}
+            className="h-10 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full px-2 sm:px-3 flex items-center gap-1"
+          >
+            <span className="hidden sm:inline text-xs capitalize">{format(addMonths(selectedDate, 1), 'MMM', { locale: ptBR })}</span>
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-end w-10 sm:w-auto sm:ml-4 gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            ref={fileInputRef}
+            onChange={handleReceiptUpload}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition-all",
+              showFilters 
+                ? "bg-[#F59E0B] text-white border-[#F59E0B] hover:bg-[#D97706]" 
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+            )}
+          >
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Month Summary Cards */}
+      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Receitas</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                {formatCurrency(monthSummary.receitas)}
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
+              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Despesas</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                {formatCurrency(monthSummary.despesas)}
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={cn(
+              "p-3 rounded-xl",
+              monthSummary.saldo >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"
+            )}>
+              <DollarSign className={cn(
+                "h-5 w-5",
+                monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+              )} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo do Mês</p>
+              <h3 className={cn(
+                "text-lg font-bold",
+                monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
+              )}>
+                {formatCurrency(monthSummary.saldo)}
+              </h3>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {showFilters && (
+        <Card className="border-none shadow-md bg-white dark:bg-gray-900 animate-in fade-in slide-in-from-top-4 duration-300">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Busca</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="O que você procura?"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</label>
+                <CustomSelect
+                  value={filterTipo}
+                  onChange={(val) => setFilterTipo(val as any)}
+                  className="h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                  options={[
+                    { value: 'all', label: 'Todos os Tipos' },
+                    { value: 'receita', label: 'Receitas' },
+                    { value: 'despesa', label: 'Despesas' }
+                  ]}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</label>
+                <CustomSelect
+                  value={filterCategoriaId}
+                  onChange={setFilterCategoriaId}
+                  className="h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                  options={[
+                    { value: 'all', label: 'Todas as Categorias' },
+                    ...categorias.map(c => ({ value: c.id, label: c.nome }))
+                  ]}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Veículo</label>
+                <CustomSelect
+                  value={filterVehicleId}
+                  onChange={setFilterVehicleId}
+                  className="h-11 rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
+                  options={[
+                    { value: 'all', label: 'Todos os Veículos' },
+                    ...vehicles.map(v => ({ value: v.id, label: `${v.name} - ${v.plate}` }))
+                  ]}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Modal
+        isOpen={isReadingReceipt}
+        onClose={() => {}}
+        title="Processando Recibo"
+        className="max-w-sm"
+      >
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <Loader2 className="h-12 w-12 text-indigo-500 animate-spin" />
+          <p className="text-center text-gray-600 dark:text-gray-300 font-medium">
+            A Inteligência Artificial está lendo seu recibo...
+          </p>
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+            Isso leva apenas alguns segundos.
+          </p>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setErrorMsg('');
+        }}
+        title={editingId ? 'Editar Lançamento' : 'Novo Lançamento'}
+        className="max-w-2xl"
+      >
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                <CustomSelect 
+                  value={tipo} 
+                  onChange={(val) => setTipo(val as TipoLancamento)}
+                  options={[
+                    { value: 'despesa', label: 'Despesa' },
+                    { value: 'receita', label: 'Receita' }
+                  ]}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Categoria</label>
+                <CustomSelect 
+                  value={categoriaId} 
+                  onChange={setCategoriaId}
+                  options={filteredCategorias.map(c => ({ value: c.id, label: c.nome }))}
+                  placeholder={filteredCategorias.length === 0 ? "Nenhuma categoria" : "Selecione uma categoria"}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {useVehicle && tipo === 'despesa' && isCombustivel() ? 'Valor Total Abastecido' : 'Valor'}
+                </label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="R$ 0,00"
+                  value={valorStr}
+                  onChange={handleValorChange}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
+                <Input
+                  type="date"
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
+                <CustomSelect 
+                  value={vehicleId} 
+                  onChange={setVehicleId}
+                  options={[
+                    { value: '', label: 'Nenhum veículo' },
+                    ...vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                  ]}
+                />
+              </div>
+
+              {useVehicle && tipo === 'despesa' && (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Odômetro Atual (KM) {isOdometerRequired() ? '*' : '(Opcional)'}
+                    </label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="Ex: 50100"
+                      value={odometer}
+                      onChange={(e) => {
+                        setOdometer(e.target.value);
+                        setIsOdometerManuallyEdited(true);
+                      }}
+                      required={useVehicle && tipo === 'despesa' && isOdometerRequired()}
+                    />
+                  </div>
+
+                  {isCombustivel() && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+                        <CustomSelect
+                          value={fuelType || ''}
+                          onChange={(val) => setFuelType(val as FuelType)}
+                          options={[
+                            { value: 'gasolina', label: 'Gasolina' },
+                            { value: 'etanol', label: 'Etanol' },
+                            { value: 'diesel', label: 'Diesel' },
+                            { value: 'gnv', label: 'GNV' },
+                          ]}
+                          placeholder="Selecione o combustível"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="R$ 0,00"
+                          value={fuelPricePerLiterStr}
+                          onChange={(e) => setFuelPricePerLiterStr(formatCurrencyInput(e.target.value))}
+                          required={useVehicle && tipo === 'despesa' && isCombustivel()}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Litros (Calculado)</label>
+                        <Input
+                          type="text"
+                          value={
+                            parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(valorStr) > 0
+                              ? (parseCurrency(valorStr) / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
+                              : '0.00 L'
+                          }
+                          disabled
+                          className="bg-gray-100 dark:bg-gray-800"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2 flex items-center pt-2">
+                        <input
+                          type="checkbox"
+                          id="isFullTank"
+                          checked={isFullTank}
+                          onChange={(e) => setIsFullTank(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
+                        />
+                        <label htmlFor="isFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                          Tanque Cheio? (Usado para calcular a média de consumo)
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Observação</label>
+              <Input
+                type="text"
+                placeholder="Detalhes do lançamento..."
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setEditingId(null);
+                  setValorStr('');
+                  setObservacao('');
+                  setIsFormOpen(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading || filteredCategorias.length === 0} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706] text-white">
+                {loading ? 'Salvando...' : editingId ? 'Atualizar Lançamento' : 'Salvar Lançamento'}
+              </Button>
+            </div>
+        </form>
+      </Modal>
+
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+        <CardContent className="p-0">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+              <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">
+                <tr>
+                  <th className="px-6 py-4">Data</th>
+                  <th className="px-6 py-4">Tipo</th>
+                  <th className="px-6 py-4">Categoria</th>
+                  <th className="px-6 py-4">Veículo</th>
+                  <th className="px-6 py-4">Observação</th>
+                  <th className="px-6 py-4 text-right">Valor</th>
+                  <th className="px-6 py-4 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleLancamentos.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                      Nenhum lançamento encontrado para este período.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleLancamentos.map((l) => (
+                    <tr key={l.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                        {format(parseLocalDate(l.data), 'dd/MM/yyyy')}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            l.tipo === 'receita'
+                              ? 'bg-green-50 dark:bg-[#059568]/10 text-[#059568] dark:text-[#10B981]'
+                              : 'bg-red-50 dark:bg-[#EF4444]/10 text-[#EF4444] dark:text-[#F87171]'
+                          }`}
+                        >
+                          {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {l.categorias?.nome || 'N/A'}
+                        {l.fuel_type && (
+                          <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                            {l.fuel_type}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {l.vehicles ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                            <Car className="h-3 w-3" />
+                            {l.vehicles.name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 max-w-[200px] truncate text-xs text-gray-500 dark:text-gray-400" title={l.observacao}>
+                        {l.observacao || '-'}
+                      </td>
+                      <td
+                        className={`px-6 py-4 text-right font-bold text-sm whitespace-nowrap ${
+                          l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
+                        }`}
+                      >
+                        {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleEdit(l)}
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => confirmDelete(l.id)}
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-800">
+            {visibleLancamentos.length === 0 ? (
+              <div className="p-12 text-center text-gray-500 dark:text-gray-400">
+                Nenhum lançamento encontrado para este período.
+              </div>
+            ) : (
+              visibleLancamentos.map((l) => (
+                <div 
+                  key={l.id} 
+                  className="p-4 active:bg-gray-50 dark:active:bg-gray-800/50 transition-colors cursor-pointer"
+                  onClick={() => setExpandedId(expandedId === l.id ? null : l.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full shrink-0",
+                        l.tipo === 'receita' ? "bg-[#10B981]" : "bg-[#EF4444]"
+                      )} />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {l.categorias?.nome || 'N/A'}
+                          {l.fuel_type && (
+                            <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                              {l.fuel_type}
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
+                          <span>{format(parseLocalDate(l.data), 'dd MMM yyyy', { locale: ptBR })}</span>
+                          {l.vehicles && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Car className="h-2.5 w-2.5" />
+                                {l.vehicles.name}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className={cn(
+                        "text-sm font-bold",
+                        l.tipo === 'receita' ? "text-[#059568] dark:text-[#10B981]" : "text-[#EF4444] dark:text-[#F87171]"
+                      )}>
+                        {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {expandedId === l.id && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-top-2 duration-200">
+                      {l.observacao && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 italic">"{l.observacao}"</p>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleEdit(l); }}
+                          className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); confirmDelete(l.id); }}
+                          className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {hasMore && (
+            <div className="p-6 border-t border-gray-50 dark:border-gray-800 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisibleCount(prev => prev + 20)}
+                className="text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-100"
+              >
+                Carregar mais lançamentos
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Confirmar Exclusão"
+      >
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
+          Tem certeza que deseja excluir este lançamento? Esta ação não poderá ser desfeita.
+        </p>
+        <div className="flex flex-col sm:flex-row justify-end gap-2">
+          <Button variant="outline" onClick={() => setDeleteModalOpen(false)} className="w-full sm:w-auto">
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={handleDelete} className="w-full sm:w-auto">
+            Confirmar Exclusão
+          </Button>
+        </div>
+      </Modal>
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+      />
+    </div>
+  );
+}

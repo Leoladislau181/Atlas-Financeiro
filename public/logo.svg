@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Rounded Square -->
+  <rect width="512" height="512" rx="112" fill="#111827"/>
+  
+  <!-- Stylized Mountain Peak (Atlas) -->
+  <path d="M100 412L256 100L412 412H340L256 240L172 412H100Z" fill="#F59E0B"/>
+  
+  <!-- Rising Chart Line -->
+  <path d="M220 340L280 280L340 310L420 210" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Accent Dot -->
+  <circle cx="420" cy="210" r="12" fill="#F59E0B" stroke="#FFFFFF" stroke-width="4"/>
+</svg>
