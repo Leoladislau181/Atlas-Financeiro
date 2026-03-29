@@ -186,6 +186,16 @@ export function Configuracoes({
         }
       });
       if (error) throw error;
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          nome: profileNome,
+          telefone: profileTelefone
+        })
+        .eq('id', user.id);
+      if (profileError) throw profileError;
+
       setSuccessMsg('Perfil atualizado com sucesso!');
     } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao atualizar perfil.');
