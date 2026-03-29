@@ -336,11 +336,19 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       }
 
       if (editingId) {
+        console.log('Updating lancamento:', editingId, payload);
         const { error } = await supabase.from('lancamentos').update(payload).eq('id', editingId);
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase update error:', error);
+          throw error;
+        }
       } else {
+        console.log('Inserting lancamento:', payload);
         const { error } = await supabase.from('lancamentos').insert([payload]);
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase insert error:', error);
+          throw error;
+        }
       }
 
       setTipo('despesa');

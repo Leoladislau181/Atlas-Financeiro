@@ -127,11 +127,19 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       }
 
       if (editingId) {
+        console.log('Updating vehicle:', editingId, payload);
         const { error } = await supabase.from('vehicles').update(payload).eq('id', editingId);
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase update error:', error);
+          throw error;
+        }
       } else {
+        console.log('Inserting vehicle:', payload);
         const { data: newVehicle, error } = await supabase.from('vehicles').insert([payload]).select();
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase insert error:', error);
+          throw error;
+        }
 
         if (type === 'rented') {
           const { data: catData } = await supabase.from('categorias').select('id').eq('nome', 'Aluguel').eq('user_id', user.id).single();
