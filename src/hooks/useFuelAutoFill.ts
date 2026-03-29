@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Lancamento, Vehicle, FuelType } from '@/types';
-import { formatCurrency, parseCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency, parseLocalDate } from '@/lib/utils';
 
 interface UseFuelAutoFillProps {
   vehicleId: string;
@@ -43,14 +43,14 @@ export function useFuelAutoFill({
       
       const fuelEntries = vLancamentos
         .filter(l => l.fuel_price_per_liter && l.fuel_liters && l.odometer && (!fuelType || l.fuel_type === fuelType))
-        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        .sort((a, b) => parseLocalDate(b.data).getTime() - parseLocalDate(a.data).getTime());
 
       const lastFuelEntry = fuelEntries.length > 0 ? fuelEntries[0] : null;
       const lastPrice = lastFuelEntry?.fuel_price_per_liter || null;
       
       const odoEntries = vLancamentos
         .filter(l => l.odometer)
-        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+        .sort((a, b) => parseLocalDate(b.data).getTime() - parseLocalDate(a.data).getTime());
       
       const vehicle = vehicles.find(v => v.id === vehicleId);
       const lastOdo = odoEntries.length > 0 ? odoEntries[0].odometer! : (vehicle?.initial_odometer || null);

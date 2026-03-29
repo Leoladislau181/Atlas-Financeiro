@@ -135,7 +135,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       const transactionsThisMonth = lancamentos.filter(l => {
-        const d = new Date(l.data);
+        const d = parseLocalDate(l.data);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { User } from '@/types';
-import { isPremium } from '@/lib/utils';
+import { isPremium, parseLocalDate } from '@/lib/utils';
 import { Auth } from '@/pages/auth';
 import { Layout } from '@/components/layout';
 import { useFinanceData } from '@/hooks/useFinanceData';
@@ -224,7 +224,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       const transactionsThisMonth = lancamentos.filter(l => {
-        const d = new Date(l.data);
+        const d = parseLocalDate(l.data);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
 

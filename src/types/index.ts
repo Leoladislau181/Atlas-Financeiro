@@ -69,4 +69,9 @@ export interface User {
   referred_by?: string;
   premium_until?: string;
   role?: 'user' | 'admin';
+  status?: 'active' | 'blocked';
+  created_at?: string;
+  vehicle_count?: number;
+  lancamentos_count?: number;
+  total_movimentado?: number;
 }

@@ -271,7 +271,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       const transactionsThisMonth = lancamentos.filter(l => {
-        const d = new Date(l.data);
+        const d = parseLocalDate(l.data);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
 
@@ -288,8 +288,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       
       // Find last odometer for this vehicle
       const vLancamentos = lancamentos.filter(l => l.vehicle_id === vehicleId && l.odometer).sort((a, b) => {
-        const dateA = new Date(a.data).getTime();
-        const dateB = new Date(b.data).getTime();
+        const dateA = parseLocalDate(a.data).getTime();
+        const dateB = parseLocalDate(b.data).getTime();
         return dateB - dateA;
       });
       
@@ -428,8 +428,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   });
 
   const sortedLancamentos = [...filteredLancamentos].sort((a, b) => {
-    const dateA = new Date(a.data).getTime();
-    const dateB = new Date(b.data).getTime();
+    const dateA = parseLocalDate(a.data).getTime();
+    const dateB = parseLocalDate(b.data).getTime();
     if (dateA !== dateB) return dateB - dateA;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });

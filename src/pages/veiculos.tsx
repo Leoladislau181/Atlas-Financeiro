@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
-import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium } from '@/lib/utils';
+import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium, parseLocalDate } from '@/lib/utils';
 import { Lancamento, Vehicle, Manutencao, User } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface VeiculosProps {
   vehicles: Vehicle[];
@@ -75,7 +76,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
 
   const getDaysRemaining = (endDate?: string) => {
     if (!endDate) return 0;
-    const end = new Date(endDate);
+    const end = parseLocalDate(endDate);
     const today = new Date();
     const diffTime = end.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -141,7 +142,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
               categoria_id: catData.id,
               vehicle_id: newVehicle[0].id,
               valor: parseCurrency(contractValueStr),
-              data: contractStartDate || new Date().toISOString().split('T')[0],
+              data: contractStartDate || format(new Date(), 'yyyy-MM-dd'),
               observacao: `Pagamento inicial do contrato - ${name}`
             }]);
           }
@@ -258,7 +259,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
           categoria_id: catData.id,
           vehicle_id: renewingVehicle.id,
           valor: parseCurrency(renewContractValueStr),
-          data: renewStartDate || new Date().toISOString().split('T')[0],
+          data: renewStartDate || format(new Date(), 'yyyy-MM-dd'),
           observacao: `Pagamento de renovação de contrato - ${renewingVehicle.name}`
         }]);
       }
@@ -386,7 +387,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
     if (vehicle.type === 'rented') {
       const contractStarts = vLancamentos
         .filter(l => l.observacao && (l.observacao.startsWith('Pagamento inicial do contrato') || l.observacao.startsWith('Pagamento de renovação de contrato')))
-        .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+        .sort((a, b) => parseLocalDate(a.data).getTime() - parseLocalDate(b.data).getTime());
 
       contractStarts.forEach((startL, index) => {
         const nextStart = contractStarts[index + 1];

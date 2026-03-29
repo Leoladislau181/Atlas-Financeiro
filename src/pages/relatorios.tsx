@@ -537,12 +537,15 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
         l.categorias?.nome || '-',
         l.vehicles?.name || '-',
         l.tipo === 'receita' ? 'RECEITA' : 'DESPESA',
-        formatCurrency(Number(l.valor))
+        formatCurrency(Number(l.valor)),
+        l.odometer || '-',
+        l.is_full_tank ? 'tank full' : '',
+        l.fuel_price_per_liter ? formatCurrency(Number(l.fuel_price_per_liter)) : '-'
       ]);
 
       autoTable(doc, {
         startY: currentY + 5,
-        head: [['Data', 'Descrição', 'Categoria', 'Veículo', 'Tipo', 'Valor']],
+        head: [['Data', 'Descrição', 'Categoria', 'Veículo', 'Tipo', 'Valor', 'KM', 'Tanque', 'R$/L']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [55, 65, 81] },
@@ -723,7 +726,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
         'Tipo': l.tipo === 'receita' ? 'Receita' : 'Despesa',
         'Valor': Number(l.valor),
         'Veículo': l.vehicles?.name || '-',
-        'Placa': l.vehicles?.plate || '-'
+        'Placa': l.vehicles?.plate || '-',
+        'KM': l.odometer || '-',
+        'Tanque Cheio': l.is_full_tank ? 'tank full' : '',
+        'Valor por Litro': l.fuel_price_per_liter ? formatCurrency(Number(l.fuel_price_per_liter)) : '-'
       }));
 
       // Add summary sheet or rows

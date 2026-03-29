@@ -96,12 +96,84 @@ export default async function handler(req: any, res: any) {
     const usersRes = await fetchDb('profiles?select=*&order=created_at.desc');
     const usersData = await usersRes.json();
 
+    // 5.5. Fetch all vehicles and aggregate
+    let vehicleCounts = {};
+    try {
+      // Fetch 1 row to inspect schema
+      const vehiclesRes = await fetchDb('vehicles?select=*&limit=1');
+      const vehiclesData = await vehiclesRes.json();
+      console.log('Vehicles sample row:', vehiclesData);
+      
+      // Fetch all
+      const allVehiclesRes = await fetchDb('vehicles?select=user_id');
+      const allVehiclesData = await allVehiclesRes.json();
+      
+      vehicleCounts = allVehiclesData.reduce((acc: any, v: any) => {
+        // Try to find the user_id column dynamically if 'user_id' is not found
+        const userIdKey = Object.keys(v).find(k => k.toLowerCase().includes('user') || k.toLowerCase().includes('profile'));
+        const id = userIdKey ? v[userIdKey] : v.user_id;
+        if (id) {
+          acc[id] = (acc[id] || 0) + 1;
+        }
+        return acc;
+      }, {});
+      console.log('Vehicle counts:', vehicleCounts);
+    } catch (e) {
+      console.error('Error fetching vehicles:', e);
+    }
+
+    // 5.6. Fetch all lancamentos and aggregate
+    let lancamentosCounts = {};
+    try {
+      // Fetch 1 row to inspect schema
+      const lancamentosRes = await fetchDb('lancamentos?select=*&limit=1');
+      const lancamentosData = await lancamentosRes.json();
+      console.log('Lancamentos sample row:', lancamentosData);
+      
+      // Fetch all
+      const allLancamentosRes = await fetchDb('lancamentos?select=user_id,valor');
+      const allLancamentosData = await allLancamentosRes.json();
+      
+      lancamentosCounts = allLancamentosData.reduce((acc: any, l: any) => {
+        const userIdKey = Object.keys(l).find(k => k.toLowerCase().includes('user') || k.toLowerCase().includes('profile'));
+        const id = userIdKey ? l[userIdKey] : l.user_id;
+        const valorKey = Object.keys(l).find(k => k.toLowerCase().includes('valor') || k.toLowerCase().includes('amount'));
+        const valor = valorKey ? l[valorKey] : l.valor;
+
+        if (id) {
+          acc[id] = acc[id] || { count: 0, total: 0 };
+          acc[id].count += 1;
+          acc[id].total += (valor || 0);
+        }
+        return acc;
+      }, {});
+      console.log('Lancamentos counts:', lancamentosCounts);
+    } catch (e) {
+      console.error('Error fetching lancamentos:', e);
+    }
+
+    const usersWithMetrics = usersData.map((u: any) => {
+      const vCount = vehicleCounts[u.id] || 0;
+      const lData = lancamentosCounts[u.id] || { count: 0, total: 0 };
+      
+      if (vCount > 0 || lData.count > 0) {
+        console.log(`User ${u.id} (${u.email}) has metrics: vehicles=${vCount}, lancamentos=${lData.count}, total=${lData.total}`);
+      }
+      
+      return {
+        ...u,
+        vehicle_count: vCount,
+        lancamentos_count: lData.count,
+        total_movimentado: lData.total
+      };
+    });
+
     // 6. Retorno esperado
     return res.status(200).json({
       totalUsers: totalUsers || 0,
       premiumUsers: premiumUsers || 0,
       totalTransactions: totalTransactions || 0,
-      users: usersData || []
+      users: usersWithMetrics || []
     });
 
   } catch (e: any) {
