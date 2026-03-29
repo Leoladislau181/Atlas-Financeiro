@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, Star, Zap, Shield, FileText, Car, Gift } from 'lucide-react';
+import { Check, Star, Zap, Shield, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { User } from '@/types';
 import { isPremium } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-
-import { Modal } from '@/components/ui/modal';
 
 interface PremiumProps {
   user: User;
@@ -15,16 +13,49 @@ interface PremiumProps {
 
 export function Premium({ user, refetch }: PremiumProps) {
   const [loading, setLoading] = useState(false);
-  const [isComingSoonOpen, setIsComingSoonOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const isUserPremium = isPremium(user);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success')) {
+      setSuccess(true);
+      refetch();
+    }
+    if (params.get('canceled')) {
+      setError('O pagamento foi cancelado. Tente novamente quando estiver pronto.');
+    }
+  }, [refetch]);
+
   const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
-    setSelectedPlan({
-      name: plan === 'monthly' ? 'Mensal' : 'Anual',
-      price: plan === 'monthly' ? 'R$ 14,90' : 'R$ 99,90'
-    });
-    setIsComingSoonOpen(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Você precisa estar logado para assinar.');
+
+      const response = await fetch('/api/mercadopago/create-preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ plan })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao iniciar checkout do Mercado Pago.');
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      console.error('Erro no checkout:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,7 +72,25 @@ export function Premium({ user, refetch }: PremiumProps) {
         </p>
       </div>
 
-      {isUserPremium && (
+      {success && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 mb-8 text-center flex flex-col items-center animate-in zoom-in duration-300">
+          <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-4" />
+          <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Pagamento Processado!</h2>
+          <p className="text-emerald-600 dark:text-emerald-500">
+            Obrigado por assinar o Atlas Premium. Seu acesso está sendo liberado automaticamente.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 mb-8 text-center flex flex-col items-center animate-in shake duration-300">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-2xl font-bold text-red-800 dark:text-red-400 mb-2">Ops! Algo deu errado</h2>
+          <p className="text-red-600 dark:text-red-500">{error}</p>
+        </div>
+      )}
+
+      {isUserPremium && !success && (
         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 mb-8 text-center">
           <Shield className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Você já é Premium!</h2>
@@ -153,34 +202,6 @@ export function Premium({ user, refetch }: PremiumProps) {
           Pagamento seguro via PIX ou Cartão de Crédito. Cancele quando quiser.
         </p>
       </div>
-
-      <Modal
-        isOpen={isComingSoonOpen}
-        onClose={() => setIsComingSoonOpen(false)}
-        title="Em Breve!"
-        className="max-w-md"
-      >
-        <div className="flex flex-col items-center justify-center py-8 space-y-4 text-center">
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-full">
-            <Zap className="h-12 w-12 text-amber-500" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Integração em Andamento</h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Estamos finalizando a integração com o sistema de pagamentos para o plano <strong>{selectedPlan?.name} ({selectedPlan?.price})</strong>.
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500 pt-2">
-              Em poucos dias você poderá assinar e desbloquear todos os recursos premium automaticamente!
-            </p>
-          </div>
-          <Button 
-            onClick={() => setIsComingSoonOpen(false)}
-            className="w-full bg-[#F59E0B] hover:bg-[#D97706] text-white mt-4"
-          >
-            Entendido
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 }
