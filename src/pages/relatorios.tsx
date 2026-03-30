@@ -1271,6 +1271,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
         isOpen={isPremiumModalOpen}
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
+        user={user}
       />
     </div>
   );

@@ -41,11 +41,17 @@ export async function parseReceiptHandler(req: Request, res: Response) {
     // 2. Fetch User Profile to check Premium status
     const { data: profile } = await supabase
       .from("profiles")
-      .select("premium_until")
+      .select("premium_until, premium_status")
       .eq("id", userId)
       .single();
 
     const isPremium = profile?.premium_until && new Date(profile.premium_until) > new Date();
+    const isPending = profile?.premium_status === 'pending';
+    
+    if (isPending) {
+      return res.status(403).json({ error: "A leitura de notas com IA estará disponível assim que seu pagamento for confirmado." });
+    }
+
     const limit = isPremium ? PREMIUM_LIMIT : FREE_LIMIT;
 
     // 3. Rate Limiting Check (Persistent via Supabase)

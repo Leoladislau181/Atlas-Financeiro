@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
-import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, compressImage } from '@/lib/utils';
+import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, isPremiumFull, compressImage } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Loader2, Lock } from 'lucide-react';
@@ -110,7 +110,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
 
   useEffect(() => {
     if (forceOpenReceiptReader) {
-      if (!isPremium(user)) {
+      if (!isPremiumFull(user)) {
         setPremiumFeatureName('Leitura de Nota Fiscal com IA');
         setIsPremiumModalOpen(true);
         if (onReceiptReaderClose) onReceiptReaderClose();
@@ -155,7 +155,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   };
 
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isPremium(user)) {
+    if (!isPremiumFull(user)) {
       setPremiumFeatureName('Leitura de Nota Fiscal com IA');
       setIsPremiumModalOpen(true);
       return;
@@ -1030,6 +1030,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
         isOpen={isPremiumModalOpen}
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
+        user={user}
       />
     </div>
   );

@@ -3,7 +3,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
 import { parseReceiptHandler } from "./server/api/parse-receipt.ts";
-import { togglePremiumHandler, getAdminDataHandler, toggleUserStatusHandler } from "./server/api/admin.ts";
+import { togglePremiumHandler, getAdminDataHandler, toggleUserStatusHandler, approvePaymentHandler } from "./server/api/admin.ts";
+import { submitReceiptHandler } from "./server/api/payment.ts";
 
 dotenv.config();
 
@@ -23,7 +24,9 @@ async function startServer() {
   app.post("/api/parse-receipt", parseReceiptHandler);
   app.post("/api/admin/toggle-premium", togglePremiumHandler);
   app.post("/api/admin/toggle-status", toggleUserStatusHandler);
+  app.post("/api/admin/approve-payment", approvePaymentHandler);
   app.get("/api/admin/data", getAdminDataHandler);
+  app.post("/api/payment/submit-receipt", submitReceiptHandler);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

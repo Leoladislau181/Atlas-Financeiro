@@ -679,6 +679,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
         isOpen={isPremiumModalOpen}
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
+        user={user}
       />
     </div>
   );

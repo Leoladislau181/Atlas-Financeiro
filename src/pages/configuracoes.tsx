@@ -409,7 +409,7 @@ export function Configuracoes({
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-gray-100">Meu Plano</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {isPremium(user) ? 'Você é Premium 🌟' : 'Plano Gratuito'}
+                  {user.premium_status === 'pending' ? 'Assinatura em Análise ⏳' : (isPremium(user) ? 'Você é Premium 🌟' : 'Plano Gratuito')}
                 </p>
               </div>
             </div>
@@ -421,17 +421,19 @@ export function Configuracoes({
           {isPlanOpen && (
             <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="space-y-4">
-                <div className={`p-4 rounded-xl border ${isPremium(user) ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30' : 'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700'}`}>
-                  <h4 className={`font-semibold mb-2 ${isPremium(user) ? 'text-amber-800 dark:text-amber-300' : 'text-gray-800 dark:text-gray-300'}`}>
-                    {isPremium(user) ? 'Plano Premium Ativo' : 'Plano Gratuito'}
+                <div className={`p-4 rounded-xl border ${user.premium_status === 'pending' ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30' : (isPremium(user) ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-900/30' : 'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700')}`}>
+                  <h4 className={`font-semibold mb-2 ${user.premium_status === 'pending' ? 'text-amber-800 dark:text-amber-300' : (isPremium(user) ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-800 dark:text-gray-300')}`}>
+                    {user.premium_status === 'pending' ? 'Assinatura em Análise' : (isPremium(user) ? 'Plano Premium Ativo' : 'Plano Gratuito')}
                   </h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    {isPremium(user) 
-                      ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo leitura de notas fiscais com IA, veículos ilimitados e exportação de relatórios.'
-                      : 'Faça o upgrade para desbloquear leitura de notas fiscais com IA, veículos ilimitados, exportação de relatórios e muito mais.'}
+                    {user.premium_status === 'pending' 
+                      ? 'Seu pagamento está sendo analisado. Você tem acesso provisório a quase todas as funcionalidades.'
+                      : (isPremium(user) 
+                        ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo leitura de notas fiscais com IA, veículos ilimitados e exportação de relatórios.'
+                        : 'Faça o upgrade para desbloquear leitura de notas fiscais com IA, veículos ilimitados, exportação de relatórios e muito mais.')}
                   </p>
                   
-                  {!isPremium(user) ? (
+                  {!isPremium(user) && user.premium_status !== 'pending' ? (
                     <Button 
                       onClick={onNavigateToPremium} 
                       className="w-full bg-amber-500 hover:bg-amber-600 text-white"
@@ -443,7 +445,7 @@ export function Configuracoes({
                       onClick={onNavigateToPremium} 
                       className="w-full bg-amber-500 hover:bg-amber-600 text-white"
                     >
-                      Estender Assinatura
+                      {user.premium_status === 'pending' ? 'Acompanhar Assinatura' : 'Estender Assinatura'}
                     </Button>
                   )}
                 </div>

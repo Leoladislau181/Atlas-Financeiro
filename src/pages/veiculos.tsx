@@ -1212,6 +1212,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
         isOpen={isPremiumModalOpen}
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
+        user={user}
       />
     </div>
   );

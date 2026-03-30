@@ -11,9 +11,11 @@ interface UserDetailsModalProps {
   onToggleStatus: (userId: string, currentStatus: string) => void;
   onTogglePremium: (userId: string, currentPremiumUntil: string | null, duration?: 'week' | 'month' | 'year') => void;
   onDeleteUser: (userId: string) => void;
+  onApprovePayment?: (userId: string, plan: string) => void;
+  onRejectPayment?: (userId: string) => void;
 }
 
-export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogglePremium, onDeleteUser }: UserDetailsModalProps) {
+export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogglePremium, onDeleteUser, onApprovePayment, onRejectPayment }: UserDetailsModalProps) {
   console.log('User details modal user:', user);
   if (!user) return null;
 
@@ -43,10 +45,38 @@ export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogg
           <DetailItem icon={Shield} label="Role" value={user.role || 'user'} />
           <DetailItem icon={UserCheck} label="Status" value={user.status === 'blocked' ? 'Bloqueado' : 'Ativo'} />
           <DetailItem icon={Star} label="Premium" value={isPremium ? `Até ${new Date(user.premium_until!).toLocaleDateString()}` : 'Grátis'} />
+          <DetailItem icon={Star} label="Status Premium" value={user.premium_status === 'pending' ? 'Pendente' : (user.premium_status === 'active' ? 'Ativo' : 'Nenhum')} />
           <DetailItem icon={Car} label="Veículos" value={user.vehicle_count?.toString() || '0'} />
           <DetailItem icon={Database} label="Lançamentos" value={user.lancamentos_count?.toString() || '0'} />
           <DetailItem icon={DollarSign} label="Movimentado" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(user.total_movimentado || 0)} />
         </div>
+
+        {user.premium_status === 'pending' && user.payment_receipt_url && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800/50">
+            <h4 className="text-sm font-bold text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Pagamento Pendente ({user.premium_plan === 'yearly' ? 'Anual' : 'Mensal'})
+            </h4>
+            <a href={user.payment_receipt_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline mb-4 block">
+              Ver Comprovante de Pagamento
+            </a>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" 
+                onClick={() => onApprovePayment && onApprovePayment(user.id, user.premium_plan || 'monthly')}
+              >
+                Aprovar
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="flex-1" 
+                onClick={() => onRejectPayment && onRejectPayment(user.id)}
+              >
+                Rejeitar
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-gray-800">
           <Button variant="outline" onClick={() => onToggleStatus(user.id, user.status || 'active')}>

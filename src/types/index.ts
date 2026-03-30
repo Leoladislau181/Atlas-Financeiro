@@ -68,6 +68,9 @@ export interface User {
   referral_code?: string;
   referred_by?: string;
   premium_until?: string;
+  premium_status?: 'active' | 'pending' | 'none';
+  premium_plan?: 'monthly' | 'yearly';
+  payment_receipt_url?: string;
   role?: 'user' | 'admin';
   status?: 'active' | 'blocked';
   created_at?: string;

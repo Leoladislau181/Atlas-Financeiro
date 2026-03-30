@@ -172,6 +172,68 @@ export function Admin({ user }: AdminProps) {
     }
   };
 
+  const handleApprovePayment = async (userId: string, plan: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão não encontrada');
+
+      const response = await fetch('/api/admin/approve-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          targetUserId: userId,
+          action: 'approve',
+          plan
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao aprovar pagamento.');
+      }
+      
+      setSuccessMsg('Pagamento aprovado com sucesso!');
+      setIsDetailsModalOpen(false);
+      fetchAdminData();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao aprovar pagamento.');
+    }
+  };
+
+  const handleRejectPayment = async (userId: string) => {
+    if (!confirm('Tem certeza que deseja rejeitar este pagamento? O usuário perderá o acesso premium temporário.')) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão não encontrada');
+
+      const response = await fetch('/api/admin/approve-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          targetUserId: userId,
+          action: 'reject'
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao rejeitar pagamento.');
+      }
+      
+      setSuccessMsg('Pagamento rejeitado e acesso bloqueado.');
+      setIsDetailsModalOpen(false);
+      fetchAdminData();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao rejeitar pagamento.');
+    }
+  };
+
   if (user.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-4">
@@ -325,16 +387,20 @@ export function Admin({ user }: AdminProps) {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          isUserPremium 
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                        }`}>
-                          {isUserPremium ? 'Premium' : 'Grátis'}
-                        </span>
-                        {isUserPremium && u.premium_until && (
-                          <p className="text-[10px] text-gray-400 mt-1">Até {new Date(u.premium_until).toLocaleDateString()}</p>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            u.premium_status === 'pending'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              : isUserPremium 
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' 
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                          }`}>
+                            {u.premium_status === 'pending' ? 'Pendente' : (isUserPremium ? 'Premium' : 'Grátis')}
+                          </span>
+                          {isUserPremium && u.premium_until && (
+                            <p className="text-[10px] text-gray-400">Até {new Date(u.premium_until).toLocaleDateString()}</p>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">
                         {new Date(u.created_at).toLocaleDateString()}
@@ -354,6 +420,8 @@ export function Admin({ user }: AdminProps) {
         onToggleStatus={toggleUserStatus}
         onTogglePremium={toggleUserPremium}
         onDeleteUser={deleteUser}
+        onApprovePayment={handleApprovePayment}
+        onRejectPayment={handleRejectPayment}
       />
     </div>
   );

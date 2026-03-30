@@ -13,6 +13,11 @@ export function isPremium(user: User | null | undefined): boolean {
   return premiumUntil > new Date();
 }
 
+export function isPremiumFull(user: User | null | undefined): boolean {
+  if (!isPremium(user)) return false;
+  return user?.premium_status !== 'pending';
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',

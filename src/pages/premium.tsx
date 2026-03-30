@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, Star, Zap, Shield, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Check, Star, Zap, Shield, AlertCircle, CheckCircle2, Copy, Upload, X } from 'lucide-react';
 import { User } from '@/types';
-import { isPremium } from '@/lib/utils';
+import { isPremium, compressImage } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 interface PremiumProps {
@@ -15,7 +15,13 @@ export function Premium({ user, refetch }: PremiumProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const isUserPremium = isPremium(user);
+  const isPending = user.premium_status === 'pending';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -28,35 +34,95 @@ export function Premium({ user, refetch }: PremiumProps) {
     }
   }, [refetch]);
 
-  const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
+  const handleSubscribeClick = (plan: 'monthly' | 'yearly') => {
+    setSelectedPlan(plan);
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setError(null);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor, envie uma imagem do comprovante.');
+      return;
+    }
+
+    try {
+      setReceiptFile(file);
+      const preview = await compressImage(file, 800, 800, 0.8);
+      setReceiptPreview(preview);
+      setError(null);
+    } catch (err) {
+      setError('Erro ao processar a imagem.');
+    }
+  };
+
+  const handleSubmitReceipt = async () => {
+    if (!selectedPlan || !receiptPreview || !receiptFile) return;
+    
     setLoading(true);
     setError(null);
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Você precisa estar logado para assinar.');
 
-      const response = await fetch('/api/mercadopago/create-preference', {
+      // Convert base64 preview to blob for upload
+      const res = await fetch(receiptPreview);
+      const blob = await res.blob();
+      
+      const fileExt = 'jpeg';
+      const fileName = `${user.id}-receipt-${Date.now()}.${fileExt}`;
+      const filePath = `receipts/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, blob, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error('Erro ao fazer upload do comprovante.');
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const response = await fetch('/api/payment/submit-receipt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ plan })
+        body: JSON.stringify({ 
+          plan: selectedPlan,
+          receiptUrl: publicUrl
+        })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao iniciar checkout do Mercado Pago.');
+      if (!response.ok) throw new Error(data.error || 'Erro ao enviar comprovante.');
 
-      if (data.url) {
-        // Abre em uma nova aba para evitar bloqueios de segurança de iframe do Mercado Pago
-        window.open(data.url, '_blank');
-      }
+      setSuccess(true);
+      setSelectedPlan(null);
+      refetch();
     } catch (err: any) {
-      console.error('Erro no checkout:', err);
+      console.error('Erro no envio:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const copyPixKey = () => {
+    navigator.clipboard.writeText('65242056000106');
+    // Pode adicionar um toast aqui se quiser
   };
 
   return (
@@ -76,9 +142,9 @@ export function Premium({ user, refetch }: PremiumProps) {
       {success && (
         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 mb-8 text-center flex flex-col items-center animate-in zoom-in duration-300">
           <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-4" />
-          <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Pagamento Processado!</h2>
+          <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Comprovante Enviado!</h2>
           <p className="text-emerald-600 dark:text-emerald-500">
-            Obrigado por assinar o Atlas Premium. Seu acesso está sendo liberado automaticamente.
+            Seu acesso Premium foi liberado provisoriamente por 3 dias enquanto analisamos o pagamento. Aproveite!
           </p>
         </div>
       )}
@@ -91,13 +157,101 @@ export function Premium({ user, refetch }: PremiumProps) {
         </div>
       )}
 
-      {isUserPremium && !success && (
+      {isPending && !success && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 mb-8 text-center">
+          <Zap className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-amber-800 dark:text-amber-400 mb-2">Assinatura em Análise</h2>
+          <p className="text-amber-600 dark:text-amber-500">
+            Seu comprovante está sendo analisado. Você tem acesso provisório até {new Date(user.premium_until!).toLocaleDateString('pt-BR')}.
+            <br/>
+            <span className="text-sm opacity-80 mt-2 block">* A Leitura de Notas com IA será liberada após a confirmação.</span>
+          </p>
+        </div>
+      )}
+
+      {isUserPremium && !isPending && !success && (
         <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 mb-8 text-center">
           <Shield className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Você já é Premium!</h2>
+          <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Você é Premium!</h2>
           <p className="text-emerald-600 dark:text-emerald-500">
             Seu plano está ativo até {new Date(user.premium_until!).toLocaleDateString('pt-BR')}. Aproveite todos os recursos!
           </p>
+        </div>
+      )}
+
+      {selectedPlan && !success && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <Card className="w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold">Pagamento via Pix</h3>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedPlan(null)}>
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="text-center space-y-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Valor do plano {selectedPlan === 'monthly' ? 'Mensal' : 'Anual'}</p>
+                <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                  {selectedPlan === 'monthly' ? 'R$ 14,90' : 'R$ 99,90'}
+                </p>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 space-y-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 text-center">Chave Pix (CNPJ)</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-3 bg-white dark:bg-gray-950 rounded-lg text-center font-mono text-lg border border-gray-200 dark:border-gray-800">
+                    65.242.056/0001-06
+                  </code>
+                  <Button variant="outline" size="icon" onClick={copyPixKey} title="Copiar chave Pix">
+                    <Copy className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+                  Após realizar o pagamento, envie o comprovante abaixo para liberar seu acesso imediatamente.
+                </p>
+
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                />
+
+                {!receiptPreview ? (
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-16 border-dashed border-2 hover:bg-gray-50 dark:hover:bg-gray-900"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-5 w-5 mr-2" />
+                    Anexar Comprovante
+                  </Button>
+                ) : (
+                  <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
+                    <img src={receiptPreview} alt="Comprovante" className="w-full h-40 object-cover opacity-50" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                        Trocar Imagem
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <Button 
+                  className="w-full h-12 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={!receiptPreview || loading}
+                  onClick={handleSubmitReceipt}
+                >
+                  {loading ? 'Enviando...' : 'Confirmar Pagamento'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -138,11 +292,11 @@ export function Premium({ user, refetch }: PremiumProps) {
             </ul>
 
             <Button 
-              onClick={() => handleSubscribe('monthly')}
-              disabled={isUserPremium || loading}
+              onClick={() => handleSubscribeClick('monthly')}
+              disabled={isUserPremium || isPending || loading}
               className="w-full h-12 text-lg font-semibold bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
             >
-              {isUserPremium ? 'Plano Ativo' : 'Assinar Mensal'}
+              {isPending ? 'Em Análise' : (isUserPremium ? 'Plano Ativo' : 'Assinar Mensal')}
             </Button>
           </CardContent>
         </Card>
@@ -188,11 +342,11 @@ export function Premium({ user, refetch }: PremiumProps) {
             </ul>
 
             <Button 
-              onClick={() => handleSubscribe('yearly')}
-              disabled={isUserPremium || loading}
+              onClick={() => handleSubscribeClick('yearly')}
+              disabled={isUserPremium || isPending || loading}
               className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/25 border-0"
             >
-              {isUserPremium ? 'Plano Ativo' : 'Assinar Anual com Desconto'}
+              {isPending ? 'Em Análise' : (isUserPremium ? 'Plano Ativo' : 'Assinar Anual com Desconto')}
             </Button>
           </CardContent>
         </Card>
@@ -200,7 +354,7 @@ export function Premium({ user, refetch }: PremiumProps) {
       
       <div className="mt-16 text-center">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Pagamento seguro via PIX ou Cartão de Crédito. Cancele quando quiser.
+          Pagamento seguro via PIX. Cancele quando quiser.
         </p>
       </div>
     </div>

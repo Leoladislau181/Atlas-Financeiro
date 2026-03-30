@@ -74,8 +74,6 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('inicio');
-  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
-  const [premiumFeatureName, setPremiumFeatureName] = useState('');
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -114,6 +112,9 @@ export default function App() {
             foto_url: session.user.user_metadata?.foto_url || '',
             referral_code: session.user.user_metadata?.referral_code || '',
             referred_by: session.user.user_metadata?.referred_by || '',
+            premium_status: session.user.user_metadata?.premium_status || 'none',
+            premium_plan: session.user.user_metadata?.premium_plan || '',
+            payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
             premium_until: profile?.premium_until || '',
             role: profile?.role || 'user'
           });
@@ -151,6 +152,9 @@ export default function App() {
               foto_url: session.user.user_metadata?.foto_url || '',
               referral_code: session.user.user_metadata?.referral_code || '',
               referred_by: session.user.user_metadata?.referred_by || '',
+              premium_status: session.user.user_metadata?.premium_status || 'none',
+              premium_plan: session.user.user_metadata?.premium_plan || '',
+              payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
               premium_until: profile?.premium_until || '',
               role: profile?.role || 'user'
             });
@@ -330,6 +334,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         isOpen={isPremiumModalOpen}
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
+        user={user}
       />
     </Layout>
   );
