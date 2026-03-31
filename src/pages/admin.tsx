@@ -59,7 +59,8 @@ export function Admin({ user }: AdminProps) {
         throw new Error(`Erro de comunicação com o servidor (Status ${response.status}). Detalhes: ${snippet}...`);
       }
 
-      const data = await response.json();
+      let data = {};
+      try { data = await response.json(); } catch (e) {}
 
       if (!response.ok) {
         const errorMessage = data.stack ? `${data.error}\n\nStack: ${data.stack}` : (data.error || 'Erro ao carregar dados do painel administrativo.');
@@ -112,7 +113,8 @@ export function Admin({ user }: AdminProps) {
         throw new Error(`Erro de comunicação com o servidor (Status ${response.status}). Detalhes: ${snippet}...`);
       }
 
-      const data = await response.json();
+      let data = {};
+      try { data = await response.json(); } catch (e) {}
 
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao atualizar status premium.');
@@ -145,7 +147,8 @@ export function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        let data = {};
+        try { data = await response.json(); } catch (e) {}
         throw new Error(data.error || 'Erro ao atualizar status do usuário.');
       }
       
@@ -191,7 +194,8 @@ export function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        let data = {};
+        try { data = await response.json(); } catch (e) {}
         throw new Error(data.error || 'Erro ao aprovar pagamento.');
       }
       
@@ -222,7 +226,8 @@ export function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        let data = {};
+        try { data = await response.json(); } catch (e) {}
         throw new Error(data.error || 'Erro ao rejeitar pagamento.');
       }
       
