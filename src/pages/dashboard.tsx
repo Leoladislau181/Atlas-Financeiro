@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { supabase } from '@/lib/supabase';
 import { PremiumModal } from '@/components/premium-modal';
+import { OnboardingGuide } from '@/components/onboarding-guide';
 
 interface DashboardProps {
   lancamentos: Lancamento[];
@@ -25,9 +26,10 @@ interface DashboardProps {
   refetch: () => void;
   user: User;
   onReadReceipt?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onReadReceipt }: DashboardProps) {
+export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onReadReceipt, onNavigate }: DashboardProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -57,6 +59,10 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
   const [performValueStr, setPerformValueStr] = useState('');
   const [performObs, setPerformObs] = useState('');
   const [performLoading, setPerformLoading] = useState(false);
+
+  const hasVehicles = vehicles.length > 0;
+  const hasCategories = categorias.some(c => !c.is_system_default);
+  const hasTransactions = lancamentos.length > 0;
 
   useEffect(() => {
     if (vehicles.length > 0) {
@@ -350,6 +356,32 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
           </Button>
         </div>
       </div>
+
+      {!hasVehicles ? (
+        <OnboardingGuide
+          step="vehicle"
+          title="Cadastre seu primeiro veículo"
+          description="Para começar a controlar seus gastos, adicione o carro ou moto que você utiliza."
+          onClick={() => onNavigate && onNavigate('veiculos')}
+          buttonText="Adicionar Veículo"
+        />
+      ) : !hasCategories ? (
+        <OnboardingGuide
+          step="category"
+          title="Crie suas categorias"
+          description="Organize suas finanças! Crie categorias personalizadas como 'Alimentação' ou 'Impostos'."
+          onClick={() => onNavigate && onNavigate('configuracoes')}
+          buttonText="Criar Categoria"
+        />
+      ) : !hasTransactions ? (
+        <OnboardingGuide
+          step="transaction"
+          title="Registre seu primeiro lançamento"
+          description="Tudo pronto! Agora é só registrar seu primeiro gasto ou ganho para ver os gráficos."
+          onClick={() => onNavigate && onNavigate('lancamentos')}
+          buttonText="Novo Lançamento"
+        />
+      ) : null}
 
       {maintenanceAlerts.length > 0 && (
         <div className="grid grid-cols-1 gap-3">

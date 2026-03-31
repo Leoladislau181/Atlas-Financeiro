@@ -277,6 +277,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             refetch={refetch}
             user={user}
             onReadReceipt={handleOpenReceiptReader}
+            onNavigate={setActiveTab}
           />
         )}
         {activeTab === 'lancamentos' && (
