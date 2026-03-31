@@ -71,7 +71,6 @@ export interface User {
   premium_status?: 'active' | 'pending' | 'none';
   premium_plan?: 'monthly' | 'yearly';
   payment_receipt_url?: string;
-  was_premium_before_renewal?: boolean;
   role?: 'user' | 'admin';
   status?: 'active' | 'blocked';
   created_at?: string;

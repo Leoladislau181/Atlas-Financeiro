@@ -3,21 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 
 export const submitReceiptHandler = async (req: Request, res: Response) => {
   try {
-    console.log('submitReceiptHandler called');
     const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    console.log('supabaseUrl:', supabaseUrl ? 'set' : 'not set');
-    console.log('supabaseServiceKey:', supabaseServiceKey ? 'set' : 'not set');
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Configuração do servidor incompleta.');
       return res.status(500).json({ error: 'Configuração do servidor incompleta.' });
     }
 
     const authHeader = req.headers.authorization;
-    console.log('authHeader:', authHeader ? 'set' : 'not set');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('Token de autenticação não fornecido ou inválido.');
       return res.status(401).json({ error: 'Token de autenticação não fornecido ou inválido.' });
     }
 
@@ -27,21 +21,31 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    console.log('Fetching user...');
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    console.log('User fetched:', user ? 'yes' : 'no', 'Error:', authError);
     
     if (authError || !user) {
-      console.error('Token inválido ou expirado.');
       return res.status(401).json({ error: 'Token inválido ou expirado.' });
     }
 
     const { plan, receiptUrl } = req.body;
-    console.log('Plan:', plan, 'ReceiptUrl:', receiptUrl);
 
     if (!plan || !receiptUrl) {
-      console.error('Plano e comprovante são obrigatórios.');
       return res.status(400).json({ error: 'Plano e comprovante são obrigatórios.' });
+    }
+
+    // Update user metadata
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        ...user.user_metadata,
+        premium_status: 'pending',
+        premium_plan: plan,
+        payment_receipt_url: receiptUrl
+      }
+    });
+
+    if (metaError) {
+      console.error('Erro ao atualizar metadata:', metaError);
+      return res.status(500).json({ error: 'Erro ao salvar comprovante.' });
     }
 
     // Grant 3 days of pending premium if they don't already have more
@@ -55,30 +59,8 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
     const pendingUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     
     let newUntil = pendingUntil.toISOString();
-    
-    // If already pending, preserve the original was_premium_before_renewal flag
-    const wasPremium = user.user_metadata?.premium_status === 'pending'
-      ? !!user.user_metadata?.was_premium_before_renewal
-      : currentUntil > Date.now();
-
     if (currentUntil > pendingUntil.getTime()) {
       newUntil = new Date(currentUntil).toISOString();
-    }
-    
-    // Update user metadata
-    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...(user.user_metadata || {}),
-        premium_status: 'pending',
-        premium_plan: plan,
-        payment_receipt_url: receiptUrl,
-        was_premium_before_renewal: wasPremium
-      }
-    });
-
-    if (metaError) {
-      console.error('Erro ao atualizar metadata:', metaError);
-      return res.status(500).json({ error: 'Erro ao salvar comprovante.' });
     }
     
     const { error: profileError } = await supabaseAdmin

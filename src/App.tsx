@@ -115,7 +115,6 @@ export default function App() {
             premium_status: session.user.user_metadata?.premium_status || 'none',
             premium_plan: session.user.user_metadata?.premium_plan || '',
             payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
-            was_premium_before_renewal: session.user.user_metadata?.was_premium_before_renewal || false,
             premium_until: profile?.premium_until || '',
             role: profile?.role || 'user'
           });
@@ -156,7 +155,6 @@ export default function App() {
               premium_status: session.user.user_metadata?.premium_status || 'none',
               premium_plan: session.user.user_metadata?.premium_plan || '',
               payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
-              was_premium_before_renewal: session.user.user_metadata?.was_premium_before_renewal || false,
               premium_until: profile?.premium_until || '',
               role: profile?.role || 'user'
             });
@@ -279,7 +277,6 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             refetch={refetch}
             user={user}
             onReadReceipt={handleOpenReceiptReader}
-            onNavigate={setActiveTab}
           />
         )}
         {activeTab === 'lancamentos' && (

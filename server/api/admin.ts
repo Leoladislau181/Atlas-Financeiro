@@ -202,10 +202,10 @@ export const approvePaymentHandler = async (req: Request, res: Response) => {
         
       const currentUntil = targetProfile?.premium_until ? new Date(targetProfile.premium_until).getTime() : 0;
       const now = Date.now();
-      const wasPremium = targetUser.user.user_metadata?.was_premium_before_renewal;
       
-      // If they were premium before and have a future premium_until, add to it. Otherwise add to now.
-      const baseDate = wasPremium && currentUntil > now ? currentUntil : now;
+      // If they have a future premium_until, add to it. Otherwise add to now.
+      // Note: if they were pending, they might have up to 3 days in the future. We'll just add to that.
+      const baseDate = currentUntil > now ? currentUntil : now;
       
       const days = plan === 'yearly' ? 365 : 30;
       const newPremiumUntil = new Date(baseDate + days * 24 * 60 * 60 * 1000).toISOString();
@@ -216,23 +216,17 @@ export const approvePaymentHandler = async (req: Request, res: Response) => {
       
       metadataUpdateData = {
         premium_status: 'active',
-        was_premium_before_renewal: null,
       };
     } else if (action === 'reject') {
-      const wasPremium = targetUser.user.user_metadata?.was_premium_before_renewal;
-      
-      if (!wasPremium) {
-        // Block access immediately if they weren't premium before
-        profileUpdateData = {
-          premium_until: null,
-        };
-      }
+      // Block access immediately
+      profileUpdateData = {
+        premium_until: null,
+      };
       
       metadataUpdateData = {
-        premium_status: wasPremium ? 'active' : 'none',
+        premium_status: 'none',
         premium_plan: null,
         payment_receipt_url: null,
-        was_premium_before_renewal: null,
       };
     }
 
@@ -248,17 +242,15 @@ export const approvePaymentHandler = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Erro ao atualizar o status do pagamento do usuário.' });
     }
 
-    // Update profile if there are changes
-    if (Object.keys(profileUpdateData).length > 0) {
-      const { error: updateError } = await supabaseAdmin
-        .from('profiles')
-        .update(profileUpdateData)
-        .eq('id', targetUserId);
+    // Update profile
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update(profileUpdateData)
+      .eq('id', targetUserId);
 
-      if (updateError) {
-        console.error('Erro ao atualizar perfil do usuário:', updateError);
-        return res.status(500).json({ error: 'Erro ao atualizar o perfil do usuário.' });
-      }
+    if (updateError) {
+      console.error('Erro ao atualizar perfil do usuário:', updateError);
+      return res.status(500).json({ error: 'Erro ao atualizar o perfil do usuário.' });
     }
 
     return res.status(200).json({ success: true, action });
@@ -336,7 +328,7 @@ export const getAdminDataHandler = async (req: Request, res: Response) => {
 
     // Merge profiles with auth metadata
     const users = profiles?.map(profile => {
-      const authUser = authUsers?.users.find((u: any) => u.id === profile.id);
+      const authUser = authUsers?.users.find(u => u.id === profile.id);
       return {
         ...profile,
         premium_status: authUser?.user_metadata?.premium_status || 'none',

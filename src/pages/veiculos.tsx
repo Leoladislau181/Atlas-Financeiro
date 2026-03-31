@@ -10,7 +10,6 @@ import { Lancamento, Vehicle, Manutencao, User } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock } from 'lucide-react';
 import { format } from 'date-fns';
-import { OnboardingGuide } from '@/components/onboarding-guide';
 
 interface VeiculosProps {
   vehicles: Vehicle[];
@@ -544,16 +543,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
 
   return (
     <div className="space-y-6">
-      {vehicles.length === 0 && (
-        <OnboardingGuide
-          step="vehicle"
-          title="Cadastre seu primeiro veículo"
-          description="Para começar a controlar seus gastos, adicione o carro ou moto que você utiliza."
-          onClick={() => setIsFormOpen(true)}
-          buttonText="Adicionar Veículo"
-        />
-      )}
-
       <Card className="overflow-hidden border-none shadow-sm bg-white dark:bg-gray-900">
         <div 
           className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"

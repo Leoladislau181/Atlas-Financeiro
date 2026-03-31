@@ -74,14 +74,14 @@ export function Premium({ user, refetch }: PremiumProps) {
       const res = await fetch(receiptPreview);
       const blob = await res.blob();
       
-      const fileExt = file.name.split('.').pop() || 'jpeg';
+      const fileExt = 'jpeg';
       const fileName = `${user.id}-receipt-${Date.now()}.${fileExt}`;
       const filePath = `receipts/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, blob, {
-          contentType: file.type,
+          contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: true,
         });
@@ -160,9 +160,7 @@ export function Premium({ user, refetch }: PremiumProps) {
       {isPending && !success && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 mb-8 text-center">
           <Zap className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-amber-800 dark:text-amber-400 mb-2">
-            {user.was_premium_before_renewal ? 'Renovação em Análise' : 'Assinatura em Análise'}
-          </h2>
+          <h2 className="text-2xl font-bold text-amber-800 dark:text-amber-400 mb-2">Assinatura em Análise</h2>
           <p className="text-amber-600 dark:text-amber-500">
             Seu comprovante está sendo analisado. Você tem acesso provisório até {new Date(user.premium_until!).toLocaleDateString('pt-BR')}.
             <br/>
@@ -176,7 +174,7 @@ export function Premium({ user, refetch }: PremiumProps) {
           <Shield className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Você é Premium!</h2>
           <p className="text-emerald-600 dark:text-emerald-500">
-            Seu plano está ativo até {new Date(user.premium_until!).toLocaleDateString('pt-BR')}. Você pode renovar antecipadamente abaixo para somar mais dias à sua assinatura!
+            Seu plano está ativo até {new Date(user.premium_until!).toLocaleDateString('pt-BR')}. Aproveite todos os recursos!
           </p>
         </div>
       )}
@@ -295,10 +293,10 @@ export function Premium({ user, refetch }: PremiumProps) {
 
             <Button 
               onClick={() => handleSubscribeClick('monthly')}
-              disabled={isPending || loading}
+              disabled={isUserPremium || isPending || loading}
               className="w-full h-12 text-lg font-semibold bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
             >
-              {isPending ? (user.was_premium_before_renewal ? 'Renovação em Análise' : 'Em Análise') : (isUserPremium ? 'Renovar Mensal' : 'Assinar Mensal')}
+              {isPending ? 'Em Análise' : (isUserPremium ? 'Plano Ativo' : 'Assinar Mensal')}
             </Button>
           </CardContent>
         </Card>
@@ -345,10 +343,10 @@ export function Premium({ user, refetch }: PremiumProps) {
 
             <Button 
               onClick={() => handleSubscribeClick('yearly')}
-              disabled={isPending || loading}
+              disabled={isUserPremium || isPending || loading}
               className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/25 border-0"
             >
-              {isPending ? (user.was_premium_before_renewal ? 'Renovação em Análise' : 'Em Análise') : (isUserPremium ? 'Renovar Anual' : 'Assinar Anual com Desconto')}
+              {isPending ? 'Em Análise' : (isUserPremium ? 'Plano Ativo' : 'Assinar Anual com Desconto')}
             </Button>
           </CardContent>
         </Card>
