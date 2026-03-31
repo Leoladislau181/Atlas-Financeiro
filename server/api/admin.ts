@@ -216,17 +216,23 @@ export const approvePaymentHandler = async (req: Request, res: Response) => {
       
       metadataUpdateData = {
         premium_status: 'active',
+        was_premium_before_renewal: null,
       };
     } else if (action === 'reject') {
-      // Block access immediately
-      profileUpdateData = {
-        premium_until: null,
-      };
+      const wasPremium = targetUser.user.user_metadata?.was_premium_before_renewal;
+      
+      if (!wasPremium) {
+        // Block access immediately if they weren't premium before
+        profileUpdateData = {
+          premium_until: null,
+        };
+      }
       
       metadataUpdateData = {
-        premium_status: 'none',
+        premium_status: wasPremium ? 'active' : 'none',
         premium_plan: null,
         payment_receipt_url: null,
+        was_premium_before_renewal: null,
       };
     }
 
@@ -242,15 +248,17 @@ export const approvePaymentHandler = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Erro ao atualizar o status do pagamento do usuário.' });
     }
 
-    // Update profile
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update(profileUpdateData)
-      .eq('id', targetUserId);
+    // Update profile if there are changes
+    if (Object.keys(profileUpdateData).length > 0) {
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update(profileUpdateData)
+        .eq('id', targetUserId);
 
-    if (updateError) {
-      console.error('Erro ao atualizar perfil do usuário:', updateError);
-      return res.status(500).json({ error: 'Erro ao atualizar o perfil do usuário.' });
+      if (updateError) {
+        console.error('Erro ao atualizar perfil do usuário:', updateError);
+        return res.status(500).json({ error: 'Erro ao atualizar o perfil do usuário.' });
+      }
     }
 
     return res.status(200).json({ success: true, action });

@@ -33,21 +33,6 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Plano e comprovante são obrigatórios.' });
     }
 
-    // Update user metadata
-    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...user.user_metadata,
-        premium_status: 'pending',
-        premium_plan: plan,
-        payment_receipt_url: receiptUrl
-      }
-    });
-
-    if (metaError) {
-      console.error('Erro ao atualizar metadata:', metaError);
-      return res.status(500).json({ error: 'Erro ao salvar comprovante.' });
-    }
-
     // Grant 3 days of pending premium if they don't already have more
     const { data: profile } = await supabaseAdmin
       .from('profiles')
@@ -59,8 +44,26 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
     const pendingUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     
     let newUntil = pendingUntil.toISOString();
+    const wasPremium = currentUntil > Date.now();
+
     if (currentUntil > pendingUntil.getTime()) {
       newUntil = new Date(currentUntil).toISOString();
+    }
+    
+    // Update user metadata
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        ...user.user_metadata,
+        premium_status: 'pending',
+        premium_plan: plan,
+        payment_receipt_url: receiptUrl,
+        was_premium_before_renewal: wasPremium
+      }
+    });
+
+    if (metaError) {
+      console.error('Erro ao atualizar metadata:', metaError);
+      return res.status(500).json({ error: 'Erro ao salvar comprovante.' });
     }
     
     const { error: profileError } = await supabaseAdmin

@@ -15,6 +15,9 @@ export function isPremium(user: User | null | undefined): boolean {
 
 export function isPremiumFull(user: User | null | undefined): boolean {
   if (!isPremium(user)) return false;
+  if (user?.premium_status === 'pending' && user?.was_premium_before_renewal) {
+    return true;
+  }
   return user?.premium_status !== 'pending';
 }
 
