@@ -44,7 +44,11 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
     const pendingUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     
     let newUntil = pendingUntil.toISOString();
-    const wasPremium = currentUntil > Date.now();
+    
+    // If already pending, preserve the original was_premium_before_renewal flag
+    const wasPremium = user.user_metadata?.premium_status === 'pending'
+      ? !!user.user_metadata?.was_premium_before_renewal
+      : currentUntil > Date.now();
 
     if (currentUntil > pendingUntil.getTime()) {
       newUntil = new Date(currentUntil).toISOString();
