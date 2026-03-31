@@ -74,24 +74,17 @@ export function Premium({ user, refetch }: PremiumProps) {
       const res = await fetch(receiptPreview);
       const blob = await res.blob();
       
-      const fileExt = 'jpeg';
+      const fileExt = file.name.split('.').pop() || 'jpeg';
       const fileName = `${user.id}-receipt-${Date.now()}.${fileExt}`;
       const filePath = `receipts/${fileName}`;
 
-      let uploadError;
-      try {
-        const result = await supabase.storage
-          .from('avatars')
-          .upload(filePath, blob, {
-            contentType: 'image/jpeg',
-            cacheControl: '3600',
-            upsert: true,
-          });
-        uploadError = result.error;
-      } catch (e: any) {
-        console.error('Upload exception:', e);
-        throw new Error('Erro ao fazer upload da imagem. Verifique sua conexão.');
-      }
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, blob, {
+          contentType: file.type,
+          cacheControl: '3600',
+          upsert: true,
+        });
 
       if (uploadError) {
         throw new Error('Erro ao fazer upload do comprovante.');
@@ -113,15 +106,7 @@ export function Premium({ user, refetch }: PremiumProps) {
         })
       });
 
-      let data;
-      const text = await response.text();
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (e) {
-        console.error('Failed to parse response:', text);
-        throw new Error('Erro de comunicação com o servidor. Resposta inválida.');
-      }
-
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erro ao enviar comprovante.');
 
       setSuccess(true);

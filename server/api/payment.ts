@@ -68,7 +68,7 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
     // Update user metadata
     const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       user_metadata: {
-        ...user.user_metadata,
+        ...(user.user_metadata || {}),
         premium_status: 'pending',
         premium_plan: plan,
         payment_receipt_url: receiptUrl,
