@@ -1,6 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
+// Polyfill for File in Node.js 18 environments (Vercel)
+if (typeof global !== 'undefined' && typeof global.File === 'undefined') {
+  global.File = class File extends Blob {
+    name: string;
+    lastModified: number;
+    constructor(fileBits: any[], fileName: string, options?: any) {
+      super(fileBits, options);
+      this.name = fileName;
+      this.lastModified = options?.lastModified || Date.now();
+    }
+  } as any;
+}
+
 export const config = {
   api: {
     bodyParser: {
