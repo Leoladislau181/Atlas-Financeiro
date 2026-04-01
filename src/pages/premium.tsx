@@ -27,12 +27,15 @@ export function Premium({ user, refetch }: PremiumProps) {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success')) {
       setSuccess(true);
-      refetch();
+      supabase.auth.refreshSession();
+      // Clear the URL parameters to prevent re-triggering on reload
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
     if (params.get('canceled')) {
       setError('O pagamento foi cancelado. Tente novamente quando estiver pronto.');
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [refetch]);
+  }, []);
 
   const handleSubscribeClick = (plan: 'monthly' | 'yearly') => {
     setSelectedPlan(plan);
@@ -111,7 +114,7 @@ export function Premium({ user, refetch }: PremiumProps) {
 
       setSuccess(true);
       setSelectedPlan(null);
-      refetch();
+      await supabase.auth.refreshSession();
     } catch (err: any) {
       console.error('Erro no envio:', err);
       setError(err.message);
