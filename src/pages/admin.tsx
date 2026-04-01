@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw, Search } from 'lucide-react';
 import { UserDetailsModal } from '@/components/user-details-modal';
 import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
 
 interface AdminProps {
   user: User;
@@ -20,12 +21,23 @@ export function Admin({ user }: AdminProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmMessage, setConfirmMessage] = useState('');
 
   useEffect(() => {
     if (user.role === 'admin') {
       fetchAdminData();
     }
   }, [user.role]);
+
+  const requestConfirm = (title: string, message: string, action: () => void) => {
+    setConfirmTitle(title);
+    setConfirmMessage(message);
+    setConfirmAction(() => action);
+    setConfirmModalOpen(true);
+  };
 
   const openUserDetails = (u: User) => {
     console.log('Opening user details for:', u);
@@ -59,7 +71,7 @@ export function Admin({ user }: AdminProps) {
         throw new Error(`Erro de comunicação com o servidor (Status ${response.status}). Detalhes: ${snippet}...`);
       }
 
-      let data = {};
+      let data: any = {};
       try { data = await response.json(); } catch (e) {}
 
       if (!response.ok) {
@@ -113,7 +125,7 @@ export function Admin({ user }: AdminProps) {
         throw new Error(`Erro de comunicação com o servidor (Status ${response.status}). Detalhes: ${snippet}...`);
       }
 
-      let data = {};
+      let data: any = {};
       try { data = await response.json(); } catch (e) {}
 
       if (!response.ok) {
@@ -147,7 +159,7 @@ export function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) {
-        let data = {};
+        let data: any = {};
         try { data = await response.json(); } catch (e) {}
         throw new Error(data.error || 'Erro ao atualizar status do usuário.');
       }
@@ -159,20 +171,27 @@ export function Admin({ user }: AdminProps) {
     }
   };
 
-  const deleteUser = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Sessão não encontrada');
+  const deleteUser = (userId: string) => {
+    requestConfirm(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja excluir este usuário?',
+      async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('Sessão não encontrada');
 
-      // Placeholder for delete API call
-      console.log('Deleting user:', userId);
-      setSuccessMsg('Usuário excluído com sucesso!');
-      setIsDetailsModalOpen(false);
-      fetchAdminData();
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao excluir usuário.');
-    }
+          // Placeholder for delete API call
+          console.log('Deleting user:', userId);
+          setSuccessMsg('Usuário excluído com sucesso!');
+          setIsDetailsModalOpen(false);
+          fetchAdminData();
+        } catch (error: any) {
+          setErrorMsg(error.message || 'Erro ao excluir usuário.');
+        } finally {
+          setConfirmModalOpen(false);
+        }
+      }
+    );
   };
 
   const handleApprovePayment = async (userId: string, plan: string) => {
@@ -194,7 +213,7 @@ export function Admin({ user }: AdminProps) {
       });
 
       if (!response.ok) {
-        let data = {};
+        let data: any = {};
         try { data = await response.json(); } catch (e) {}
         throw new Error(data.error || 'Erro ao aprovar pagamento.');
       }
@@ -207,36 +226,43 @@ export function Admin({ user }: AdminProps) {
     }
   };
 
-  const handleRejectPayment = async (userId: string) => {
-    if (!confirm('Tem certeza que deseja rejeitar este pagamento? O usuário perderá o acesso premium temporário.')) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Sessão não encontrada');
+  const handleRejectPayment = (userId: string) => {
+    requestConfirm(
+      'Rejeitar Pagamento',
+      'Tem certeza que deseja rejeitar este pagamento? O status do usuário voltará ao normal e o comprovante será descartado.',
+      async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('Sessão não encontrada');
 
-      const response = await fetch('/api/admin/approve-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          targetUserId: userId,
-          action: 'reject'
-        })
-      });
+          const response = await fetch('/api/admin/approve-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              targetUserId: userId,
+              action: 'reject'
+            })
+          });
 
-      if (!response.ok) {
-        let data = {};
-        try { data = await response.json(); } catch (e) {}
-        throw new Error(data.error || 'Erro ao rejeitar pagamento.');
+          if (!response.ok) {
+            let data: any = {};
+            try { data = await response.json(); } catch (e) {}
+            throw new Error(data.error || 'Erro ao rejeitar pagamento.');
+          }
+          
+          setSuccessMsg('Pagamento rejeitado.');
+          setIsDetailsModalOpen(false);
+          fetchAdminData();
+        } catch (error: any) {
+          setErrorMsg(error.message || 'Erro ao rejeitar pagamento.');
+        } finally {
+          setConfirmModalOpen(false);
+        }
       }
-      
-      setSuccessMsg('Pagamento rejeitado e acesso bloqueado.');
-      setIsDetailsModalOpen(false);
-      fetchAdminData();
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao rejeitar pagamento.');
-    }
+    );
   };
 
   if (user.role !== 'admin') {
@@ -428,6 +454,24 @@ export function Admin({ user }: AdminProps) {
         onApprovePayment={handleApprovePayment}
         onRejectPayment={handleRejectPayment}
       />
+
+      <Modal
+        isOpen={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        title={confirmTitle}
+      >
+        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+          {confirmMessage}
+        </p>
+        <div className="flex flex-col sm:flex-row justify-end gap-2">
+          <Button variant="outline" onClick={() => setConfirmModalOpen(false)} className="w-full sm:w-auto">
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={() => confirmAction && confirmAction()} className="w-full sm:w-auto">
+            Confirmar
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

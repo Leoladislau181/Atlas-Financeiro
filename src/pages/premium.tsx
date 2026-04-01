@@ -144,7 +144,7 @@ export function Premium({ user, refetch }: PremiumProps) {
           <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-4" />
           <h2 className="text-2xl font-bold text-emerald-800 dark:text-emerald-400 mb-2">Comprovante Enviado!</h2>
           <p className="text-emerald-600 dark:text-emerald-500">
-            Seu acesso Premium foi liberado provisoriamente por 3 dias enquanto analisamos o pagamento. Aproveite!
+            Seu comprovante foi enviado com sucesso e está em análise. Seu acesso Premium será liberado assim que o pagamento for confirmado.
           </p>
         </div>
       )}
@@ -164,9 +164,9 @@ export function Premium({ user, refetch }: PremiumProps) {
             {user.was_premium_before_renewal ? 'Renovação em Análise' : 'Assinatura em Análise'}
           </h2>
           <p className="text-amber-600 dark:text-amber-500">
-            Seu comprovante está sendo analisado. Você tem acesso provisório até {new Date(user.premium_until!).toLocaleDateString('pt-BR')}.
+            Seu comprovante está sendo analisado. Seu acesso será liberado assim que o pagamento for confirmado.
             <br/>
-            <span className="text-sm opacity-80 mt-2 block">* A Leitura de Notas com IA será liberada após a confirmação.</span>
+            <span className="text-sm opacity-80 mt-2 block">* Você receberá acesso completo a todas as funcionalidades Premium.</span>
           </p>
         </div>
       )}

@@ -430,7 +430,7 @@ export function Configuracoes({
                   </h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     {user.premium_status === 'pending' 
-                      ? 'Seu pagamento está sendo analisado. Você tem acesso provisório a quase todas as funcionalidades.'
+                      ? 'Seu pagamento está sendo analisado. Seu acesso será liberado assim que o pagamento for confirmado.'
                       : (isPremium(user) 
                         ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo leitura de notas fiscais com IA, veículos ilimitados e exportação de relatórios.'
                         : 'Faça o upgrade para desbloquear leitura de notas fiscais com IA, veículos ilimitados, exportação de relatórios e muito mais.')}

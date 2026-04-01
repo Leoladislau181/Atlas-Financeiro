@@ -59,13 +59,27 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Plano e comprovante são obrigatórios.' });
     }
 
+    // If already pending, preserve the original was_premium_before_renewal flag
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('premium_until')
+      .eq('id', user.id)
+      .single();
+
+    const currentUntil = profile?.premium_until ? new Date(profile.premium_until).getTime() : 0;
+    
+    const wasPremium = user.user_metadata?.premium_status === 'pending'
+      ? !!user.user_metadata?.was_premium_before_renewal
+      : currentUntil > Date.now();
+
     // Update user metadata
     const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       user_metadata: {
         ...user.user_metadata,
         premium_status: 'pending',
         premium_plan: plan,
-        payment_receipt_url: receiptUrl
+        payment_receipt_url: receiptUrl,
+        was_premium_before_renewal: wasPremium
       }
     });
 
@@ -74,32 +88,7 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: 'Erro ao salvar comprovante.' });
     }
 
-    // Grant 3 days of pending premium if they don't already have more
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('premium_until')
-      .eq('id', user.id)
-      .single();
-
-    const currentUntil = profile?.premium_until ? new Date(profile.premium_until).getTime() : 0;
-    const pendingUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    
-    let newUntil = pendingUntil.toISOString();
-    if (currentUntil > pendingUntil.getTime()) {
-      newUntil = new Date(currentUntil).toISOString();
-    }
-    
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({ premium_until: newUntil })
-      .eq('id', user.id);
-
-    if (profileError) {
-      console.error('Erro ao atualizar perfil:', profileError);
-      return res.status(500).json({ error: 'Erro ao liberar acesso temporário.' });
-    }
-
-    return res.status(200).json({ success: true, premium_until: newUntil });
+    return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('Erro interno:', error);
     if (res && typeof res.status === 'function') {
