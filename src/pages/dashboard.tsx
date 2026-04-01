@@ -9,13 +9,14 @@ import { ptBR } from 'date-fns/locale';
 import { isPremium } from '@/lib/utils';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 
-import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { supabase } from '@/lib/supabase';
 import { PremiumModal } from '@/components/premium-modal';
+import { OnboardingGuide } from '@/components/onboarding-guide';
 
 interface DashboardProps {
   lancamentos: Lancamento[];
@@ -25,9 +26,10 @@ interface DashboardProps {
   refetch: () => void;
   user: User;
   onReadReceipt?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onReadReceipt }: DashboardProps) {
+export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onReadReceipt, onNavigate }: DashboardProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -57,6 +59,21 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
   const [performValueStr, setPerformValueStr] = useState('');
   const [performObs, setPerformObs] = useState('');
   const [performLoading, setPerformLoading] = useState(false);
+
+  const hasVehicles = vehicles.length > 0;
+  const hasCategories = categorias.some(c => !c.is_system_default);
+  const hasTransactions = lancamentos.length > 0;
+
+  const daysUntilPremiumExpires = useMemo(() => {
+    if (!user.premium_until || user.premium_status !== 'active') return null;
+    const expiryDate = parseLocalDate(user.premium_until);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expiryDate.setHours(0, 0, 0, 0);
+    const diffTime = expiryDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }, [user.premium_until, user.premium_status]);
 
   useEffect(() => {
     if (vehicles.length > 0) {
@@ -324,6 +341,30 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
 
   return (
     <div className="space-y-6">
+      {daysUntilPremiumExpires !== null && daysUntilPremiumExpires <= 3 && daysUntilPremiumExpires >= 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full shrink-0">
+              <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h4 className="font-bold text-amber-800 dark:text-amber-300">
+                Sua assinatura Premium vence {daysUntilPremiumExpires === 0 ? 'hoje' : `em ${daysUntilPremiumExpires} dia${daysUntilPremiumExpires > 1 ? 's' : ''}`}!
+              </h4>
+              <p className="text-sm text-amber-700 dark:text-amber-400/80 mt-0.5">
+                Renove agora para não perder o acesso aos recursos exclusivos.
+              </p>
+            </div>
+          </div>
+          <Button 
+            onClick={() => onNavigate && onNavigate('premium')}
+            className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+          >
+            Renovar Agora
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Resumo</h2>
         <div className="flex items-center gap-2">
@@ -350,6 +391,32 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
           </Button>
         </div>
       </div>
+
+      {!hasVehicles ? (
+        <OnboardingGuide
+          step="vehicle"
+          title="Cadastre seu primeiro veículo"
+          description="Para começar a controlar seus gastos, adicione o carro ou moto que você utiliza."
+          onClick={() => onNavigate && onNavigate('veiculos')}
+          buttonText="Adicionar Veículo"
+        />
+      ) : !hasCategories ? (
+        <OnboardingGuide
+          step="category"
+          title="Crie suas categorias"
+          description="Organize suas finanças! Crie categorias personalizadas como 'Alimentação' ou 'Impostos'."
+          onClick={() => onNavigate && onNavigate('configuracoes')}
+          buttonText="Criar Categoria"
+        />
+      ) : !hasTransactions ? (
+        <OnboardingGuide
+          step="transaction"
+          title="Registre seu primeiro lançamento"
+          description="Tudo pronto! Agora é só registrar seu primeiro gasto ou ganho para ver os gráficos."
+          onClick={() => onNavigate && onNavigate('lancamentos')}
+          buttonText="Novo Lançamento"
+        />
+      ) : null}
 
       {maintenanceAlerts.length > 0 && (
         <div className="grid grid-cols-1 gap-3">

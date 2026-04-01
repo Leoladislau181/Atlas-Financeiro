@@ -328,7 +328,7 @@ export const getAdminDataHandler = async (req: Request, res: Response) => {
 
     // Merge profiles with auth metadata
     const users = profiles?.map(profile => {
-      const authUser = authUsers?.users.find(u => u.id === profile.id);
+      const authUser = authUsers?.users.find((u: any) => u.id === profile.id);
       return {
         ...profile,
         premium_status: authUser?.user_metadata?.premium_status || 'none',

@@ -17,5 +17,9 @@ export async function parseReceiptImage(base64Image: string, mimeType: string) {
     throw new Error(errorData.error || 'Ocorreu um erro de comunicação com o servidor. Verifique sua conexão e tente novamente.');
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch (e) {
+    throw new Error('Erro de comunicação com o servidor. Resposta inválida.');
+  }
 }

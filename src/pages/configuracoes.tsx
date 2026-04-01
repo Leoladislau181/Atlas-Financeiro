@@ -11,6 +11,7 @@ import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, Ch
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { isPremium } from '@/lib/utils';
+import { OnboardingGuide } from '@/components/onboarding-guide';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
@@ -59,6 +60,8 @@ export function Configuracoes({
   const [planLoading, setPlanLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const hasCategories = categorias.some(c => !c.is_system_default);
 
   React.useEffect(() => {
     setProfileNome(user.nome || '');
@@ -550,6 +553,16 @@ export function Configuracoes({
             </Button>
           </div>
         </Card>
+
+        {!hasCategories && (
+          <OnboardingGuide
+            step="category"
+            title="Crie suas categorias"
+            description="Organize suas finanças! Crie categorias personalizadas como 'Alimentação' ou 'Impostos'."
+            onClick={() => setIsCategoryFormOpen(true)}
+            buttonText="Criar Categoria"
+          />
+        )}
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 

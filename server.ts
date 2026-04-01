@@ -14,6 +14,11 @@ async function startServer() {
 
   // Middleware to parse JSON bodies (increased limit for base64 images)
   app.use(express.json({ limit: "10mb" }));
+  
+  console.log('Environment check:');
+  console.log('VITE_SUPABASE_URL:', process.env.VITE_SUPABASE_URL ? 'set' : 'not set');
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'set' : 'not set');
+  console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'not set');
 
   // API Routes
   app.get("/api/health", (req, res) => {

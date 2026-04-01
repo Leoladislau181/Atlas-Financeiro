@@ -13,6 +13,7 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterva
 import { ptBR } from 'date-fns/locale';
 import { parseReceiptImage } from '@/services/geminiService';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
+import { OnboardingGuide } from '@/components/onboarding-guide';
 
 interface LancamentosProps {
   categorias: Categoria[];
@@ -455,8 +456,20 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const visibleLancamentos = sortedLancamentos.slice(0, visibleCount);
   const hasMore = visibleCount < sortedLancamentos.length;
 
+  const hasTransactions = lancamentos.length > 0;
+
   return (
     <div className="space-y-6">
+      {!hasTransactions && (
+        <OnboardingGuide
+          step="transaction"
+          title="Registre seu primeiro lançamento"
+          description="Tudo pronto! Agora é só registrar seu primeiro gasto ou ganho para ver os gráficos."
+          onClick={() => setIsFormOpen(true)}
+          buttonText="Novo Lançamento"
+        />
+      )}
+
       {/* Month Selector Header */}
       <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="w-10 sm:hidden"></div> {/* Spacer for mobile centering balance */}

@@ -46,6 +46,9 @@ export function UserDetailsModal({ isOpen, onClose, user, onToggleStatus, onTogg
           <DetailItem icon={UserCheck} label="Status" value={user.status === 'blocked' ? 'Bloqueado' : 'Ativo'} />
           <DetailItem icon={Star} label="Premium" value={isPremium ? `Até ${new Date(user.premium_until!).toLocaleDateString()}` : 'Grátis'} />
           <DetailItem icon={Star} label="Status Premium" value={user.premium_status === 'pending' ? 'Pendente' : (user.premium_status === 'active' ? 'Ativo' : 'Nenhum')} />
+          {user.was_premium_before_renewal && (
+            <DetailItem icon={Star} label="Renovação" value="Sim (Já era Premium)" />
+          )}
           <DetailItem icon={Car} label="Veículos" value={user.vehicle_count?.toString() || '0'} />
           <DetailItem icon={Database} label="Lançamentos" value={user.lancamentos_count?.toString() || '0'} />
           <DetailItem icon={DollarSign} label="Movimentado" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(user.total_movimentado || 0)} />
