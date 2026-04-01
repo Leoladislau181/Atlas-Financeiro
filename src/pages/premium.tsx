@@ -74,14 +74,14 @@ export function Premium({ user, refetch }: PremiumProps) {
       const res = await fetch(receiptPreview);
       const blob = await res.blob();
       
-      const fileExt = file.name.split('.').pop() || 'jpeg';
+      const fileExt = receiptFile.name.split('.').pop() || 'jpeg';
       const fileName = `${user.id}-receipt-${Date.now()}.${fileExt}`;
       const filePath = `receipts/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, blob, {
-          contentType: file.type,
+          contentType: receiptFile.type,
           cacheControl: '3600',
           upsert: true,
         });
