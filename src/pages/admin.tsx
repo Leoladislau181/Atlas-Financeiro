@@ -117,7 +117,7 @@ export function Admin({ user }: AdminProps) {
 
   const handleAdminReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyMessage.trim() || !activeTicket) return;
+    if (!replyMessage.trim() || !activeTicket || isReplying) return;
 
     setIsReplying(true);
     try {
@@ -718,7 +718,7 @@ export function Admin({ user }: AdminProps) {
                 value={replyMessage}
                 onChange={(e) => setReplyMessage(e.target.value)}
                 placeholder={activeTicket.status === 'resolved' ? "Este chamado foi resolvido." : "Digite sua resposta..."}
-                disabled={activeTicket.status === 'resolved' || isReplying}
+                disabled={activeTicket.status === 'resolved'}
                 className="flex-1"
               />
               <Button 

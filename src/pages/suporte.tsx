@@ -173,7 +173,7 @@ export function Suporte({ user, onBack }: SuporteProps) {
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyMessage.trim() || !activeTicket) return;
+    if (!replyMessage.trim() || !activeTicket || isReplying) return;
 
     setIsReplying(true);
     try {
@@ -284,7 +284,7 @@ export function Suporte({ user, onBack }: SuporteProps) {
               value={replyMessage}
               onChange={(e) => setReplyMessage(e.target.value)}
               placeholder={activeTicket.status === 'resolved' ? "Este chamado foi resolvido." : "Digite sua mensagem..."}
-              disabled={activeTicket.status === 'resolved' || isReplying}
+              disabled={activeTicket.status === 'resolved'}
               className="flex-1"
             />
             <Button 
