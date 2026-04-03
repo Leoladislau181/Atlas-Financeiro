@@ -14,6 +14,7 @@ const Configuracoes = React.lazy(() => import('@/pages/configuracoes').then(m =>
 const Veiculos = React.lazy(() => import('@/pages/veiculos').then(m => ({ default: m.Veiculos })));
 const Premium = React.lazy(() => import('@/pages/premium').then(m => ({ default: m.Premium })));
 const Admin = React.lazy(() => import('@/pages/admin').then(m => ({ default: m.Admin })));
+const Suporte = React.lazy(() => import('@/pages/suporte').then(m => ({ default: m.Suporte })));
 import { PremiumModal } from '@/components/premium-modal';
 
 function SupabaseSetupScreen() {
@@ -319,6 +320,9 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         {activeTab === 'admin' && (
           <Admin user={user} />
         )}
+        {activeTab === 'suporte' && (
+          <Suporte user={user} onBack={() => setActiveTab('configuracoes')} />
+        )}
         {activeTab === 'configuracoes' && (
           <Configuracoes 
             categorias={categorias} 
@@ -327,6 +331,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onNavigateToRelatorios={() => setActiveTab('relatorios')}
             onNavigateToPremium={() => setActiveTab('premium')}
             onNavigateToVeiculos={() => setActiveTab('veiculos')}
+            onNavigateToSuporte={() => setActiveTab('suporte')}
             forceOpenProfile={forceOpenProfile}
             onProfileOpened={() => setForceOpenProfile(false)}
           />

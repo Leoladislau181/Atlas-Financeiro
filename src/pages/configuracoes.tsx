@@ -7,7 +7,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { isPremium } from '@/lib/utils';
@@ -20,6 +20,7 @@ interface ConfiguracoesProps {
   onNavigateToRelatorios?: () => void;
   onNavigateToPremium?: () => void;
   onNavigateToVeiculos?: () => void;
+  onNavigateToSuporte?: () => void;
   forceOpenProfile?: boolean;
   onProfileOpened?: () => void;
 }
@@ -31,6 +32,7 @@ export function Configuracoes({
   onNavigateToRelatorios, 
   onNavigateToPremium, 
   onNavigateToVeiculos, 
+  onNavigateToSuporte,
   forceOpenProfile, 
   onProfileOpened 
 }: ConfiguracoesProps) {
@@ -546,6 +548,26 @@ export function Configuracoes({
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-gray-100">Relatórios Detalhados</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Consulte gráficos e exporte seus dados</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              <ChevronDown className="h-5 w-5 -rotate-90" />
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={onNavigateToSuporte}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <MessageCircle className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Central de Suporte</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Fale com nossa equipe, tire dúvidas e relate problemas</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">

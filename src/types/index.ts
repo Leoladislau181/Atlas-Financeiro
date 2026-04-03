@@ -59,6 +59,26 @@ export interface Lancamento {
   vehicles?: Vehicle; // Joined data
 }
 
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  subject: string;
+  status: 'open' | 'in_progress' | 'resolved';
+  priority: 'low' | 'normal' | 'high';
+  created_at: string;
+  updated_at: string;
+  user?: User; // Joined data
+}
+
+export interface SupportMessage {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  message: string;
+  is_admin_reply: boolean;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   email: string;

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { LogOut, Home, List, BarChart2, Car, Settings, User as UserIcon, Plus, Star, Menu, Shield } from 'lucide-react';
+import { LogOut, Home, List, BarChart2, Car, Settings, User as UserIcon, Plus, Star, Menu, Shield, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
