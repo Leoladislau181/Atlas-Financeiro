@@ -198,7 +198,7 @@ export function Premium({ user, refetch }: PremiumProps) {
               <div className="text-center space-y-2">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Valor do plano {selectedPlan === 'monthly' ? 'Mensal' : 'Anual'}</p>
                 <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                  {selectedPlan === 'monthly' ? 'R$ 14,90' : 'R$ 99,90'}
+                  {selectedPlan === 'monthly' ? 'R$ 9,99' : 'R$ 59,99'}
                 </p>
               </div>
 
@@ -269,7 +269,7 @@ export function Premium({ user, refetch }: PremiumProps) {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Ideal para testar e ter flexibilidade.</p>
             </div>
             <div className="mb-8">
-              <span className="text-5xl font-extrabold text-gray-900 dark:text-white">R$ 14,90</span>
+              <span className="text-5xl font-extrabold text-gray-900 dark:text-white">R$ 9,99</span>
               <span className="text-gray-500 dark:text-gray-400">/mês</span>
             </div>
             
@@ -315,15 +315,15 @@ export function Premium({ user, refetch }: PremiumProps) {
           <CardContent className="p-8">
             <div className="mb-8">
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Anual</h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Economize 44% e garanta um ano de tranquilidade.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Economize 50% e garanta um ano de tranquilidade.</p>
             </div>
             <div className="mb-8">
               <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-extrabold text-gray-900 dark:text-white">R$ 99,90</span>
+                <span className="text-5xl font-extrabold text-gray-900 dark:text-white">R$ 59,99</span>
                 <span className="text-gray-500 dark:text-gray-400">/ano</span>
               </div>
               <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium mt-2">
-                Equivale a apenas R$ 8,32 por mês!
+                Equivale a apenas R$ 5,00 por mês!
               </p>
             </div>
             
@@ -334,7 +334,7 @@ export function Premium({ user, refetch }: PremiumProps) {
               </li>
               <li className="flex items-start gap-3">
                 <Check className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                <span className="text-gray-600 dark:text-gray-300"><strong>Desconto de 44%</strong> (Pague 6, leve 12)</span>
+                <span className="text-gray-600 dark:text-gray-300"><strong>Desconto de 50%</strong> (Pague 6, leve 12)</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
