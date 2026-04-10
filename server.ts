@@ -2,7 +2,6 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
-import { parseReceiptHandler } from "./server/api/parse-receipt.ts";
 import { togglePremiumHandler, getAdminDataHandler, toggleUserStatusHandler, approvePaymentHandler } from "./server/api/admin.ts";
 import { submitReceiptHandler } from "./server/api/payment.ts";
 
@@ -26,7 +25,6 @@ async function startServer() {
     res.status(200).json({ ok: true, service: "atlas-financeiro-api" });
   });
 
-  app.post("/api/parse-receipt", parseReceiptHandler);
   app.post("/api/admin/toggle-premium", togglePremiumHandler);
   app.post("/api/admin/toggle-status", toggleUserStatusHandler);
   app.post("/api/admin/approve-payment", approvePaymentHandler);

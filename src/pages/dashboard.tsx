@@ -25,11 +25,10 @@ interface DashboardProps {
   manutencoes: Manutencao[];
   refetch: () => void;
   user: User;
-  onReadReceipt?: () => void;
   onNavigate?: (tab: string) => void;
 }
 
-export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onReadReceipt, onNavigate }: DashboardProps) {
+export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onNavigate }: DashboardProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -368,15 +367,6 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Resumo</h2>
         <div className="flex items-center gap-2">
-          <Button 
-            onClick={onReadReceipt}
-            variant="outline"
-            className="bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800/50 shadow-sm gap-2"
-          >
-            <Camera className="h-4 w-4" />
-            <span className="hidden sm:inline">Ler Nota</span>
-            <span className="sm:hidden">Nota</span>
-          </Button>
           <Button 
             onClick={() => {
               setQuickEntryOpen(true);

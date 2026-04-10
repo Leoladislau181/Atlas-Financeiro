@@ -8,10 +8,9 @@ import { Modal } from '@/components/ui/modal';
 import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, isPremiumFull, compressImage } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Loader2, Lock } from 'lucide-react';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Lock } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { parseReceiptImage } from '@/services/geminiService';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 
@@ -23,13 +22,11 @@ interface LancamentosProps {
   user: User;
   forceOpenForm?: boolean;
   onFormClose?: () => void;
-  forceOpenReceiptReader?: boolean;
-  onReceiptReaderClose?: () => void;
 }
 
 import { PremiumModal } from '@/components/premium-modal';
 
-export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose, forceOpenReceiptReader, onReceiptReaderClose }: LancamentosProps) {
+export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -58,9 +55,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-
-  const [isReadingReceipt, setIsReadingReceipt] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isCombustivel = () => {
     const cat = categorias.find(c => c.id === categoriaId);
@@ -110,27 +104,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   }, [forceOpenForm]);
 
   useEffect(() => {
-    if (forceOpenReceiptReader) {
-      if (!isPremiumFull(user)) {
-        setPremiumFeatureName('Leitura de Nota Fiscal com IA');
-        setIsPremiumModalOpen(true);
-        if (onReceiptReaderClose) onReceiptReaderClose();
-        return;
-      }
-      
-      // Small timeout to ensure the ref is available
-      setTimeout(() => {
-        if (fileInputRef.current) {
-          fileInputRef.current.click();
-        }
-        if (onReceiptReaderClose) {
-          onReceiptReaderClose();
-        }
-      }, 100);
-    }
-  }, [forceOpenReceiptReader, onReceiptReaderClose, user]);
-
-  useEffect(() => {
     if (!isFormOpen && onFormClose) {
       onFormClose();
     }
@@ -153,83 +126,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCurrencyInput(e.target.value);
     setValorStr(formatted);
-  };
-
-  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isPremiumFull(user)) {
-      setPremiumFeatureName('Leitura de Nota Fiscal com IA');
-      setIsPremiumModalOpen(true);
-      return;
-    }
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 1. Validate file type
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('Por favor, selecione um arquivo de imagem válido (JPEG, PNG, etc).');
-      setIsFormOpen(true);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    // 2. Validate file size (max 10MB before compression)
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    if (file.size > MAX_FILE_SIZE) {
-      setErrorMsg('A imagem é muito grande. O tamanho máximo permitido é 10MB.');
-      setIsFormOpen(true);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    setIsReadingReceipt(true);
-    try {
-      // 3. Compress image on the frontend
-      const compressedDataUrl = await compressImage(file, 1024, 1024, 0.8);
-      
-      const base64String = compressedDataUrl.split(',')[1];
-      const mimeType = 'image/jpeg'; // compressImage always returns image/jpeg
-      
-      const result = await parseReceiptImage(base64String, mimeType);
-      
-      setTipo('despesa');
-      
-      const fuelCategory = categorias.find(c => c.nome.toLowerCase().includes('combustível') || c.nome.toLowerCase().includes('combustivel'));
-      if (fuelCategory) {
-        setCategoriaId(fuelCategory.id);
-        const activeVehicle = vehicles.find(v => v.status === 'active') || vehicles[0];
-        if (activeVehicle) {
-          setVehicleId(activeVehicle.id);
-          if (result.litros && result.preco_litro) {
-            setLastAutoFillTrigger(`${activeVehicle.id}-${fuelCategory.id}`);
-          } else {
-            setLastAutoFillTrigger('');
-          }
-        }
-      }
-
-      if (result.valor) setValorStr(formatCurrency(result.valor));
-      if (result.data) setData(result.data);
-      
-      if (result.litros && result.preco_litro) {
-        setFuelPricePerLiterStr(formatCurrency(result.preco_litro));
-      }
-      if (result.tipo_combustivel) {
-        const ft = result.tipo_combustivel.toLowerCase();
-        if (['gasolina', 'etanol', 'diesel', 'gnv'].includes(ft)) {
-          setFuelType(ft as FuelType);
-        }
-      }
-
-      setIsOdometerManuallyEdited(false);
-      setObservacao('Lançamento via Leitor de Nota Fiscal');
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Não foi possível processar a imagem. Tente enviar um arquivo diferente.');
-    } finally {
-      setIsReadingReceipt(false);
-      setIsFormOpen(true);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
   };
 
   useEffect(() => {
@@ -503,14 +399,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
         </div>
 
         <div className="flex items-center justify-end w-10 sm:w-auto sm:ml-4 gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            ref={fileInputRef}
-            onChange={handleReceiptUpload}
-            className="hidden"
-          />
           <Button
             variant="outline"
             size="icon"
@@ -636,23 +524,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
           </CardContent>
         </Card>
       )}
-
-      <Modal
-        isOpen={isReadingReceipt}
-        onClose={() => {}}
-        title="Processando Recibo"
-        className="max-w-sm"
-      >
-        <div className="flex flex-col items-center justify-center py-8 space-y-4">
-          <Loader2 className="h-12 w-12 text-indigo-500 animate-spin" />
-          <p className="text-center text-gray-600 dark:text-gray-300 font-medium">
-            A Inteligência Artificial está lendo seu recibo...
-          </p>
-          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-            Isso leva apenas alguns segundos.
-          </p>
-        </div>
-      </Modal>
 
       <Modal
         isOpen={isFormOpen}
