@@ -38,6 +38,24 @@ export interface Manutencao {
   created_at: string;
 }
 
+export interface WorkShift {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  type: 'work' | 'personal';
+  date: string;
+  start_time: string;
+  end_time?: string;
+  odometer?: number; // Legacy, keeping for backwards compatibility during migration
+  start_odometer?: number;
+  end_odometer?: number;
+  status?: 'open' | 'paused' | 'closed';
+  paused_at?: string;
+  pause_duration_minutes?: number;
+  goal?: number;
+  created_at: string;
+}
+
 export type FuelType = 'gasolina' | 'etanol' | 'diesel' | 'gnv';
 
 export interface Lancamento {
@@ -51,6 +69,7 @@ export interface Lancamento {
   created_at: string;
   categorias?: Categoria; // Joined data
   vehicle_id?: string;
+  shift_id?: string;
   odometer?: number;
   fuel_liters?: number;
   fuel_price_per_liter?: number;

@@ -13,9 +13,10 @@ interface CustomSelectProps {
   options: CustomSelectOption[];
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
-export function CustomSelect({ value, onChange, options, placeholder = "Selecione...", className }: CustomSelectProps) {
+export function CustomSelect({ value, onChange, options, placeholder = "Selecione...", className, disabled }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,10 +37,12 @@ export function CustomSelect({ value, onChange, options, placeholder = "Selecion
     <div className={cn("relative w-full", className)} ref={containerRef}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/50 focus-visible:border-[#F59E0B] transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 hover:border-gray-300 dark:hover:border-gray-600",
-          !selectedOption && "text-gray-500 dark:text-gray-400"
+          "flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/50 focus-visible:border-[#F59E0B] transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600",
+          !selectedOption && "text-gray-500 dark:text-gray-400",
+          disabled && "cursor-not-allowed opacity-50 hover:border-gray-200 dark:hover:border-gray-700"
         )}
       >
         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>

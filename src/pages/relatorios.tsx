@@ -5,7 +5,7 @@ import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, parseLocalDate, isPremium } from '@/lib/utils';
-import { Categoria, Lancamento, Vehicle, User } from '@/types';
+import { Categoria, Lancamento, Vehicle, User, WorkShift } from '@/types';
 import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -18,11 +18,12 @@ interface RelatoriosProps {
   lancamentos: Lancamento[];
   vehicles: Vehicle[];
   categorias: Categoria[];
+  workShifts: WorkShift[];
   user: User;
   refetch: () => void;
 }
 
-export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }: RelatoriosProps) {
+export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch }: RelatoriosProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
@@ -37,6 +38,9 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
   const [exportNotes, setExportNotes] = useState('');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isShiftsStatsOpen, setIsShiftsStatsOpen] = useState(true);
+  const [isFuelSummaryOpen, setIsFuelSummaryOpen] = useState(true);
+  const [isHeatmapOpen, setIsHeatmapOpen] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -164,6 +168,105 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
     };
   }, [filteredLancamentos, lancamentos, filterType, selectedMonth, selectedYear, endDate, selectedVehicleId]);
 
+  const shiftStats = useMemo(() => {
+    let start: Date;
+    let end: Date;
+
+    if (filterType === 'month') {
+      const [year, month] = selectedMonth.split('-');
+      start = startOfMonth(new Date(Number(year), Number(month) - 1));
+      end = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else if (filterType === 'year') {
+      start = startOfYear(new Date(Number(selectedYear), 0));
+      end = endOfYear(new Date(Number(selectedYear), 0));
+    } else {
+      start = parseLocalDate(startDate);
+      end = parseLocalDate(endDate);
+    }
+
+    const filteredShifts = workShifts.filter(s => {
+      const data = parseLocalDate(s.date);
+      const matchesVehicle = selectedVehicleId === 'all' || s.vehicle_id === selectedVehicleId;
+      return isWithinInterval(data, { start, end }) && matchesVehicle;
+    });
+
+    const workShiftsInRange = filteredShifts.filter(s => s.type === 'work');
+    const workDates = new Set(workShiftsInRange.map(s => s.date));
+
+    let totalMinutes = 0;
+    let totalOdometer = 0;
+    let totalGoal = 0;
+
+    workShiftsInRange.forEach(shift => {
+      if (shift.start_time && shift.end_time) {
+        const [startH, startM] = shift.start_time.split(':').map(Number);
+        const [endH, endM] = shift.end_time.split(':').map(Number);
+        
+        let minutes = (endH * 60 + endM) - (startH * 60 + startM);
+        if (minutes < 0) {
+          minutes += 24 * 60; // Crossed midnight
+        }
+        totalMinutes += minutes;
+      }
+      
+      if (shift.start_odometer && shift.end_odometer) {
+        totalOdometer += (Number(shift.end_odometer) - Number(shift.start_odometer));
+      } else if (shift.odometer) {
+        totalOdometer += Number(shift.odometer);
+      }
+
+      if (shift.goal) {
+        totalGoal += Number(shift.goal);
+      }
+    });
+
+    const totalHours = totalMinutes / 60;
+    
+    // Estimate fuel cost based on average fuel price from lancamentos
+    let totalLiters = 0;
+    let totalFuelCost = 0;
+    let receitasTurno = 0;
+    let despesasTurno = 0;
+
+    lancamentos.forEach(l => {
+      const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
+      if (!matchesVehicle) return;
+
+      // Check if this lancamento is linked to a shift in our range
+      const isLinkedToShift = l.shift_id && workShiftsInRange.some(s => s.id === l.shift_id);
+      const lDateFormatted = format(parseLocalDate(l.data), 'yyyy-MM-dd');
+      const isSameDayAsShift = workDates.has(lDateFormatted);
+
+      if (isLinkedToShift || isSameDayAsShift) {
+        if (l.tipo === 'receita') receitasTurno += Number(l.valor);
+        if (l.tipo === 'despesa') despesasTurno += Number(l.valor);
+      }
+
+      if (l.tipo === 'despesa' && l.fuel_liters && l.valor) {
+        totalLiters += Number(l.fuel_liters);
+        totalFuelCost += Number(l.valor);
+      }
+    });
+
+    const averageFuelPrice = totalLiters > 0 ? totalFuelCost / totalLiters : 5.50;
+    const averageKmL = 10; // Default fallback if we can't calculate precisely
+    
+    const estimatedFuelCost = (totalOdometer / averageKmL) * averageFuelPrice;
+    
+    const lucroReal = receitasTurno - despesasTurno;
+    
+    return {
+      totalHours,
+      totalOdometer,
+      totalGoal,
+      receitasTurno,
+      estimatedFuelCost,
+      ganhoPorHora: totalHours > 0 ? receitasTurno / totalHours : 0,
+      lucroPorHora: totalHours > 0 ? lucroReal / totalHours : 0,
+      ganhoPorKm: totalOdometer > 0 ? receitasTurno / totalOdometer : 0,
+    };
+  }, [workShifts, filterType, selectedMonth, selectedYear, startDate, endDate, selectedVehicleId, lancamentos]);
+
   const chartData = useMemo(() => {
     const data = [];
     const now = new Date();
@@ -279,6 +382,71 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
 
     return data;
   }, [filteredLancamentos, filterType, selectedMonth, startDate, endDate]);
+
+  const heatmapData = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    
+    // Initialize grid
+    const grid: Record<string, number> = {};
+    hours.forEach(h => {
+      days.forEach(d => {
+        grid[`${d}-${h}`] = 0;
+      });
+    });
+
+    // We only consider work shifts that have earnings linked or on the same day
+    const workShiftsInRange = workShifts.filter(s => {
+      const data = parseLocalDate(s.date);
+      let startRange: Date;
+      let endRange: Date;
+
+      if (filterType === 'month') {
+        const [year, month] = selectedMonth.split('-');
+        startRange = startOfMonth(new Date(Number(year), Number(month) - 1));
+        endRange = endOfMonth(new Date(Number(year), Number(month) - 1));
+      } else if (filterType === 'year') {
+        startRange = startOfYear(new Date(Number(selectedYear), 0));
+        endRange = endOfYear(new Date(Number(selectedYear), 0));
+      } else {
+        startRange = parseLocalDate(startDate);
+        endRange = parseLocalDate(endDate);
+      }
+      
+      const matchesVehicle = selectedVehicleId === 'all' || s.vehicle_id === selectedVehicleId;
+      return isWithinInterval(data, { start: startRange, end: endRange }) && matchesVehicle && s.type === 'work';
+    });
+
+    workShiftsInRange.forEach(shift => {
+      if (!shift.start_time || !shift.end_time) return;
+      
+      const shiftDate = parseLocalDate(shift.date);
+      const dayName = days[shiftDate.getDay()];
+      
+      const [startH] = shift.start_time.split(':').map(Number);
+      const [endH] = shift.end_time.split(':').map(Number);
+      
+      // Find earnings for this specific shift
+      const shiftEarnings = lancamentos
+        .filter(l => l.shift_id === shift.id && l.tipo === 'receita')
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      
+      if (shiftEarnings > 0) {
+        let durationHours = endH - startH;
+        if (durationHours <= 0) durationHours += 24;
+        
+        const earningPerHour = shiftEarnings / durationHours;
+        
+        // Distribute earning per hour across the shift hours
+        for (let h = startH; h < (startH + durationHours); h++) {
+          const actualHour = h % 24;
+          grid[`${dayName}-${actualHour}`] += earningPerHour;
+        }
+      }
+    });
+
+    return { grid, days, hours };
+  }, [workShifts, lancamentos, filterType, selectedMonth, selectedYear, startDate, endDate, selectedVehicleId]);
 
   const exportToPDF = async () => {
     setExportLoading(true);
@@ -1106,6 +1274,168 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
         </Card>
       </div>
 
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+        <CardHeader 
+          className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
+          onClick={() => setIsShiftsStatsOpen(!isShiftsStatsOpen)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Desempenho de Turnos (Raio-X)</CardTitle>
+            </div>
+            {isShiftsStatsOpen ? <ChevronUp className="h-5 w-5 text-indigo-400" /> : <ChevronDown className="h-5 w-5 text-indigo-400" />}
+          </div>
+        </CardHeader>
+        {isShiftsStatsOpen && (
+          <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Horas Trabalhadas</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Distância Percorrida</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {shiftStats.totalOdometer.toFixed(1)} km
+                </p>
+              </div>
+              <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50 text-center">
+                <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
+                <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
+                  {formatCurrency(shiftStats.ganhoPorHora)}/h
+                </p>
+              </div>
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 text-center">
+                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1">Lucro por Hora</p>
+                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                  {formatCurrency(shiftStats.lucroPorHora)}/h
+                </p>
+              </div>
+            </div>
+
+            {shiftStats.totalGoal > 0 && (
+              <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-indigo-600" />
+                    <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Progresso das Metas do Período</p>
+                  </div>
+                  <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    {formatCurrency(shiftStats.receitasTurno)} / {formatCurrency(shiftStats.totalGoal)}
+                  </p>
+                </div>
+                <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-2.5">
+                  <div 
+                    className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, (shiftStats.receitasTurno / shiftStats.totalGoal) * 100)}%` }}
+                  ></div>
+                </div>
+                <p className="text-[10px] text-indigo-500 mt-2 italic">
+                  {shiftStats.receitasTurno >= shiftStats.totalGoal 
+                    ? 'Parabéns! Você atingiu 100% das suas metas neste período.' 
+                    : `Você atingiu ${((shiftStats.receitasTurno / shiftStats.totalGoal) * 100).toFixed(1)}% das metas acumuladas.`}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800 dark:text-blue-300">
+                <p className="font-semibold mb-1">Estimativa de Custo de Combustível: {formatCurrency(shiftStats.estimatedFuelCost)}</p>
+                <p className="opacity-80">Baseado na distância percorrida nos turnos ({shiftStats.totalOdometer.toFixed(1)} km) e na média de preço dos seus abastecimentos.</p>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+        <CardHeader 
+          className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-orange-50/50 dark:bg-orange-900/10 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
+          onClick={() => setIsHeatmapOpen(!isHeatmapOpen)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-orange-900 dark:text-orange-100">Mapa de Calor: Rentabilidade por Hora</CardTitle>
+                <p className="text-xs text-orange-700/70 dark:text-orange-400/70">Onde e quando você ganha mais (R$/hora)</p>
+              </div>
+            </div>
+            {isHeatmapOpen ? <ChevronUp className="h-5 w-5 text-orange-400" /> : <ChevronDown className="h-5 w-5 text-orange-400" />}
+          </div>
+        </CardHeader>
+        {isHeatmapOpen && (
+          <CardContent className="pt-6 overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="min-w-[600px]">
+              <div className="grid grid-cols-[50px_repeat(24,1fr)] gap-1 mb-2">
+                <div className="text-[10px] font-bold text-gray-400 flex items-center justify-center">DIA</div>
+                {heatmapData.hours.map(h => (
+                  <div key={h} className="text-[10px] font-bold text-gray-400 text-center">
+                    {h.toString().padStart(2, '0')}
+                  </div>
+                ))}
+              </div>
+              
+              {heatmapData.days.map(day => (
+                <div key={day} className="grid grid-cols-[50px_repeat(24,1fr)] gap-1 mb-1">
+                  <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-2 justify-end">
+                    {day}
+                  </div>
+                  {heatmapData.hours.map(hour => {
+                    const value = heatmapData.grid[`${day}-${hour}`];
+                    // Color scale based on R$/h
+                    let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
+                    if (value > 0 && value < 20) bgColor = 'bg-emerald-100 dark:bg-emerald-900/20';
+                    else if (value >= 20 && value < 40) bgColor = 'bg-emerald-300 dark:bg-emerald-700/40';
+                    else if (value >= 40 && value < 60) bgColor = 'bg-emerald-500 dark:bg-emerald-500/60';
+                    else if (value >= 60) bgColor = 'bg-emerald-700 dark:bg-emerald-400/80';
+
+                    return (
+                      <div 
+                        key={hour}
+                        className={`h-6 rounded-sm transition-all hover:scale-110 hover:z-10 cursor-help ${bgColor}`}
+                        title={`${day} ${hour}h: ${formatCurrency(value)}/h`}
+                      ></div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              <div className="mt-6 flex items-center justify-end gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 bg-gray-100 dark:bg-gray-800/40 rounded-sm"></div>
+                  <span className="text-[10px] text-gray-500">R$ 0</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-sm"></div>
+                  <span className="text-[10px] text-gray-500">&lt; R$ 20</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 bg-emerald-300 dark:bg-emerald-700/40 rounded-sm"></div>
+                  <span className="text-[10px] text-gray-500">R$ 20-40</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 bg-emerald-500 dark:bg-emerald-500/60 rounded-sm"></div>
+                  <span className="text-[10px] text-gray-500">R$ 40-60</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 bg-emerald-700 dark:bg-emerald-400/80 rounded-sm"></div>
+                  <span className="text-[10px] text-gray-500">&gt; R$ 60</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
           <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
@@ -1157,21 +1487,29 @@ export function Relatorios({ lancamentos, vehicles, categorias, user, refetch }:
       </div>
 
       {stats.porCombustivel.length > 0 && (
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
-            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Resumo por Combustível</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {stats.porCombustivel.map((comb, index) => (
-                <div key={index} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-                  <div className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">{comb.tipo}</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(comb.valor)}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{comb.litros.toFixed(2)} Litros</div>
-                </div>
-              ))}
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <CardHeader 
+            className="border-b border-gray-50 dark:border-gray-800 pb-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={() => setIsFuelSummaryOpen(!isFuelSummaryOpen)}
+          >
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Resumo por Combustível</CardTitle>
+              {isFuelSummaryOpen ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
             </div>
-          </CardContent>
+          </CardHeader>
+          {isFuelSummaryOpen && (
+            <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {stats.porCombustivel.map((comb, index) => (
+                  <div key={index} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">{comb.tipo}</div>
+                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(comb.valor)}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{comb.litros.toFixed(2)} Litros</div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
         </Card>
       )}
 

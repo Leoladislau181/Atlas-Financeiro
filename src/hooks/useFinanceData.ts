@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Categoria, Lancamento, Vehicle, Manutencao } from '@/types';
+import { Categoria, Lancamento, Vehicle, Manutencao, WorkShift } from '@/types';
 
 // Variáveis globais para evitar condições de corrida (race conditions) no React
 let initPromise: Promise<Categoria[]> | null = null;
@@ -11,6 +11,7 @@ export function useFinanceData() {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
+  const [workShifts, setWorkShifts] = useState<WorkShift[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,11 +27,12 @@ export function useFinanceData() {
         return;
       }
 
-      const [catResult, vehResult, manResult, lanResult] = await Promise.all([
+      const [catResult, vehResult, manResult, lanResult, shiftResult] = await Promise.all([
         supabase.from('categorias').select('*').eq('user_id', userId).order('nome'),
         supabase.from('vehicles').select('*').eq('user_id', userId).order('name'),
         supabase.from('manutencoes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-        supabase.from('lancamentos').select('*, categorias(*), vehicles(*)').eq('user_id', userId).order('data', { ascending: false })
+        supabase.from('lancamentos').select('*, categorias(*), vehicles(*)').eq('user_id', userId).order('data', { ascending: false }),
+        supabase.from('work_shifts').select('*').eq('user_id', userId).order('date', { ascending: false }).order('start_time', { ascending: false })
       ]);
 
       let catData = catResult.data || [];
@@ -93,6 +95,10 @@ export function useFinanceData() {
       const lanError = lanResult.error;
       if (lanError) throw lanError;
       setLancamentos(lanResult.data || []);
+
+      const shiftError = shiftResult.error;
+      if (shiftError && shiftError.code !== '42P01') throw shiftError;
+      setWorkShifts(shiftResult.data || []);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       setError(error.message || 'Erro ao carregar dados do banco de dados.');
@@ -105,5 +111,5 @@ export function useFinanceData() {
     fetchData();
   }, []);
 
-  return { categorias, lancamentos, vehicles, manutencoes, loading, error, refetch: fetchData };
+  return { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, error, refetch: fetchData };
 }

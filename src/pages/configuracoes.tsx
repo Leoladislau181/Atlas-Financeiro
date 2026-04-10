@@ -5,16 +5,19 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
-import { Categoria, TipoLancamento, User } from '@/types';
+import { Categoria, TipoLancamento, User, WorkShift, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
-import { isPremium } from '@/lib/utils';
+import { isPremium, parseLocalDate } from '@/lib/utils';
 import { OnboardingGuide } from '@/components/onboarding-guide';
+import { format, isWithinInterval, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
+  workShifts: WorkShift[];
+  vehicles: Vehicle[];
   user: User;
   refetch: () => void;
   onNavigateToRelatorios?: () => void;
@@ -27,6 +30,8 @@ interface ConfiguracoesProps {
 
 export function Configuracoes({ 
   categorias, 
+  workShifts,
+  vehicles,
   user, 
   refetch, 
   onNavigateToRelatorios, 
@@ -59,11 +64,68 @@ export function Configuracoes({
   const [referralCode, setReferralCode] = useState(user.referral_code || '');
   const [referralLoading, setReferralLoading] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
+  const [isCategoriesSectionOpen, setIsCategoriesSectionOpen] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Shift Management States
+  const [isShiftsOpen, setIsShiftsOpen] = useState(false);
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
+  const [shiftDate, setShiftDate] = useState('');
+  const [shiftStartTime, setShiftStartTime] = useState('');
+  const [shiftEndTime, setShiftEndTime] = useState('');
+  const [shiftOdometer, setShiftOdometer] = useState('');
+  const [shiftVehicleId, setShiftVehicleId] = useState('');
+  const [shiftType, setShiftType] = useState<'work' | 'personal'>('work');
+  const [shiftLoading, setShiftLoading] = useState(false);
+  const [deleteShiftModalOpen, setDeleteShiftModalOpen] = useState(false);
+  const [deletingShiftId, setDeletingShiftId] = useState<string | null>(null);
+
+  // Shift Filters
+  const [showShiftFilters, setShowShiftFilters] = useState(false);
+  const [shiftFilterTime, setShiftFilterTime] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
+  const [shiftFilterVehicle, setShiftFilterVehicle] = useState<string>('all');
+  const [shiftFilterStartDate, setShiftFilterStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [shiftFilterEndDate, setShiftFilterEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+
   const hasCategories = categorias.some(c => !c.is_system_default);
+
+  const filteredShifts = React.useMemo(() => {
+    return workShifts.filter(shift => {
+      // Vehicle Filter
+      if (shiftFilterVehicle !== 'all' && shift.vehicle_id !== shiftFilterVehicle) {
+        return false;
+      }
+
+      // Time Filter
+      const shiftDate = parseLocalDate(shift.date);
+      const now = new Date();
+
+      if (shiftFilterTime === 'today') {
+        if (shift.date !== format(now, 'yyyy-MM-dd')) return false;
+      } else if (shiftFilterTime === 'week') {
+        const start = startOfWeek(now, { weekStartsOn: 0 });
+        const end = endOfWeek(now, { weekStartsOn: 0 });
+        if (!isWithinInterval(shiftDate, { start, end })) return false;
+      } else if (shiftFilterTime === 'month') {
+        const start = startOfMonth(now);
+        const end = endOfMonth(now);
+        if (!isWithinInterval(shiftDate, { start, end })) return false;
+      } else if (shiftFilterTime === 'year') {
+        const start = startOfYear(now);
+        const end = endOfYear(now);
+        if (!isWithinInterval(shiftDate, { start, end })) return false;
+      } else if (shiftFilterTime === 'custom') {
+        const start = parseLocalDate(shiftFilterStartDate);
+        const end = parseLocalDate(shiftFilterEndDate);
+        if (!isWithinInterval(shiftDate, { start, end })) return false;
+      }
+
+      return true;
+    }).sort((a, b) => new Date(b.date + 'T' + b.start_time).getTime() - new Date(a.date + 'T' + a.start_time).getTime());
+  }, [workShifts, shiftFilterTime, shiftFilterVehicle, shiftFilterStartDate, shiftFilterEndDate]);
 
   React.useEffect(() => {
     setProfileNome(user.nome || '');
@@ -230,6 +292,98 @@ export function Configuracoes({
     const link = `${window.location.origin}?ref=${referralCode}`;
     navigator.clipboard.writeText(link);
     setSuccessMsg('Link copiado para a área de transferência!');
+  };
+
+  const handleOpenNewShift = () => {
+    setEditingShiftId(null);
+    setShiftDate(format(new Date(), 'yyyy-MM-dd'));
+    setShiftStartTime(format(new Date(), 'HH:mm'));
+    setShiftEndTime('');
+    setShiftOdometer('');
+    setShiftVehicleId('');
+    setShiftType('work');
+    setShiftModalOpen(true);
+  };
+
+  const handleEditShift = (shift: WorkShift) => {
+    setEditingShiftId(shift.id);
+    setShiftDate(shift.date);
+    setShiftStartTime(shift.start_time);
+    setShiftEndTime(shift.end_time || '');
+    setShiftOdometer(shift.odometer ? shift.odometer.toString() : '');
+    setShiftVehicleId(shift.vehicle_id || '');
+    setShiftType(shift.type || 'work');
+    setShiftModalOpen(true);
+  };
+
+  const handleSaveShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    if (!shiftDate || !shiftStartTime || !shiftVehicleId) {
+      setErrorMsg('Data, horário de início e veículo são obrigatórios.');
+      return;
+    }
+
+    if (shiftEndTime && shiftEndTime < shiftStartTime) {
+      setErrorMsg('O horário de término não pode ser anterior ao horário de início.');
+      return;
+    }
+
+    setShiftLoading(true);
+    try {
+      if (editingShiftId) {
+        const { error } = await supabase
+          .from('work_shifts')
+          .update({
+            date: shiftDate,
+            start_time: shiftStartTime,
+            end_time: shiftEndTime || null,
+            odometer: shiftOdometer ? Number(shiftOdometer) : null,
+            vehicle_id: shiftVehicleId,
+            type: shiftType
+          })
+          .eq('id', editingShiftId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('work_shifts')
+          .insert([{
+            user_id: user.id,
+            date: shiftDate,
+            start_time: shiftStartTime,
+            end_time: shiftEndTime || null,
+            odometer: shiftOdometer ? Number(shiftOdometer) : null,
+            vehicle_id: shiftVehicleId,
+            type: shiftType
+          }]);
+        if (error) throw error;
+      }
+
+      setShiftModalOpen(false);
+      refetch();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao salvar turno.');
+    } finally {
+      setShiftLoading(false);
+    }
+  };
+
+  const confirmDeleteShift = (id: string) => {
+    setDeletingShiftId(id);
+    setDeleteShiftModalOpen(true);
+  };
+
+  const handleDeleteShift = async () => {
+    if (!deletingShiftId) return;
+    try {
+      const { error } = await supabase.from('work_shifts').delete().eq('id', deletingShiftId);
+      if (error) throw error;
+      setDeleteShiftModalOpen(false);
+      setDeletingShiftId(null);
+      refetch();
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Erro ao excluir turno.');
+    }
   };
 
   const receitas = categorias.filter((c) => c.tipo === 'receita');
@@ -576,6 +730,136 @@ export function Configuracoes({
           </div>
         </Card>
 
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={() => setIsShiftsOpen(!isShiftsOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                <Briefcase className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Configurações de Turnos</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie seus turnos de trabalho</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              {isShiftsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isShiftsOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Meus Turnos</h4>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant={showShiftFilters ? "default" : "outline"}
+                    size="sm" 
+                    onClick={() => setShowShiftFilters(!showShiftFilters)}
+                    className={showShiftFilters ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 border-transparent" : ""}
+                  >
+                    <Filter className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Filtros</span>
+                  </Button>
+                  <Button onClick={handleOpenNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                    Adicionar Turno
+                  </Button>
+                </div>
+              </div>
+
+              {showShiftFilters && (
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-indigo-500" /> Período
+                      </label>
+                      <CustomSelect
+                        value={shiftFilterTime}
+                        onChange={(val) => setShiftFilterTime(val as any)}
+                        options={[
+                          { value: 'today', label: 'Hoje' },
+                          { value: 'week', label: 'Última semana' },
+                          { value: 'month', label: 'Último mês' },
+                          { value: 'year', label: 'Último ano' },
+                          { value: 'custom', label: 'Personalizado' }
+                        ]}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <Car className="h-4 w-4 text-indigo-500" /> Veículo
+                      </label>
+                      <CustomSelect
+                        value={shiftFilterVehicle}
+                        onChange={setShiftFilterVehicle}
+                        options={[
+                          { value: 'all', label: 'Todos os veículos' },
+                          ...vehicles.map(v => ({ value: v.id, label: v.name }))
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  {shiftFilterTime === 'custom' && (
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Inicial</label>
+                        <Input
+                          type="date"
+                          value={shiftFilterStartDate}
+                          onChange={(e) => setShiftFilterStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data Final</label>
+                        <Input
+                          type="date"
+                          value={shiftFilterEndDate}
+                          onChange={(e) => setShiftFilterEndDate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {filteredShifts.length === 0 ? (
+                <div className="text-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                  <Briefcase className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum turno encontrado para os filtros selecionados.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredShifts.map((shift) => (
+                    <div key={shift.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                          {format(new Date(shift.date + 'T00:00:00'), 'dd/MM/yyyy')}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {shift.start_time.slice(0, 5)} - {shift.end_time ? shift.end_time.slice(0, 5) : 'Em andamento'}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditShift(shift)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => confirmDeleteShift(shift.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
         {!hasCategories && (
           <OnboardingGuide
             step="category"
@@ -589,168 +873,192 @@ export function Configuracoes({
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
+            onClick={() => setIsCategoriesSectionOpen(!isCategoriesSectionOpen)}
           >
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                <Settings className="h-5 w-5 text-[#F59E0B]" />
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Tag className="h-5 w-5 text-amber-500 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Cadastre ou edite categorias de lançamentos</p>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Categorias</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie suas categorias de receitas e despesas</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isCategoryFormOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              {isCategoriesSectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </Button>
           </div>
 
-          {isCategoryFormOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Categoria</label>
-                    <Input
-                      type="text"
-                      value={nome}
-                      onChange={(e) => setNome(e.target.value)}
-                      placeholder="Ex: Alimentação, Salário..."
-                      required
-                    />
+          {isCategoriesSectionOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200 space-y-6">
+              <Card className="border shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+                <div 
+                  className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+                      <Settings className="h-5 w-5 text-[#F59E0B]" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Cadastre ou edite categorias de lançamentos</p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                    <CustomSelect 
-                      value={tipo} 
-                      onChange={(val) => setTipo(val as TipoLancamento)}
-                      options={[
-                        { value: 'despesa', label: 'Despesa' },
-                        { value: 'receita', label: 'Receita' }
-                      ]}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-2 pt-4">
-                  {editingId && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditingId(null);
-                        setNome('');
-                        setTipo('despesa');
-                        setIsCategoryFormOpen(false);
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                  <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
-                    {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Criar Categoria'}
+                  <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+                    {isCategoryFormOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                   </Button>
                 </div>
-              </form>
+
+                {isCategoryFormOpen && (
+                  <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Categoria</label>
+                          <Input
+                            type="text"
+                            value={nome}
+                            onChange={(e) => setNome(e.target.value)}
+                            placeholder="Ex: Alimentação, Salário..."
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                          <CustomSelect 
+                            value={tipo} 
+                            onChange={(val) => setTipo(val as TipoLancamento)}
+                            options={[
+                              { value: 'despesa', label: 'Despesa' },
+                              { value: 'receita', label: 'Receita' }
+                            ]}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2 pt-4">
+                        {editingId && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingId(null);
+                              setNome('');
+                              setTipo('despesa');
+                              setIsCategoryFormOpen(false);
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                        <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
+                          {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Criar Categoria'}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                )}
+              </Card>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card className="border shadow-sm bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-lg">
+                        <Tag className="h-5 w-5 text-[#EF4444] dark:text-[#F87171]" />
+                      </div>
+                      <CardTitle className="text-[#EF4444] dark:text-[#F87171]">Categorias de Despesa</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <ul className="space-y-2">
+                      {despesas.length === 0 ? (
+                        <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
+                      ) : (
+                        despesas.map((cat) => (
+                          <li
+                            key={cat.id}
+                            className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
+                              {cat.is_system_default && (
+                                <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full">Padrão</span>
+                              )}
+                            </div>
+                            {!cat.is_system_default && (
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={() => handleEdit(cat)}
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => confirmDelete(cat.id)}
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card className="border shadow-sm bg-white dark:bg-gray-900">
+                  <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-green-50 dark:bg-[#10B981]/20 rounded-lg">
+                        <Tag className="h-5 w-5 text-[#059568] dark:text-[#10B981]" />
+                      </div>
+                      <CardTitle className="text-[#059568] dark:text-[#10B981]">Categorias de Receita</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <ul className="space-y-2">
+                      {receitas.length === 0 ? (
+                        <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
+                      ) : (
+                        receitas.map((cat) => (
+                          <li
+                            key={cat.id}
+                            className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
+                              {cat.is_system_default && (
+                                <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full">Padrão</span>
+                              )}
+                            </div>
+                            {!cat.is_system_default && (
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={() => handleEdit(cat)}
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => confirmDelete(cat.id)}
+                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
             </CardContent>
           )}
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-          <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-lg">
-                <Tag className="h-5 w-5 text-[#EF4444] dark:text-[#F87171]" />
-              </div>
-              <CardTitle className="text-[#EF4444] dark:text-[#F87171]">Categorias de Despesa</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <ul className="space-y-2">
-              {despesas.length === 0 ? (
-                <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
-              ) : (
-                despesas.map((cat) => (
-                  <li
-                    key={cat.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
-                      {cat.is_system_default && (
-                        <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full">Padrão</span>
-                      )}
-                    </div>
-                    {!cat.is_system_default && (
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => handleEdit(cat)}
-                          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => confirmDelete(cat.id)}
-                          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))
-              )}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-          <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-50 dark:bg-[#10B981]/20 rounded-lg">
-                <Tag className="h-5 w-5 text-[#059568] dark:text-[#10B981]" />
-              </div>
-              <CardTitle className="text-[#059568] dark:text-[#10B981]">Categorias de Receita</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <ul className="space-y-2">
-              {receitas.length === 0 ? (
-                <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
-              ) : (
-                receitas.map((cat) => (
-                  <li
-                    key={cat.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
-                      {cat.is_system_default && (
-                        <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full">Padrão</span>
-                      )}
-                    </div>
-                    {!cat.is_system_default && (
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => handleEdit(cat)}
-                          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => confirmDelete(cat.id)}
-                          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))
-              )}
-            </ul>
-          </CardContent>
         </Card>
       </div>
 
@@ -769,6 +1077,108 @@ export function Configuracoes({
           <Button variant="destructive" onClick={handleDelete} className="w-full sm:w-auto">
             Confirmar Exclusão
           </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={shiftModalOpen}
+        onClose={() => {
+          setShiftModalOpen(false);
+          setErrorMsg('');
+        }}
+        title={editingShiftId ? "Editar Turno" : "Adicionar Turno"}
+        className="max-w-md"
+      >
+        <form onSubmit={handleSaveShift} className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
+              {errorMsg}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data *</label>
+              <Input
+                type="date"
+                value={shiftDate}
+                onChange={(e) => setShiftDate(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Turno *</label>
+              <CustomSelect
+                value={shiftType}
+                onChange={(val) => setShiftType(val as 'work' | 'personal')}
+                options={[
+                  { value: 'work', label: 'Trabalho' },
+                  { value: 'personal', label: 'Pessoal' }
+                ]}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo *</label>
+            <CustomSelect
+              value={shiftVehicleId}
+              onChange={setShiftVehicleId}
+              options={vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Início *</label>
+              <Input
+                type="time"
+                value={shiftStartTime}
+                onChange={(e) => setShiftStartTime(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Término (Opcional)</label>
+              <Input
+                type="time"
+                value={shiftEndTime}
+                onChange={(e) => setShiftEndTime(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">KM Rodados no Turno (Opcional)</label>
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              value={shiftOdometer}
+              onChange={(e) => setShiftOdometer(e.target.value)}
+              placeholder="Ex: 150"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
+            <Button type="button" variant="outline" onClick={() => setShiftModalOpen(false)} className="w-full sm:w-auto">
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={shiftLoading} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white">
+              {shiftLoading ? 'Salvando...' : 'Salvar Turno'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={deleteShiftModalOpen}
+        onClose={() => setDeleteShiftModalOpen(false)}
+        title="Excluir Turno"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Tem certeza que deseja excluir este turno? Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setDeleteShiftModalOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteShift}>Excluir</Button>
+          </div>
         </div>
       </Modal>
     </div>

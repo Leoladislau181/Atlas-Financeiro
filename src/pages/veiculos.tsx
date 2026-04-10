@@ -6,7 +6,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium, parseLocalDate } from '@/lib/utils';
-import { Lancamento, Vehicle, Manutencao, User } from '@/types';
+import { Lancamento, Vehicle, Manutencao, User, WorkShift } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock } from 'lucide-react';
 import { format } from 'date-fns';
@@ -16,11 +16,12 @@ interface VeiculosProps {
   vehicles: Vehicle[];
   lancamentos: Lancamento[];
   manutencoes: Manutencao[];
+  workShifts: WorkShift[];
   refetch: () => void;
   user: User;
 }
 
-export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: VeiculosProps) {
+export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user }: VeiculosProps) {
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
   const [type, setType] = useState<'own' | 'rented'>('own');
@@ -519,6 +520,49 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       mediaKmL = totalLitros > 0 ? (kmRodadoCombustivel / totalLitros).toFixed(2) : '0.00';
     }
 
+    const vehicleShifts = workShifts.filter(s => s.vehicle_id === vehicle.id && s.type === 'work');
+    let vMinutes = 0;
+    let vOdometer = 0;
+    const vWorkDates = new Set(vehicleShifts.map(s => s.date));
+
+    vehicleShifts.forEach(s => {
+      if (s.start_time && s.end_time) {
+        const [startH, startM] = s.start_time.split(':').map(Number);
+        const [endH, endM] = s.end_time.split(':').map(Number);
+        let minutes = (endH * 60 + endM) - (startH * 60 + startM);
+        if (minutes < 0) minutes += 24 * 60;
+        vMinutes += minutes;
+      }
+      if (s.odometer) {
+        vOdometer += Number(s.odometer);
+      }
+    });
+
+    let vReceitasTurno = 0;
+    let vDespesasTurno = 0;
+    let totalLiters = 0;
+    let totalFuelCost = 0;
+
+    vLancamentos.forEach(l => {
+      const lDateFormatted = format(parseLocalDate(l.data), 'yyyy-MM-dd');
+      
+      if (vWorkDates.has(lDateFormatted)) {
+        if (l.tipo === 'receita') vReceitasTurno += Number(l.valor);
+        if (l.tipo === 'despesa') vDespesasTurno += Number(l.valor);
+      }
+
+      if (l.tipo === 'despesa' && l.fuel_liters && l.valor) {
+        totalLiters += Number(l.fuel_liters);
+        totalFuelCost += Number(l.valor);
+      }
+    });
+
+    const vHours = vMinutes / 60;
+    const vGanhoHora = vHours > 0 ? vReceitasTurno / vHours : 0;
+    const averageFuelPrice = totalLiters > 0 ? totalFuelCost / totalLiters : 5.50;
+    const averageKmL = Number(mediaKmL) > 0 ? Number(mediaKmL) : 10;
+    const estimatedFuelCost = (vOdometer / averageKmL) * averageFuelPrice;
+
     return {
       totalReceitas,
       totalDespesas,
@@ -528,7 +572,11 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
       consumptionByFuelType,
       kmRodado: kmRodadoTotal,
       lastOdometer: maxOdometer,
-      contracts
+      contracts,
+      shiftHours: vHours,
+      shiftOdometer: vOdometer,
+      shiftGanhoHora: vGanhoHora,
+      shiftEstimatedFuelCost: estimatedFuelCost
     };
   };
 
@@ -897,6 +945,36 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, refetch, user }: 
                       </div>
                     </div>
                   )}
+
+                  {/* Section: Turnos e Desempenho */}
+                  <div className="mb-8">
+                    <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
+                      Desempenho em Turnos (Trabalho)
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                        <p className="text-xs font-medium text-indigo-600/80 dark:text-indigo-400/80 mb-1">Horas Trabalhadas</p>
+                        <p className="font-bold text-lg text-indigo-700 dark:text-indigo-300">
+                          {Math.floor(metrics.shiftHours)}h {Math.round((metrics.shiftHours % 1) * 60)}m
+                        </p>
+                      </div>
+                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                        <p className="text-xs font-medium text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
+                        <p className="font-bold text-lg text-indigo-700 dark:text-indigo-300">
+                          {formatCurrency(metrics.shiftGanhoHora)}/h
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM em Turnos</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.shiftOdometer.toFixed(1)} km</p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Custo Combustível Estimado</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.shiftEstimatedFuelCost)}</p>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Section: Contrato */}
                   {v.type === 'rented' && (

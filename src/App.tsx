@@ -203,7 +203,7 @@ export default function App() {
 }
 
 function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: string; setActiveTab: (tab: string) => void }) {
-  const { categorias, lancamentos, vehicles, manutencoes, loading, refetch } = useFinanceData();
+  const { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, refetch } = useFinanceData();
   const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
   const [forceOpenProfile, setForceOpenProfile] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
@@ -271,6 +271,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             categorias={categorias} 
             vehicles={vehicles} 
             manutencoes={manutencoes}
+            workShifts={workShifts}
             refetch={refetch}
             user={user}
             onNavigate={setActiveTab}
@@ -292,6 +293,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             lancamentos={lancamentos} 
             vehicles={vehicles} 
             categorias={categorias}
+            workShifts={workShifts}
             user={user} 
             refetch={refetch}
           />
@@ -301,6 +303,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             vehicles={vehicles}
             lancamentos={lancamentos}
             manutencoes={manutencoes}
+            workShifts={workShifts}
             refetch={refetch}
             user={user}
           />
@@ -317,6 +320,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         {activeTab === 'configuracoes' && (
           <Configuracoes 
             categorias={categorias} 
+            workShifts={workShifts}
+            vehicles={vehicles}
             user={user} 
             refetch={refetch} 
             onNavigateToRelatorios={() => setActiveTab('relatorios')}

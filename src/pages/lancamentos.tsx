@@ -13,6 +13,7 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterva
 import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 import { OnboardingGuide } from '@/components/onboarding-guide';
+import { PremiumModal } from '@/components/premium-modal';
 
 interface LancamentosProps {
   categorias: Categoria[];
@@ -23,8 +24,6 @@ interface LancamentosProps {
   forceOpenForm?: boolean;
   onFormClose?: () => void;
 }
-
-import { PremiumModal } from '@/components/premium-modal';
 
 export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
