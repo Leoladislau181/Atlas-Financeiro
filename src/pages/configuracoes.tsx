@@ -62,6 +62,7 @@ export function Configuracoes({
   const [profileLoading, setProfileLoading] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
+  const [isSupportSectionOpen, setIsSupportSectionOpen] = useState(false);
   const [isCategoriesSectionOpen, setIsCategoriesSectionOpen] = useState(false);
   const [isFeaturesSectionOpen, setIsFeaturesSectionOpen] = useState(false);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
@@ -634,17 +635,6 @@ export function Configuracoes({
                       {user.premium_status === 'pending' ? 'Acompanhar Assinatura' : 'Estender Assinatura'}
                     </Button>
                   )}
-
-                  {isPremium(user) && (
-                    <Button 
-                      variant="outline"
-                      className="w-full mt-3 border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 flex items-center justify-center gap-2"
-                      onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      Suporte Premium (WhatsApp)
-                    </Button>
-                  )}
                 </div>
               </div>
             </CardContent>
@@ -696,7 +686,7 @@ export function Configuracoes({
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={onNavigateToSuporte}
+            onClick={() => setIsSupportSectionOpen(!isSupportSectionOpen)}
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -708,9 +698,32 @@ export function Configuracoes({
               </div>
             </div>
             <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              <ChevronDown className="h-5 w-5 -rotate-90" />
+              {isSupportSectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </Button>
           </div>
+
+          {isSupportSectionOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200 space-y-4">
+              <Button 
+                onClick={onNavigateToSuporte}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Abrir Chamado no App
+              </Button>
+
+              {isPremium(user) && (
+                <Button 
+                  variant="outline"
+                  className="w-full border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 flex items-center justify-center gap-2"
+                  onClick={() => window.open('https://wa.me/5545999935856', '_blank')}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Suporte Premium (WhatsApp)
+                </Button>
+              )}
+            </CardContent>
+          )}
         </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">

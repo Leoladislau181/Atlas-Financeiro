@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { MessageCircle, Plus, Clock, Send, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { User, SupportTicket, SupportMessage } from '@/types';
+import { isPremium } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -334,6 +335,27 @@ export function Suporte({ user, onBack }: SuporteProps) {
           <p className="text-sm text-emerald-800 dark:text-emerald-400">
             <strong>Sua mensagem foi enviada!</strong> Nossa equipe responderá em até 24 horas úteis. Você receberá um aviso aqui no app assim que tivermos uma atualização.
           </p>
+        </div>
+      )}
+
+      {isPremium(user) && (
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+          <div className="h-12 w-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-full flex items-center justify-center shrink-0">
+            <MessageCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-emerald-900 dark:text-emerald-300">Suporte Premium (WhatsApp)</h2>
+            <p className="text-sm text-emerald-700 dark:text-emerald-400/80 mt-1">
+              Como assinante Premium, você tem acesso direto ao nosso suporte via WhatsApp para atendimento prioritário.
+            </p>
+          </div>
+          <Button 
+            onClick={() => window.open('https://wa.me/5545999935856', '_blank')}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 w-full sm:w-auto flex items-center justify-center gap-2"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Falar no WhatsApp
+          </Button>
         </div>
       )}
 
