@@ -75,6 +75,9 @@ export interface Lancamento {
   fuel_price_per_liter?: number;
   fuel_type?: FuelType;
   is_full_tank?: boolean;
+  group_id?: string;
+  odometro_receita?: number;
+  km_rodados?: number;
   vehicles?: Vehicle; // Joined data
 }
 

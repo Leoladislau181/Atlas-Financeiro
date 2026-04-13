@@ -25,14 +25,18 @@ interface LancamentosProps {
   onFormClose?: () => void;
 }
 
+interface LancamentoItem {
+  categoriaId: string;
+  valorStr: string;
+}
+
 export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [tipo, setTipo] = useState<TipoLancamento>('despesa');
-  const [categoriaId, setCategoriaId] = useState('');
-  const [valorStr, setValorStr] = useState('');
+  const [items, setItems] = useState<LancamentoItem[]>([{ categoriaId: '', valorStr: '' }]);
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [observacao, setObservacao] = useState('');
   
@@ -40,6 +44,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const [vehicleId, setVehicleId] = useState('');
   const useVehicle = vehicleId !== '';
   const [odometer, setOdometer] = useState('');
+  const [odometroReceita, setOdometroReceita] = useState('');
   const [fuelPricePerLiterStr, setFuelPricePerLiterStr] = useState('');
   const [fuelType, setFuelType] = useState<FuelType | null>(null);
   const [isFullTank, setIsFullTank] = useState(true);
@@ -56,12 +61,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   const isCombustivel = () => {
-    const cat = categorias.find(c => c.id === categoriaId);
+    if (items.length === 0) return false;
+    const cat = categorias.find(c => c.id === items[0].categoriaId);
     return cat?.nome.toLowerCase().includes('combustível') || cat?.nome.toLowerCase().includes('combustivel');
   };
 
   const isOdometerRequired = () => {
-    const cat = categorias.find(c => c.id === categoriaId);
+    if (items.length === 0) return false;
+    const cat = categorias.find(c => c.id === items[0].categoriaId);
     if (!cat) return false;
     const nome = cat.nome.toLowerCase();
     return nome.includes('combustível') || 
@@ -81,10 +88,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     lancamentos,
     vehicles,
     isActive: !editingId && useVehicle && tipo === 'despesa' && (isCombustivel() ?? false),
-    valorStr,
+    valorStr: items[0]?.valorStr || '',
     pricePerLiterStr: fuelPricePerLiterStr,
     isOdometerManuallyEdited,
-    triggerDependency: categoriaId
+    triggerDependency: items[0]?.categoriaId || ''
   });
 
   // History Filters
@@ -114,18 +121,49 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const filteredCategorias = categorias.filter((c) => c.tipo === tipo);
 
   useEffect(() => {
-    const validCategory = filteredCategorias.find(c => c.id === categoriaId);
-    if (!validCategory && filteredCategorias.length > 0) {
-      setCategoriaId(filteredCategorias[0].id);
-    } else if (filteredCategorias.length === 0) {
-      setCategoriaId('');
+    if (items.length === 1 && items[0].categoriaId === '') {
+      if (filteredCategorias.length > 0) {
+        setItems([{ categoriaId: filteredCategorias[0].id, valorStr: '' }]);
+      }
+    } else {
+      const newItems = items.map(item => {
+        const validCategory = filteredCategorias.find(c => c.id === item.categoriaId);
+        if (!validCategory && filteredCategorias.length > 0) {
+          return { ...item, categoriaId: filteredCategorias[0].id };
+        }
+        return item;
+      });
+      if (JSON.stringify(newItems) !== JSON.stringify(items)) {
+        setItems(newItems);
+      }
     }
-  }, [tipo, categorias, categoriaId]);
+  }, [tipo, categorias]);
 
-  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCurrencyInput(e.target.value);
-    setValorStr(formatted);
+  const addItem = () => {
+    if (filteredCategorias.length > 0) {
+      setItems([...items, { categoriaId: filteredCategorias[0].id, valorStr: '' }]);
+    }
   };
+
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      const newItems = [...items];
+      newItems.splice(index, 1);
+      setItems(newItems);
+    }
+  };
+
+  const updateItem = (index: number, field: keyof LancamentoItem, value: string) => {
+    const newItems = [...items];
+    if (field === 'valorStr') {
+      newItems[index].valorStr = formatCurrencyInput(value);
+    } else {
+      newItems[index].categoriaId = value;
+    }
+    setItems(newItems);
+  };
+
+  const totalValor = items.reduce((acc, item) => acc + parseCurrency(item.valorStr), 0);
 
   useEffect(() => {
     if (suggestedPricePerLiter !== null) {
@@ -142,8 +180,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    if (!categoriaId || !valorStr || !data) {
-      setErrorMsg('Preencha os campos obrigatórios.');
+
+    if (items.some(item => !item.categoriaId || !item.valorStr) || !data) {
+      setErrorMsg('Preencha todos os campos de categoria e valor.');
       return;
     }
 
@@ -157,9 +196,16 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       return;
     }
 
-    const valorNum = parseCurrency(valorStr);
-    if (valorNum <= 0) {
-      setErrorMsg('O valor deve ser maior que zero.');
+    // Duplicate category check
+    const categoryIds = items.map(i => i.categoriaId);
+    if (new Set(categoryIds).size !== categoryIds.length) {
+      setErrorMsg('Não é permitido repetir a mesma categoria no mesmo lançamento.');
+      return;
+    }
+
+    const totalValorNum = totalValor;
+    if (totalValorNum <= 0) {
+      setErrorMsg('O valor total deve ser maior que zero.');
       return;
     }
 
@@ -178,81 +224,128 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       }
     }
 
-    if (useVehicle && tipo === 'despesa' && odometer) {
+    if (useVehicle && (odometer || odometroReceita)) {
       const vehicle = vehicles.find(v => v.id === vehicleId);
-      const odoNum = Number(odometer);
+      const newOdo = odometer ? Number(odometer) : Number(odometroReceita);
       
-      // Find last odometer for this vehicle
-      const vLancamentos = lancamentos.filter(l => l.vehicle_id === vehicleId && l.odometer).sort((a, b) => {
-        const dateA = parseLocalDate(a.data).getTime();
-        const dateB = parseLocalDate(b.data).getTime();
-        return dateB - dateA;
-      });
+      // Busca o maior odômetro absoluto já registrado para este veículo
+      const allOdos = lancamentos
+        .filter(l => l.vehicle_id === vehicleId && (l.odometer || l.odometro_receita))
+        .map(l => l.odometro_receita || l.odometer || 0);
       
-      const lastOdo = vLancamentos.length > 0 ? vLancamentos[0].odometer! : (vehicle?.initial_odometer || 0);
+      const lastOdo = allOdos.length > 0 ? Math.max(...allOdos) : (vehicle?.initial_odometer || 0);
 
-      if (odoNum < lastOdo && !editingId) { // Only validate if not editing, or we'd need more complex validation
-         // Actually, let's just warn or block. The prompt says "Não pode ser menor que último odômetro registrado"
-         // If editing, it might be the last one, so it's fine. Let's just do a simple check.
-         if (odoNum < lastOdo && !editingId) {
-            setErrorMsg(`O odômetro atual (${odoNum}) não pode ser menor que o último registrado (${lastOdo}).`);
-            return;
-         }
+      if (newOdo <= lastOdo && !editingId) {
+        setErrorMsg(`O odômetro atual (${newOdo}) deve ser maior que o último registrado (${lastOdo}).`);
+        return;
       }
     }
 
     setLoading(true);
     try {
-      const payload: any = {
-        user_id: user.id,
-        tipo,
-        categoria_id: categoriaId,
-        valor: valorNum,
-        data,
-        observacao,
-        vehicle_id: useVehicle ? vehicleId : null,
-        odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
-        fuel_price_per_liter: null,
-        fuel_liters: null,
-        fuel_type: null,
-        is_full_tank: null,
-      };
+      const groupId = items.length > 1 ? crypto.randomUUID() : null;
+      
+      let kmRodados = null;
+      let odoReceitaNum = odometroReceita ? Number(odometroReceita) : null;
+      
+      if (tipo === 'receita' && odoReceitaNum && useVehicle) {
+        const vehicle = vehicles.find(v => v.id === vehicleId);
+        const launchDateStr = data;
+        const registrationDateStr = vehicle ? format(new Date(vehicle.created_at), 'yyyy-MM-dd') : null;
 
-      if (useVehicle && tipo === 'despesa' && isCombustivel()) {
-        const pricePerLiter = parseCurrency(fuelPricePerLiterStr);
-        const totalFuelValue = valorNum;
-        
-        payload.is_full_tank = isFullTank;
+        let lastOdoRef = null;
 
-        if (pricePerLiter > 0 && totalFuelValue > 0) {
-           payload.fuel_price_per_liter = pricePerLiter;
-           payload.fuel_liters = totalFuelValue / pricePerLiter;
-           payload.fuel_type = fuelType;
+        if (vehicle && registrationDateStr) {
+          const isSameDayAsRegistration = launchDateStr === registrationDateStr;
+
+          if (isSameDayAsRegistration) {
+            // Se for o mesmo dia do cadastro, busca o último do mesmo dia (ou o inicial)
+            const sameDayOdos = lancamentos
+              .filter(l => l.vehicle_id === vehicleId && l.data === launchDateStr && (l.odometer || l.odometro_receita))
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            
+            if (sameDayOdos.length > 0) {
+              lastOdoRef = sameDayOdos[0].odometro_receita || sameDayOdos[0].odometer;
+            } else {
+              lastOdoRef = vehicle.initial_odometer;
+            }
+          } else {
+            // Se for dia posterior, busca o último de dias ANTERIORES
+            const previousDayOdos = lancamentos
+              .filter(l => l.vehicle_id === vehicleId && l.data < launchDateStr && (l.odometer || l.odometro_receita))
+              .sort((a, b) => {
+                const dateA = parseLocalDate(a.data).getTime();
+                const dateB = parseLocalDate(b.data).getTime();
+                if (dateA !== dateB) return dateB - dateA;
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+            
+            if (previousDayOdos.length > 0) {
+              lastOdoRef = previousDayOdos[0].odometro_receita || previousDayOdos[0].odometer;
+            } else {
+              lastOdoRef = vehicle.initial_odometer;
+            }
+          }
+        }
+
+        if (lastOdoRef !== null && odoReceitaNum) {
+          kmRodados = odoReceitaNum - lastOdoRef;
         }
       }
 
+      const payloads = items.map((item) => {
+        const valorNum = parseCurrency(item.valorStr);
+        const payload: any = {
+          user_id: user.id,
+          tipo,
+          categoria_id: item.categoriaId,
+          valor: valorNum,
+          data,
+          observacao,
+          vehicle_id: useVehicle ? vehicleId : null,
+          group_id: groupId,
+          odometro_receita: tipo === 'receita' && odoReceitaNum ? odoReceitaNum : null,
+          km_rodados: tipo === 'receita' ? kmRodados : null,
+          odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
+          fuel_price_per_liter: null,
+          fuel_liters: null,
+          fuel_type: null,
+          is_full_tank: null,
+        };
+
+        if (useVehicle && tipo === 'despesa' && isCombustivel()) {
+          const pricePerLiter = parseCurrency(fuelPricePerLiterStr);
+          if (pricePerLiter > 0 && valorNum > 0) {
+            payload.fuel_price_per_liter = pricePerLiter;
+            payload.fuel_liters = valorNum / pricePerLiter;
+            payload.fuel_type = fuelType;
+            payload.is_full_tank = isFullTank;
+          }
+        }
+        return payload;
+      });
+
       if (editingId) {
-        console.log('Updating lancamento:', editingId, payload);
-        const { error } = await supabase.from('lancamentos').update(payload).eq('id', editingId);
-        if (error) {
-          console.error('Supabase update error:', error);
-          throw error;
+        const original = lancamentos.find(l => l.id === editingId);
+        if (original?.group_id) {
+          await supabase.from('lancamentos').delete().eq('group_id', original.group_id);
+        } else {
+          await supabase.from('lancamentos').delete().eq('id', editingId);
         }
+        const { error } = await supabase.from('lancamentos').insert(payloads);
+        if (error) throw error;
       } else {
-        console.log('Inserting lancamento:', payload);
-        const { error } = await supabase.from('lancamentos').insert([payload]);
-        if (error) {
-          console.error('Supabase insert error:', error);
-          throw error;
-        }
+        const { error } = await supabase.from('lancamentos').insert(payloads);
+        if (error) throw error;
       }
 
       setTipo('despesa');
-      setValorStr('');
+      setItems([{ categoriaId: '', valorStr: '' }]);
       setData(format(new Date(), 'yyyy-MM-dd'));
       setObservacao('');
       setVehicleId('');
       setOdometer('');
+      setOdometroReceita('');
       setFuelPricePerLiterStr('');
       setFuelType(null);
       setIsFullTank(true);
@@ -270,13 +363,19 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     setEditingId(lancamento.id);
     setIsFormOpen(true);
     setTipo(lancamento.tipo);
-    setCategoriaId(lancamento.categoria_id);
-    setValorStr(formatCurrency(lancamento.valor));
     setData(lancamento.data);
     setObservacao(lancamento.observacao || '');
+    setVehicleId(lancamento.vehicle_id || '');
+    setOdometroReceita(lancamento.odometro_receita ? lancamento.odometro_receita.toString() : '');
     
+    if (lancamento.group_id) {
+      const groupItems = lancamentos.filter(l => l.group_id === lancamento.group_id);
+      setItems(groupItems.map(l => ({ categoriaId: l.categoria_id, valorStr: formatCurrency(l.valor) })));
+    } else {
+      setItems([{ categoriaId: lancamento.categoria_id, valorStr: formatCurrency(lancamento.valor) }]);
+    }
+
     if (lancamento.vehicle_id) {
-      setVehicleId(lancamento.vehicle_id);
       setOdometer(lancamento.odometer ? lancamento.odometer.toString() : '');
       if (lancamento.fuel_price_per_liter) {
         setFuelPricePerLiterStr(formatCurrency(lancamento.fuel_price_per_liter));
@@ -286,7 +385,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       setFuelType(lancamento.fuel_type || null);
       setIsFullTank(lancamento.is_full_tank ?? true);
     } else {
-      setVehicleId('');
       setOdometer('');
       setFuelPricePerLiterStr('');
       setFuelType(null);
@@ -304,8 +402,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
-      const { error } = await supabase.from('lancamentos').delete().eq('id', deletingId);
-      if (error) throw error;
+      const lancamento = lancamentos.find(l => l.id === deletingId);
+      if (lancamento?.group_id) {
+        const { error } = await supabase.from('lancamentos').delete().eq('group_id', lancamento.group_id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('lancamentos').delete().eq('id', deletingId);
+        if (error) throw error;
+      }
       setDeleteModalOpen(false);
       setDeletingId(null);
       refetch();
@@ -331,12 +435,47 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle && matchesSearch;
   });
 
-  const sortedLancamentos = [...filteredLancamentos].sort((a, b) => {
-    const dateA = parseLocalDate(a.data).getTime();
-    const dateB = parseLocalDate(b.data).getTime();
-    if (dateA !== dateB) return dateB - dateA;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  const groupedLancamentos = React.useMemo(() => {
+    const allGroups: { [key: string]: Lancamento[] } = {};
+    lancamentos.forEach(l => {
+      if (l.group_id) {
+        if (!allGroups[l.group_id]) allGroups[l.group_id] = [];
+        allGroups[l.group_id].push(l);
+      }
+    });
+
+    const processedGroups = new Set<string>();
+    const result: Lancamento[] = [];
+
+    filteredLancamentos.forEach(l => {
+      if (l.group_id) {
+        if (processedGroups.has(l.group_id)) return;
+        
+        const group = allGroups[l.group_id];
+        // Encontra o item que contém os dados de odômetro/km prioritariamente
+        const mainItem = group.find(item => item.km_rodados != null) || 
+                         group.find(item => item.odometro_receita != null) || 
+                         group[0];
+        const total = group.reduce((acc, curr) => acc + Number(curr.valor), 0);
+        
+        result.push({
+          ...mainItem,
+          valor: total,
+          categoria_id: 'multiple',
+        });
+        processedGroups.add(l.group_id);
+      } else {
+        result.push(l);
+      }
+    });
+
+    return result.sort((a, b) => {
+      const dateA = parseLocalDate(a.data).getTime();
+      const dateB = parseLocalDate(b.data).getTime();
+      if (dateA !== dateB) return dateB - dateA;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [filteredLancamentos, lancamentos]);
 
   const monthSummary = React.useMemo(() => {
     let receitas = 0;
@@ -348,8 +487,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     return { receitas, despesas, saldo: receitas - despesas };
   }, [filteredLancamentos]);
 
-  const visibleLancamentos = sortedLancamentos.slice(0, visibleCount);
-  const hasMore = visibleCount < sortedLancamentos.length;
+  const visibleLancamentos = groupedLancamentos.slice(0, visibleCount);
+  const hasMore = visibleCount < groupedLancamentos.length;
 
   const hasTransactions = lancamentos.length > 0;
 
@@ -539,65 +678,113 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
               {errorMsg}
             </div>
           )}
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                <CustomSelect 
-                  value={tipo} 
-                  onChange={(val) => setTipo(val as TipoLancamento)}
-                  options={[
-                    { value: 'despesa', label: 'Despesa' },
-                    { value: 'receita', label: 'Receita' }
-                  ]}
-                />
+          
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo do Lançamento</label>
+              <CustomSelect 
+                value={tipo} 
+                onChange={(val) => setTipo(val as TipoLancamento)}
+                options={[
+                  { value: 'despesa', label: 'Despesa' },
+                  { value: 'receita', label: 'Receita' }
+                ]}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
+              <Input
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Itens do Lançamento</label>
+              <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-8 gap-1 text-xs">
+                <Plus className="h-3 w-3" /> Adicionar Item
+              </Button>
+            </div>
+            
+            {items.map((item, index) => (
+              <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 relative group">
+                <div className="sm:col-span-6 space-y-2">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Categoria</label>
+                  <CustomSelect 
+                    value={item.categoriaId} 
+                    onChange={(val) => updateItem(index, 'categoriaId', val)}
+                    options={filteredCategorias.map(c => ({ value: c.id, label: c.nome }))}
+                    placeholder="Selecione..."
+                  />
+                </div>
+                <div className="sm:col-span-5 space-y-2">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Valor</label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="R$ 0,00"
+                    value={item.valorStr}
+                    onChange={(e) => updateItem(index, 'valorStr', e.target.value)}
+                    required
+                  />
+                </div>
+                {items.length > 1 && (
+                  <div className="sm:col-span-1 flex items-end justify-center pb-1">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => removeItem(index)}
+                      className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Categoria</label>
-                <CustomSelect 
-                  value={categoriaId} 
-                  onChange={setCategoriaId}
-                  options={filteredCategorias.map(c => ({ value: c.id, label: c.nome }))}
-                  placeholder={filteredCategorias.length === 0 ? "Nenhuma categoria" : "Selecione uma categoria"}
-                />
+            ))}
+
+            {items.length > 1 && (
+              <div className="flex justify-between items-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800/50">
+                <span className="text-sm font-bold text-amber-900 dark:text-amber-100">Total do Lançamento</span>
+                <span className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency(totalValor)}</span>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {useVehicle && tipo === 'despesa' && isCombustivel() ? 'Valor Total Abastecido' : 'Valor'}
-                </label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="R$ 0,00"
-                  value={valorStr}
-                  onChange={handleValorChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
-                <Input
-                  type="date"
-                  value={data}
-                  onChange={(e) => setData(e.target.value)}
-                  required
-                />
-              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
+              <CustomSelect 
+                value={vehicleId} 
+                onChange={setVehicleId}
+                options={[
+                  { value: '', label: 'Nenhum veículo' },
+                  ...vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                ]}
+              />
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
-                <CustomSelect 
-                  value={vehicleId} 
-                  onChange={setVehicleId}
-                  options={[
-                    { value: '', label: 'Nenhum veículo' },
-                    ...vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
-                  ]}
+            {useVehicle && tipo === 'receita' && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 space-y-2">
+                <label className="text-sm font-medium text-blue-900 dark:text-blue-100">Odômetro Atual (KM) - Opcional</label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex: 50100"
+                  value={odometroReceita}
+                  onChange={(e) => setOdometroReceita(e.target.value)}
+                  className="bg-white dark:bg-gray-900"
                 />
+                <p className="text-[10px] text-blue-600 dark:text-blue-400">Usado para calcular a quilometragem rodada no dia.</p>
               </div>
+            )}
 
-              {useVehicle && tipo === 'despesa' && (
+            {useVehicle && tipo === 'despesa' && (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -648,8 +835,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                         <Input
                           type="text"
                           value={
-                            parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(valorStr) > 0
-                              ? (parseCurrency(valorStr) / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
+                            parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(items[0]?.valorStr || '') > 0
+                              ? (parseCurrency(items[0]?.valorStr || '') / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
                               : '0.00 L'
                           }
                           disabled
@@ -690,7 +877,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                 className="w-full sm:w-auto"
                 onClick={() => {
                   setEditingId(null);
-                  setValorStr('');
+                  setItems([{ categoriaId: '', valorStr: '' }]);
                   setObservacao('');
                   setIsFormOpen(false);
                 }}
@@ -728,68 +915,128 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                     </td>
                   </tr>
                 ) : (
-                  visibleLancamentos.map((l) => (
-                    <tr key={l.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                        {format(parseLocalDate(l.data), 'dd/MM/yyyy')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                            l.tipo === 'receita'
-                              ? 'bg-green-50 dark:bg-[#059568]/10 text-[#059568] dark:text-[#10B981]'
-                              : 'bg-red-50 dark:bg-[#EF4444]/10 text-[#EF4444] dark:text-[#F87171]'
-                          }`}
+                  visibleLancamentos.map((l) => {
+                    const isMultiple = l.categoria_id === 'multiple';
+                    const groupItems = isMultiple ? lancamentos.filter(item => item.group_id === l.group_id) : [];
+                    const isExpanded = expandedId === l.id;
+
+                    return (
+                      <React.Fragment key={l.id}>
+                        <tr 
+                          onClick={() => setExpandedId(isExpanded ? null : l.id)}
+                          className={cn(
+                            "border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer",
+                            isExpanded && "bg-gray-50 dark:bg-gray-800/40"
+                          )}
                         >
-                          {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {l.categorias?.nome || 'N/A'}
-                        {l.fuel_type && (
-                          <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                            {l.fuel_type}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {l.vehicles ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
-                            <Car className="h-3 w-3" />
-                            {l.vehicles.name}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 max-w-[200px] truncate text-xs text-gray-500 dark:text-gray-400" title={l.observacao}>
-                        {l.observacao || '-'}
-                      </td>
-                      <td
-                        className={`px-6 py-4 text-right font-bold text-sm whitespace-nowrap ${
-                          l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
-                        }`}
-                      >
-                        {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleEdit(l)}
-                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-lg transition-colors"
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                            {format(parseLocalDate(l.data), 'dd/MM/yyyy')}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                l.tipo === 'receita'
+                                  ? 'bg-green-50 dark:bg-[#059568]/10 text-[#059568] dark:text-[#10B981]'
+                                  : 'bg-red-50 dark:bg-[#EF4444]/10 text-[#EF4444] dark:text-[#F87171]'
+                              }`}
+                            >
+                              {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {isMultiple ? (
+                              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                                Múltipla
+                                <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 rounded text-[10px]">{groupItems.length} itens</span>
+                              </span>
+                            ) : (
+                              l.categorias?.nome || 'N/A'
+                            )}
+                            {l.fuel_type && (
+                              <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                {l.fuel_type}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {l.vehicles ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                                <Car className="h-3 w-3" />
+                                {l.vehicles.name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-500">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 max-w-[200px] truncate text-xs text-gray-500 dark:text-gray-400" title={l.observacao}>
+                            {l.observacao || '-'}
+                          </td>
+                          <td
+                            className={`px-6 py-4 text-right font-bold text-sm whitespace-nowrap ${
+                              l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
+                            }`}
                           >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => confirmDelete(l.id)}
-                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleEdit(l); }}
+                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-lg transition-colors"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); confirmDelete(l.id); }}
+                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-gray-50/50 dark:bg-gray-800/10">
+                            <td colSpan={7} className="px-6 py-4">
+                              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                {isMultiple && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {groupItems.map((item, idx) => (
+                                      <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800">
+                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{item.categorias?.nome}</span>
+                                        <span className="text-xs font-bold text-gray-900 dark:text-gray-100">{formatCurrency(item.valor)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-100 dark:border-gray-800">
+                                  {l.km_rodados != null && (
+                                    <>
+                                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                                        <TrendingUp className="h-3.5 w-3.5" />
+                                        {l.km_rodados} KM rodados para este lançamento
+                                      </div>
+                                      {l.km_rodados > 0 && (
+                                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                          <DollarSign className="h-3.5 w-3.5" />
+                                          Lucro por KM: {formatCurrency(Number(l.valor) / l.km_rodados)}/km
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                  {l.observacao && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                      Obs: {l.observacao}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -802,77 +1049,116 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                 Nenhum lançamento encontrado para este período.
               </div>
             ) : (
-              visibleLancamentos.map((l) => (
-                <div 
-                  key={l.id} 
-                  className="p-4 active:bg-gray-50 dark:active:bg-gray-800/50 transition-colors cursor-pointer"
-                  onClick={() => setExpandedId(expandedId === l.id ? null : l.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full shrink-0",
-                        l.tipo === 'receita' ? "bg-[#10B981]" : "bg-[#EF4444]"
-                      )} />
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                          {l.categorias?.nome || 'N/A'}
-                          {l.fuel_type && (
-                            <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                              {l.fuel_type}
-                            </span>
-                          )}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
-                          <span>{format(parseLocalDate(l.data), 'dd MMM yyyy', { locale: ptBR })}</span>
-                          {l.vehicles && (
-                            <>
-                              <span>•</span>
-                              <span className="flex items-center gap-1">
-                                <Car className="h-2.5 w-2.5" />
-                                {l.vehicles.name}
+              visibleLancamentos.map((l) => {
+                const isMultiple = l.categoria_id === 'multiple';
+                const groupItems = isMultiple ? lancamentos.filter(item => item.group_id === l.group_id) : [];
+                const isExpanded = expandedId === l.id;
+
+                return (
+                  <div 
+                    key={l.id} 
+                    className={cn(
+                      "p-4 active:bg-gray-50 dark:active:bg-gray-800/50 transition-colors cursor-pointer",
+                      isExpanded && "bg-gray-50 dark:bg-gray-800/40"
+                    )}
+                    onClick={() => setExpandedId(isExpanded ? null : l.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full shrink-0",
+                          l.tipo === 'receita' ? "bg-[#10B981]" : "bg-[#EF4444]"
+                        )} />
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                            {isMultiple ? (
+                              <span className="text-amber-600 dark:text-amber-400">Múltipla ({groupItems.length})</span>
+                            ) : (
+                              l.categorias?.nome || 'N/A'
+                            )}
+                            {l.fuel_type && (
+                              <span className="ml-2 inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                {l.fuel_type}
                               </span>
-                            </>
-                          )}
+                            )}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
+                            <span>{format(parseLocalDate(l.data), 'dd MMM yyyy', { locale: ptBR })}</span>
+                            {l.vehicles && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Car className="h-2.5 w-2.5" />
+                                  {l.vehicles.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0 ml-2">
-                      <p className={cn(
-                        "text-sm font-bold",
-                        l.tipo === 'receita' ? "text-[#059568] dark:text-[#10B981]" : "text-[#EF4444] dark:text-[#F87171]"
-                      )}>
-                        {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {expandedId === l.id && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-top-2 duration-200">
-                      {l.observacao && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 italic">"{l.observacao}"</p>
-                      )}
-
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleEdit(l); }}
-                          className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                          Editar
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); confirmDelete(l.id); }}
-                          className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Excluir
-                        </button>
+                      <div className="text-right shrink-0 ml-2">
+                        <p className={cn(
+                          "text-sm font-bold",
+                          l.tipo === 'receita' ? "text-[#059568] dark:text-[#10B981]" : "text-[#EF4444] dark:text-[#F87171]"
+                        )}>
+                          {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))
+                    
+                    {isExpanded && (
+                      <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-top-2 duration-200 space-y-4">
+                        {isMultiple && (
+                          <div className="space-y-2">
+                            {groupItems.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800">
+                                <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400">{item.categorias?.nome}</span>
+                                <span className="text-[10px] font-bold text-gray-900 dark:text-gray-100">{formatCurrency(item.valor)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {l.km_rodados != null && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
+                              <TrendingUp className="h-3 w-3" />
+                              {l.km_rodados} KM rodados
+                            </div>
+                            {l.km_rodados > 0 && (
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg">
+                                <DollarSign className="h-3 w-3" />
+                                {formatCurrency(Number(l.valor) / l.km_rodados)}/km
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {l.observacao && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 italic">"{l.observacao}"</p>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleEdit(l); }}
+                            className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Editar
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); confirmDelete(l.id); }}
+                            className="flex items-center gap-1.5 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
 
