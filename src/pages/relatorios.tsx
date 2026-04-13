@@ -10,7 +10,7 @@ import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMont
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 
@@ -83,7 +83,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
     let despesas = 0;
     let saldoAcumulado = 0;
     const porCategoria: Record<string, { nome: string; valor: number; tipo: string }> = {};
-    const porVeiculo: Record<string, { nome: string; placa: string; receitas: number; despesas: number; saldo: number }> = {};
+    const porVeiculo: Record<string, { nome: string; placa: string; receitas: number; despesas: number; saldo: number; totalMinutes: number }> = {};
     const porCombustivel: Record<string, { valor: number; litros: number }> = {};
 
     // Calculate accumulated balance up to the end date of the filter
@@ -134,7 +134,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
             placa: l.vehicles.plate || '',
             receitas: 0,
             despesas: 0,
-            saldo: 0
+            saldo: 0,
+            totalMinutes: 0
           };
         }
         if (l.tipo === 'receita') {
@@ -156,6 +157,33 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       }
     });
 
+    // Add minutes from work shifts to porVeiculo
+    workShifts.forEach(s => {
+      const data = parseLocalDate(s.date);
+      let startRange: Date;
+      let endRange: Date;
+
+      if (filterType === 'month') {
+        const [year, month] = selectedMonth.split('-');
+        startRange = startOfMonth(new Date(Number(year), Number(month) - 1));
+        endRange = endOfMonth(new Date(Number(year), Number(month) - 1));
+      } else if (filterType === 'year') {
+        startRange = startOfYear(new Date(Number(selectedYear), 0));
+        endRange = endOfYear(new Date(Number(selectedYear), 0));
+      } else {
+        startRange = parseLocalDate(startDate);
+        endRange = parseLocalDate(endDate);
+      }
+
+      if (isWithinInterval(data, { start: startRange, end: endRange }) && s.vehicle_id && porVeiculo[s.vehicle_id] && s.start_time && s.end_time) {
+        const startT = new Date(`2000-01-01T${s.start_time}`);
+        const endT = new Date(`2000-01-01T${s.end_time}`);
+        let minutes = (endT.getTime() - startT.getTime()) / (1000 * 60);
+        if (minutes < 0) minutes += 24 * 60;
+        porVeiculo[s.vehicle_id].totalMinutes += minutes;
+      }
+    });
+
     return {
       receitas,
       despesas,
@@ -163,10 +191,13 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       saldoAcumulado,
       porCategoria: Object.values(porCategoria).sort((a, b) => b.valor - a.valor),
       porCategoriaRaw: porCategoria,
-      porVeiculo: Object.values(porVeiculo).sort((a, b) => b.saldo - a.saldo),
+      porVeiculo: Object.values(porVeiculo).map(v => ({
+        ...v,
+        ganhoPorHora: v.totalMinutes > 0 ? v.receitas / (v.totalMinutes / 60) : 0
+      })).sort((a, b) => b.saldo - a.saldo),
       porCombustivel: Object.entries(porCombustivel).map(([tipo, data]) => ({ tipo, ...data })).sort((a, b) => b.valor - a.valor)
     };
-  }, [filteredLancamentos, lancamentos, filterType, selectedMonth, selectedYear, endDate, selectedVehicleId]);
+  }, [filteredLancamentos, lancamentos, filterType, selectedMonth, selectedYear, endDate, selectedVehicleId, workShifts]);
 
   const shiftStats = useMemo(() => {
     let start: Date;
@@ -192,6 +223,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
     const workShiftsInRange = filteredShifts.filter(s => s.type === 'work');
     const workDates = new Set(workShiftsInRange.map(s => s.date));
+    const shiftGroupIds = new Set(workShiftsInRange.map(s => s.group_id).filter(Boolean));
 
     let totalMinutes = 0;
     let totalOdometer = 0;
@@ -199,10 +231,9 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
     workShiftsInRange.forEach(shift => {
       if (shift.start_time && shift.end_time) {
-        const [startH, startM] = shift.start_time.split(':').map(Number);
-        const [endH, endM] = shift.end_time.split(':').map(Number);
-        
-        let minutes = (endH * 60 + endM) - (startH * 60 + startM);
+        const startT = new Date(`2000-01-01T${shift.start_time}`);
+        const endT = new Date(`2000-01-01T${shift.end_time}`);
+        let minutes = (endT.getTime() - startT.getTime()) / (1000 * 60);
         if (minutes < 0) {
           minutes += 24 * 60; // Crossed midnight
         }
@@ -233,11 +264,12 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       if (!matchesVehicle) return;
 
       // Check if this lancamento is linked to a shift in our range
+      const isLinkedByGroup = l.group_id && shiftGroupIds.has(l.group_id);
       const isLinkedToShift = l.shift_id && workShiftsInRange.some(s => s.id === l.shift_id);
       const lDateFormatted = format(parseLocalDate(l.data), 'yyyy-MM-dd');
       const isSameDayAsShift = workDates.has(lDateFormatted);
 
-      if (isLinkedToShift || isSameDayAsShift) {
+      if (isLinkedByGroup || isLinkedToShift || isSameDayAsShift) {
         if (l.tipo === 'receita') receitasTurno += Number(l.valor);
         if (l.tipo === 'despesa') despesasTurno += Number(l.valor);
       }
@@ -382,6 +414,80 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
     return data;
   }, [filteredLancamentos, filterType, selectedMonth, startDate, endDate]);
+
+  const productivityChartData = useMemo(() => {
+    let start: Date;
+    let end: Date;
+    
+    if (filterType === 'month') {
+      const [year, month] = selectedMonth.split('-');
+      start = startOfMonth(new Date(Number(year), Number(month) - 1));
+      end = endOfMonth(new Date(Number(year), Number(month) - 1));
+    } else if (filterType === 'year') {
+      start = startOfYear(new Date(Number(selectedYear), 0));
+      end = endOfYear(new Date(Number(selectedYear), 0));
+    } else {
+      start = parseLocalDate(startDate);
+      end = parseLocalDate(endDate);
+    }
+
+    const now = new Date();
+    const isCurrentPeriod = isWithinInterval(now, { start, end });
+    const effectiveEnd = isCurrentPeriod ? now : end;
+    const daysCount = differenceInDays(effectiveEnd, start) + 1;
+    
+    const data: any[] = [];
+
+    if (daysCount <= 31) {
+      // Daily productivity
+      for (let i = 0; i < daysCount; i++) {
+        const targetDate = addDays(start, i);
+        const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+        
+        let minutes = 0;
+        workShifts.forEach(s => {
+          if (s.date === targetDateStr && s.type === 'work' && s.start_time && s.end_time) {
+            const startT = new Date(`2000-01-01T${s.start_time}`);
+            const endT = new Date(`2000-01-01T${s.end_time}`);
+            let diff = (endT.getTime() - startT.getTime()) / (1000 * 60);
+            if (diff < 0) diff += 24 * 60;
+            minutes += diff;
+          }
+        });
+
+        data.push({
+          name: format(targetDate, 'dd/MM'),
+          'Horas': Number((minutes / 60).toFixed(1))
+        });
+      }
+    } else {
+      // Monthly productivity for year view
+      const months = eachMonthOfInterval({ start, end });
+      months.forEach(m => {
+        const mStart = startOfMonth(m);
+        const mEnd = endOfMonth(m);
+        
+        let minutes = 0;
+        workShifts.forEach(s => {
+          const sDate = parseLocalDate(s.date);
+          if (isWithinInterval(sDate, { start: mStart, end: mEnd }) && s.type === 'work' && s.start_time && s.end_time) {
+            const startT = new Date(`2000-01-01T${s.start_time}`);
+            const endT = new Date(`2000-01-01T${s.end_time}`);
+            let diff = (endT.getTime() - startT.getTime()) / (1000 * 60);
+            if (diff < 0) diff += 24 * 60;
+            minutes += diff;
+          }
+        });
+
+        data.push({
+          name: format(m, 'MMM', { locale: ptBR }),
+          'Horas': Number((minutes / 60).toFixed(1))
+        });
+      });
+    }
+
+    return data;
+  }, [workShifts, filterType, selectedMonth, selectedYear, startDate, endDate]);
 
   const heatmapData = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -661,19 +767,23 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           v.nome + (v.placa ? ` (${v.placa})` : ''),
           formatCurrency(v.receitas),
           formatCurrency(v.despesas),
-          formatCurrency(v.saldo)
+          formatCurrency(v.saldo),
+          `${Math.floor(v.totalMinutes / 60)}h ${Math.round(v.totalMinutes % 60)}m`,
+          formatCurrency(v.ganhoPorHora) + '/h'
         ]);
 
         autoTable(doc, {
           startY: currentY + 5,
-          head: [['Veículo', 'Receitas', 'Despesas', 'Saldo']],
+          head: [['Veículo', 'Receitas', 'Despesas', 'Saldo', 'Tempo', 'Ganho/Hora']],
           body: vehicleData,
           theme: 'grid',
           headStyles: { fillColor: [107, 114, 128] },
           columnStyles: {
             1: { halign: 'right' },
             2: { halign: 'right' },
-            3: { halign: 'right', fontStyle: 'bold' }
+            3: { halign: 'right', fontStyle: 'bold' },
+            4: { halign: 'right' },
+            5: { halign: 'right', fontStyle: 'bold' }
           },
           didParseCell: (data) => {
             if (data.section === 'body' && data.column.index === 3) {
@@ -913,7 +1023,9 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         'Placa': v.placa,
         'Receitas': v.receitas,
         'Despesas': v.despesas,
-        'Saldo': v.saldo
+        'Saldo': v.saldo,
+        'Tempo Trabalhado': `${Math.floor(v.totalMinutes / 60)}h ${Math.round(v.totalMinutes % 60)}m`,
+        'Ganho por Hora': v.ganhoPorHora
       }));
 
       const wb = XLSX.utils.book_new();
@@ -1211,7 +1323,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </div>
       </Modal>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
             <div className="p-2 bg-green-50 dark:bg-[#059568]/20 rounded-full">
@@ -1252,6 +1364,32 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
               }`}
             >
               {formatCurrency(stats.lucroLiquido)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
+          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-full">
+              <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Tempo Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+              {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
+          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
+            <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-full">
+              <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Média/Hora</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {formatCurrency(shiftStats.ganhoPorHora)}
             </div>
           </CardContent>
         </Card>
@@ -1513,6 +1651,55 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       )}
 
+      {stats.porVeiculo.length > 0 && (
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Resumo por Veículo</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                <thead className="bg-gray-50 dark:bg-gray-800/50 text-[10px] uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">
+                  <tr>
+                    <th className="px-6 py-4">Veículo</th>
+                    <th className="px-6 py-4 text-right">Receitas</th>
+                    <th className="px-6 py-4 text-right">Despesas</th>
+                    <th className="px-6 py-4 text-right">Saldo</th>
+                    <th className="px-6 py-4 text-right">Tempo</th>
+                    <th className="px-6 py-4 text-right">Ganho/Hora</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {stats.porVeiculo.map((v, index) => (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800/20 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{v.nome}</div>
+                        <div className="text-[10px] text-gray-500">{v.placa}</div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-[#059568] dark:text-[#10B981] font-medium">
+                        {formatCurrency(v.receitas)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-[#EF4444] dark:text-[#F87171] font-medium">
+                        {formatCurrency(v.despesas)}
+                      </td>
+                      <td className={`px-6 py-4 text-right font-bold ${v.saldo >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
+                        {formatCurrency(v.saldo)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400">
+                        {Math.floor(v.totalMinutes / 60)}h {Math.round(v.totalMinutes % 60)}m
+                      </td>
+                      <td className="px-6 py-4 text-right text-indigo-600 dark:text-indigo-400 font-bold">
+                        {formatCurrency(v.ganhoPorHora)}/h
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
         <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">
           <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
@@ -1572,6 +1759,38 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
                 <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+        <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
+          <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Produtividade (Horas Trabalhadas)</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={productivityChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value) => `${value}h`}
+                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                  dx={-10}
+                />
+                <Tooltip
+                  formatter={(value: number) => [`${value} horas`, 'Tempo']}
+                  cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
+                  itemStyle={{ color: '#111827' }}
+                  labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar dataKey="Horas" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={50} />
               </BarChart>
             </ResponsiveContainer>
           </div>

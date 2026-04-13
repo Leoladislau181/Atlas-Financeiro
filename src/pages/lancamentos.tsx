@@ -6,9 +6,9 @@ import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, isPremiumFull, compressImage } from '@/lib/utils';
-import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType } from '@/types';
+import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType, WorkShift } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Lock } from 'lucide-react';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Lock, Clock } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
@@ -19,6 +19,7 @@ interface LancamentosProps {
   categorias: Categoria[];
   lancamentos: Lancamento[];
   vehicles: Vehicle[];
+  workShifts: WorkShift[];
   refetch: () => void;
   user: User;
   forceOpenForm?: boolean;
@@ -30,7 +31,7 @@ interface LancamentoItem {
   valorStr: string;
 }
 
-export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
+export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -55,6 +56,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
+  
+  // Turn/Shift states
+  const [turns, setTurns] = useState<{ startTime: string; endTime: string }[]>([]);
+  const [showTurnFields, setShowTurnFields] = useState(false);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -143,6 +148,23 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     if (filteredCategorias.length > 0) {
       setItems([...items, { categoriaId: filteredCategorias[0].id, valorStr: '' }]);
     }
+  };
+
+  const addTurn = () => {
+    setTurns([...turns, { startTime: '', endTime: '' }]);
+  };
+
+  const removeTurn = (index: number) => {
+    const newTurns = [...turns];
+    newTurns.splice(index, 1);
+    setTurns(newTurns);
+    if (newTurns.length === 0) setShowTurnFields(false);
+  };
+
+  const updateTurn = (index: number, field: 'startTime' | 'endTime', value: string) => {
+    const newTurns = [...turns];
+    newTurns[index][field] = value;
+    setTurns(newTurns);
   };
 
   const removeItem = (index: number) => {
@@ -329,6 +351,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
         const original = lancamentos.find(l => l.id === editingId);
         if (original?.group_id) {
           await supabase.from('lancamentos').delete().eq('group_id', original.group_id);
+          await supabase.from('work_shifts').delete().eq('group_id', original.group_id);
         } else {
           await supabase.from('lancamentos').delete().eq('id', editingId);
         }
@@ -337,6 +360,27 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       } else {
         const { error } = await supabase.from('lancamentos').insert(payloads);
         if (error) throw error;
+      }
+
+      // Save work shifts if any (Only for Income)
+      if (tipo === 'receita' && turns.length > 0 && useVehicle && vehicleId) {
+        const shiftsPayload = turns
+          .filter(t => t.startTime && t.endTime)
+          .map(t => ({
+            user_id: user.id,
+            vehicle_id: vehicleId,
+            type: 'work',
+            date: data,
+            start_time: t.startTime,
+            end_time: t.endTime,
+            status: 'closed',
+            group_id: groupId
+          }));
+        
+        if (shiftsPayload.length > 0) {
+          const { error: shiftError } = await supabase.from('work_shifts').insert(shiftsPayload);
+          if (shiftError) throw shiftError;
+        }
       }
 
       setTipo('despesa');
@@ -349,6 +393,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       setFuelPricePerLiterStr('');
       setFuelType(null);
       setIsFullTank(true);
+      setTurns([]);
+      setShowTurnFields(false);
       setEditingId(null);
       setIsFormOpen(false);
       refetch();
@@ -371,8 +417,30 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     if (lancamento.group_id) {
       const groupItems = lancamentos.filter(l => l.group_id === lancamento.group_id);
       setItems(groupItems.map(l => ({ categoriaId: l.categoria_id, valorStr: formatCurrency(l.valor) })));
+      
+      // Fetch turns for this group
+      const fetchTurns = async () => {
+        const { data: shiftData } = await supabase
+          .from('work_shifts')
+          .select('*')
+          .eq('group_id', lancamento.group_id);
+        
+        if (shiftData && shiftData.length > 0) {
+          setTurns(shiftData.map(s => ({
+            startTime: s.start_time.substring(0, 5),
+            endTime: s.end_time?.substring(0, 5) || ''
+          })));
+          setShowTurnFields(true);
+        } else {
+          setTurns([]);
+          setShowTurnFields(false);
+        }
+      };
+      fetchTurns();
     } else {
       setItems([{ categoriaId: lancamento.categoria_id, valorStr: formatCurrency(lancamento.valor) }]);
+      setTurns([]);
+      setShowTurnFields(false);
     }
 
     if (lancamento.vehicle_id) {
@@ -404,11 +472,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     try {
       const lancamento = lancamentos.find(l => l.id === deletingId);
       if (lancamento?.group_id) {
-        const { error } = await supabase.from('lancamentos').delete().eq('group_id', lancamento.group_id);
-        if (error) throw error;
+        await supabase.from('lancamentos').delete().eq('group_id', lancamento.group_id);
+        await supabase.from('work_shifts').delete().eq('group_id', lancamento.group_id);
       } else {
-        const { error } = await supabase.from('lancamentos').delete().eq('id', deletingId);
-        if (error) throw error;
+        await supabase.from('lancamentos').delete().eq('id', deletingId);
       }
       setDeleteModalOpen(false);
       setDeletingId(null);
@@ -416,6 +483,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir lançamento.');
     }
+  };
+
+  const formatMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    if (hours === 0) return `${mins}min`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}min`;
   };
 
   const filteredLancamentos = lancamentos.filter((l) => {
@@ -435,7 +510,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle && matchesSearch;
   });
 
-  const groupedLancamentos = React.useMemo(() => {
+   const groupedLancamentos = React.useMemo(() => {
     const allGroups: { [key: string]: Lancamento[] } = {};
     lancamentos.forEach(l => {
       if (l.group_id) {
@@ -445,27 +520,56 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
     });
 
     const processedGroups = new Set<string>();
-    const result: Lancamento[] = [];
+    const result: any[] = [];
 
     filteredLancamentos.forEach(l => {
       if (l.group_id) {
         if (processedGroups.has(l.group_id)) return;
         
         const group = allGroups[l.group_id];
-        // Encontra o item que contém os dados de odômetro/km prioritariamente
         const mainItem = group.find(item => item.km_rodados != null) || 
                          group.find(item => item.odometro_receita != null) || 
                          group[0];
         const total = group.reduce((acc, curr) => acc + Number(curr.valor), 0);
         
+        // Calculate total time worked for this group
+        const groupShifts = workShifts.filter(s => s.group_id === l.group_id);
+        let totalMinutes = 0;
+        groupShifts.forEach(s => {
+          if (s.start_time && s.end_time) {
+            const start = new Date(`2000-01-01T${s.start_time}`);
+            const end = new Date(`2000-01-01T${s.end_time}`);
+            const diff = (end.getTime() - start.getTime()) / (1000 * 60);
+            if (diff > 0) totalMinutes += diff;
+          }
+        });
+
         result.push({
           ...mainItem,
           valor: total,
           categoria_id: 'multiple',
+          total_minutes: totalMinutes > 0 ? totalMinutes : null,
+          earning_per_hour: (totalMinutes > 0 && total > 0) ? (total / (totalMinutes / 60)) : null
         });
         processedGroups.add(l.group_id);
       } else {
-        result.push(l);
+        // Single item might also have shifts (though unlikely in current UI, good for robustness)
+        const itemShifts = workShifts.filter(s => s.group_id === l.group_id || (l.id && s.group_id === l.id));
+        let totalMinutes = 0;
+        itemShifts.forEach(s => {
+          if (s.start_time && s.end_time) {
+            const start = new Date(`2000-01-01T${s.start_time}`);
+            const end = new Date(`2000-01-01T${s.end_time}`);
+            const diff = (end.getTime() - start.getTime()) / (1000 * 60);
+            if (diff > 0) totalMinutes += diff;
+          }
+        });
+
+        result.push({
+          ...l,
+          total_minutes: totalMinutes > 0 ? totalMinutes : null,
+          earning_per_hour: (totalMinutes > 0 && l.valor > 0) ? (l.valor / (totalMinutes / 60)) : null
+        });
       }
     });
 
@@ -475,7 +579,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
       if (dateA !== dateB) return dateB - dateA;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [filteredLancamentos, lancamentos]);
+  }, [filteredLancamentos, lancamentos, workShifts]);
 
   const monthSummary = React.useMemo(() => {
     let receitas = 0;
@@ -684,7 +788,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo do Lançamento</label>
               <CustomSelect 
                 value={tipo} 
-                onChange={(val) => setTipo(val as TipoLancamento)}
+                onChange={(val) => {
+                  const newTipo = val as TipoLancamento;
+                  setTipo(newTipo);
+                  if (newTipo === 'despesa') {
+                    setShowTurnFields(false);
+                    setTurns([]);
+                  }
+                }}
                 options={[
                   { value: 'despesa', label: 'Despesa' },
                   { value: 'receita', label: 'Receita' }
@@ -861,6 +972,81 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
               )}
             </div>
 
+            {useVehicle && tipo === 'receita' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Turnos de Trabalho (Opcional)</label>
+                  {!showTurnFields ? (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        setShowTurnFields(true);
+                        addTurn();
+                      }} 
+                      className="h-8 gap-1 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
+                    >
+                      <Plus className="h-3 w-3" /> Adicionar Turno
+                    </Button>
+                  ) : (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={addTurn} 
+                      className="h-8 gap-1 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
+                    >
+                      <Plus className="h-3 w-3" /> Mais um Turno
+                    </Button>
+                  )}
+                </div>
+
+                {showTurnFields && (
+                  <div className="space-y-3">
+                    {turns.map((turn, index) => (
+                      <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/50 relative">
+                        <div className="sm:col-span-5 space-y-1">
+                          <label className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Início</label>
+                          <Input
+                            type="time"
+                            value={turn.startTime}
+                            onChange={(e) => updateTurn(index, 'startTime', e.target.value)}
+                            className="h-9 bg-white dark:bg-gray-900"
+                            required={showTurnFields}
+                          />
+                        </div>
+                        <div className="sm:col-span-5 space-y-1">
+                          <label className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Término</label>
+                          <Input
+                            type="time"
+                            value={turn.endTime}
+                            onChange={(e) => updateTurn(index, 'endTime', e.target.value)}
+                            className="h-9 bg-white dark:bg-gray-900"
+                            required={showTurnFields}
+                          />
+                        </div>
+                        <div className="sm:col-span-2 flex items-end justify-center pb-0.5">
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => removeTurn(index)}
+                            className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-blue-500 dark:text-blue-400 italic">
+                      O tempo total trabalhado será usado para calcular seu ganho por hora.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Observação</label>
               <Input
@@ -1024,6 +1210,20 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                                       )}
                                     </>
                                   )}
+                                  {(l as any).total_minutes != null && (
+                                    <>
+                                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        Tempo trabalhado: {formatMinutes((l as any).total_minutes)}
+                                      </div>
+                                      {(l as any).earning_per_hour != null && (
+                                        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                          <TrendingUp className="h-3.5 w-3.5" />
+                                          Ganho por hora: {formatCurrency((l as any).earning_per_hour)}/h
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
                                   {l.observacao && (
                                     <div className="text-xs text-gray-500 dark:text-gray-400 italic">
                                       Obs: {l.observacao}
@@ -1129,6 +1329,21 @@ export function Lancamentos({ categorias, lancamentos, vehicles, refetch, user, 
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg">
                                 <DollarSign className="h-3 w-3" />
                                 {formatCurrency(Number(l.valor) / l.km_rodados)}/km
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {(l as any).total_minutes != null && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg">
+                              <Clock className="h-3 w-3" />
+                              {formatMinutes((l as any).total_minutes)} trab.
+                            </div>
+                            {(l as any).earning_per_hour != null && (
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg">
+                                <TrendingUp className="h-3 w-3" />
+                                {formatCurrency((l as any).earning_per_hour)}/h
                               </div>
                             )}
                           </div>

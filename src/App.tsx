@@ -271,7 +271,6 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             categorias={categorias} 
             vehicles={vehicles} 
             manutencoes={manutencoes}
-            workShifts={workShifts}
             refetch={refetch}
             user={user}
             onNavigate={setActiveTab}
@@ -282,6 +281,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             categorias={categorias}
             lancamentos={lancamentos}
             vehicles={vehicles}
+            workShifts={workShifts}
             refetch={refetch}
             user={user}
             forceOpenForm={isNewLancamentoOpen}

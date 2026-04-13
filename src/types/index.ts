@@ -53,6 +53,7 @@ export interface WorkShift {
   paused_at?: string;
   pause_duration_minutes?: number;
   goal?: number;
+  group_id?: string;
   created_at: string;
 }
 
