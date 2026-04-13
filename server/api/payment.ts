@@ -29,34 +29,38 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
 
     console.log('Fetching user...');
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    console.log('User fetched:', user ? 'yes' : 'no', 'Error:', authError);
     
     if (authError || !user) {
-      console.error('Token inválido ou expirado.');
+      console.error('Erro na autenticação do token:', authError?.message || 'Usuário não encontrado');
       return res.status(401).json({ error: 'Token inválido ou expirado.' });
     }
 
-    const { plan, receiptUrl } = req.body;
-    console.log('Plan:', plan, 'ReceiptUrl:', receiptUrl);
+    console.log('Autenticação confirmada para:', user.email);
 
+    const { plan, receiptUrl } = req.body;
     if (!plan || !receiptUrl) {
-      console.error('Plano e comprovante são obrigatórios.');
+      console.error('Dados incompletos no corpo da requisição:', { plan, receiptUrl });
       return res.status(400).json({ error: 'Plano e comprovante são obrigatórios.' });
     }
 
-    // If already pending, preserve the original was_premium_before_renewal flag
-    const { data: profile } = await supabaseAdmin
+    // Fetch profile to check current premium status
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('premium_until')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Erro ao buscar perfil do usuário:', profileError);
+    }
 
     const currentUntil = profile?.premium_until ? new Date(profile.premium_until).getTime() : 0;
-    
     const wasPremium = user.user_metadata?.premium_status === 'pending'
       ? !!user.user_metadata?.was_premium_before_renewal
       : currentUntil > Date.now();
     
+    console.log('Atualizando metadados para o usuário:', user.id);
+
     // Update user metadata
     const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       user_metadata: {
@@ -69,10 +73,11 @@ export const submitReceiptHandler = async (req: Request, res: Response) => {
     });
 
     if (metaError) {
-      console.error('Erro ao atualizar metadata:', metaError);
-      return res.status(500).json({ error: 'Erro ao salvar comprovante.' });
+      console.error('Erro ao atualizar metadados do usuário:', metaError);
+      return res.status(500).json({ error: 'Erro ao salvar informações da assinatura.' });
     }
     
+    console.log('Comprovante processado com sucesso para:', user.email);
     return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('Erro interno:', error);

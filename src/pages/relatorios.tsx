@@ -10,7 +10,7 @@ import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMont
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 
@@ -60,12 +60,24 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
     if (filterType === 'month') {
       const [year, month] = selectedMonth.split('-');
-      start = startOfMonth(new Date(Number(year), Number(month) - 1));
-      end = endOfMonth(new Date(Number(year), Number(month) - 1));
+      const filterDate = new Date(Number(year), Number(month) - 1);
+      
+      if (!isPremium(user)) {
+        const now = new Date();
+        const isCurrentMonth = filterDate.getMonth() === now.getMonth() && filterDate.getFullYear() === now.getFullYear();
+        if (!isCurrentMonth) {
+          return [];
+        }
+      }
+
+      start = startOfMonth(filterDate);
+      end = endOfMonth(filterDate);
     } else if (filterType === 'year') {
+      if (!isPremium(user)) return [];
       start = startOfYear(new Date(Number(selectedYear), 0));
       end = endOfYear(new Date(Number(selectedYear), 0));
     } else {
+      if (!isPremium(user)) return [];
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
     }
@@ -76,7 +88,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
       return matchesDate && matchesVehicle;
     });
-  }, [lancamentos, filterType, selectedMonth, startDate, endDate, selectedVehicleId]);
+  }, [lancamentos, filterType, selectedMonth, startDate, endDate, selectedVehicleId, user]);
 
   const stats = useMemo(() => {
     let receitas = 0;
@@ -1133,6 +1145,11 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                       label: year.toString()
                     }))}
                   />
+                  {!isPremium(user) && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                      <Lock className="h-3 w-3" /> Visão anual disponível apenas no Premium
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1152,7 +1169,33 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                       onChange={(e) => setEndDate(e.target.value)}
                     />
                   </div>
+                  {!isPremium(user) && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                      <Lock className="h-3 w-3" /> Período personalizado disponível apenas no Premium
+                    </p>
+                  )}
                 </>
+              )}
+
+              {filterType === 'month' && !isPremium(user) && (
+                (() => {
+                  const [year, month] = selectedMonth.split('-');
+                  const filterDate = new Date(Number(year), Number(month) - 1);
+                  const now = new Date();
+                  const isCurrentMonth = filterDate.getMonth() === now.getMonth() && filterDate.getFullYear() === now.getFullYear();
+                  if (!isCurrentMonth) {
+                    return (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg flex items-start gap-2">
+                        <Lock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-800 dark:text-amber-300">
+                          O histórico de meses anteriores está bloqueado no plano gratuito. 
+                          <button onClick={() => { setPremiumFeatureName('Histórico Completo'); setIsPremiumModalOpen(true); }} className="ml-1 font-bold underline">Fazer Upgrade</button>
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
               )}
 
               <div className="space-y-2">
@@ -1179,6 +1222,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   }}
                   className="w-full bg-[#F59E0B] hover:bg-[#D97706] text-white flex items-center justify-center gap-2"
                 >
+                  {!isPremium(user) && <Lock className="h-4 w-4" />}
                   <Download className="h-4 w-4" />
                   Exportar
                 </Button>
@@ -1194,6 +1238,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   variant="outline"
                   className="w-full border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10 flex items-center justify-center gap-2"
                 >
+                  {!isPremium(user) && <Lock className="h-4 w-4" />}
                   <Upload className="h-4 w-4" />
                   Importar
                 </Button>

@@ -1207,7 +1207,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                                       {l.km_rodados > 0 && (
                                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                                           <DollarSign className="h-3.5 w-3.5" />
-                                          Lucro por KM: {formatCurrency(Number(l.valor) / l.km_rodados)}/km
+                                          {isPremium(user) ? (
+                                            `Lucro por KM: ${formatCurrency(Number(l.valor) / l.km_rodados)}/km`
+                                          ) : (
+                                            <span className="flex items-center gap-1 opacity-60">
+                                              <Lock className="h-3 w-3" /> Lucro por KM: (Premium)
+                                            </span>
+                                          )}
                                         </div>
                                       )}
                                     </>
@@ -1221,7 +1227,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                                       {(l as any).earning_per_hour != null && (
                                         <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
                                           <TrendingUp className="h-3.5 w-3.5" />
-                                          Ganho por hora: {formatCurrency((l as any).earning_per_hour)}/h
+                                          {isPremium(user) ? (
+                                            `Ganho por hora: ${formatCurrency((l as any).earning_per_hour)}/h`
+                                          ) : (
+                                            <span className="flex items-center gap-1 opacity-60">
+                                              <Lock className="h-3 w-3" /> Ganho por hora: (Premium)
+                                            </span>
+                                          )}
                                         </div>
                                       )}
                                     </>

@@ -616,7 +616,11 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-              <Car className="h-5 w-5 text-[#F59E0B]" />
+              {!isPremium(user) && vehicles.length >= 1 ? (
+                <Lock className="h-5 w-5 text-amber-500" />
+              ) : (
+                <Car className="h-5 w-5 text-[#F59E0B]" />
+              )}
             </div>
             <div className="hidden sm:block">
               <h3 className="font-bold text-gray-900 dark:text-gray-100">

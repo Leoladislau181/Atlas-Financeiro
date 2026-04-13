@@ -1,6 +1,6 @@
 # Sistema de Gestão Financeira e de Veículos
 
-Este é um sistema completo para gestão financeira e controle de veículos, ideal para motoristas de aplicativo, gestores de frotas ou uso pessoal. A aplicação possui uma arquitetura Full-Stack (React + Node.js/Express) e permite o acompanhamento detalhado de receitas, despesas, e a administração de veículos, oferecendo dashboards interativos, relatórios exportáveis e leitura inteligente de recibos via IA.
+Este é um sistema completo para gestão financeira e controle de veículos, ideal para motoristas de aplicativo, gestores de frotas ou uso pessoal. A aplicação possui uma arquitetura Full-Stack (React + Node.js/Express) e permite o acompanhamento detalhado de receitas, despesas, e a administração de veículos, oferecendo dashboards interativos e relatórios exportáveis.
 
 ## 1. Arquitetura do Projeto
 
@@ -10,7 +10,7 @@ O projeto utiliza uma arquitetura Full-Stack integrada:
 - **Banco de Dados & Autenticação:** Supabase (PostgreSQL).
 
 ### Funcionalidades de Backend (`server.ts`)
-- **Leitor de Recibos com IA:** O endpoint `/api/parse-receipt` recebe imagens de recibos do frontend e utiliza a API do Google Gemini (`@google/genai`) no backend para extrair dados estruturados de forma segura, sem expor a chave da API no navegador.
+- **Relatórios Profissionais:** Exportação de dados em PDF e Excel.
 - **Painel Administrativo:** Endpoints em `/api/admin/*` utilizam a chave `SUPABASE_SERVICE_ROLE_KEY` para realizar operações privilegiadas (como conceder status Premium a usuários) de forma segura, contornando o RLS (Row Level Security) apenas quando estritamente necessário e validando a permissão do usuário que faz a requisição.
 
 ## 2. Banco de Dados (Supabase)

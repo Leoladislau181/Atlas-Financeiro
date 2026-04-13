@@ -7,11 +7,12 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User, WorkShift, Vehicle } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { isPremium, parseLocalDate } from '@/lib/utils';
 import { OnboardingGuide } from '@/components/onboarding-guide';
+import { PremiumModal } from '@/components/premium-modal';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
 
 interface ConfiguracoesProps {
@@ -60,11 +61,12 @@ export function Configuracoes({
   const [profileTelefone, setProfileTelefone] = useState(user.telefone || '');
   const [profileLoading, setProfileLoading] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
-  const [isReferralOpen, setIsReferralOpen] = useState(false);
-  const [referralCode, setReferralCode] = useState(user.referral_code || '');
-  const [referralLoading, setReferralLoading] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [isCategoriesSectionOpen, setIsCategoriesSectionOpen] = useState(false);
+  const [isFeaturesSectionOpen, setIsFeaturesSectionOpen] = useState(false);
+  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [planLoading, setPlanLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -91,6 +93,45 @@ export function Configuracoes({
   const [shiftFilterEndDate, setShiftFilterEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   const hasCategories = categorias.some(c => !c.is_system_default);
+
+  const featuresList = [
+    {
+      id: 'financeiro',
+      title: 'Gestão Financeira',
+      icon: <Tag className="h-5 w-5 text-emerald-500" />,
+      description: 'Controle completo de receitas e despesas com categorias personalizadas e filtros por período. Visualize seu saldo líquido e acompanhe o fluxo de caixa em tempo real.'
+    },
+    {
+      id: 'veiculos',
+      title: 'Controle de Veículos',
+      icon: <Car className="h-5 w-5 text-blue-500" />,
+      description: 'Gerencie sua frota, acompanhe o desempenho individual de cada veículo e defina metas de lucro. Tenha o controle total de gastos por carro ou moto.'
+    },
+    {
+      id: 'turnos',
+      title: 'Gestão de Turnos',
+      icon: <Clock className="h-5 w-5 text-amber-500" />,
+      description: 'Registre sua jornada de trabalho, controle o odômetro e saiba exatamente quanto ganha por hora. Ideal para motoristas de aplicativo que buscam eficiência.'
+    },
+    {
+      id: 'manutencao',
+      title: 'Manutenção e Alertas',
+      icon: <Settings className="h-5 w-5 text-rose-500" />,
+      description: 'Receba avisos automáticos para troca de óleo e revisões baseados na quilometragem rodada. Evite quebras inesperadas e mantenha seu veículo sempre em dia.'
+    },
+    {
+      id: 'relatorios',
+      title: 'Dashboards e Relatórios',
+      icon: <BarChart2 className="h-5 w-5 text-purple-500" />,
+      description: 'Visualize sua evolução em gráficos interativos e exporte relatórios profissionais em PDF ou Excel para contabilidade ou análise pessoal.'
+    },
+    {
+      id: 'premium',
+      title: 'Plano Premium',
+      icon: <Star className="h-5 w-5 text-amber-500" />,
+      description: 'Desbloqueie lançamentos ilimitados, suporte prioritário e ferramentas avançadas de análise financeira para maximizar seus lucros.'
+    }
+  ];
 
   const filteredShifts = React.useMemo(() => {
     return workShifts.filter(shift => {
@@ -143,6 +184,15 @@ export function Configuracoes({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome) return;
+
+    if (!editingId && !isPremium(user)) {
+      const customCategoriesCount = categorias.filter(c => !c.is_system_default).length;
+      if (customCategoriesCount >= 5) {
+        setPremiumFeatureName('Categorias Personalizadas Ilimitadas');
+        setIsPremiumModalOpen(true);
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -269,29 +319,6 @@ export function Configuracoes({
     } finally {
       setProfileLoading(false);
     }
-  };
-
-  const generateReferralCode = async () => {
-    setReferralLoading(true);
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: { referral_code: code }
-      });
-      if (error) throw error;
-      setReferralCode(code);
-      setSuccessMsg('Código gerado com sucesso!');
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao gerar código.');
-    } finally {
-      setReferralLoading(false);
-    }
-  };
-
-  const copyReferralLink = () => {
-    const link = `${window.location.origin}?ref=${referralCode}`;
-    navigator.clipboard.writeText(link);
-    setSuccessMsg('Link copiado para a área de transferência!');
   };
 
   const handleOpenNewShift = () => {
@@ -588,8 +615,8 @@ export function Configuracoes({
                     {user.premium_status === 'pending' 
                       ? 'Seu pagamento está sendo analisado. Seu acesso será liberado assim que o pagamento for confirmado.'
                       : (isPremium(user) 
-                        ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo leitura de notas fiscais com IA, veículos ilimitados e exportação de relatórios.'
-                        : 'Faça o upgrade para desbloquear leitura de notas fiscais com IA, veículos ilimitados, exportação de relatórios e muito mais.')}
+                        ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo veículos ilimitados e exportação de relatórios.'
+                        : 'Faça o upgrade para desbloquear veículos ilimitados, exportação de relatórios e muito mais.')}
                   </p>
                   
                   {!isPremium(user) && user.premium_status !== 'pending' ? (
@@ -607,62 +634,18 @@ export function Configuracoes({
                       {user.premium_status === 'pending' ? 'Acompanhar Assinatura' : 'Estender Assinatura'}
                     </Button>
                   )}
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsReferralOpen(!isReferralOpen)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                <Gift className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Indique e Ganhe Premium</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Ganhe 1 mês grátis por cada amigo que usar o app</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isReferralOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </Button>
-          </div>
-
-          {isReferralOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-4">
-                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-                  <h4 className="font-semibold text-emerald-800 dark:text-emerald-300 mb-2">Como funciona?</h4>
-                  <ul className="text-sm text-emerald-700 dark:text-emerald-400 space-y-1 list-disc list-inside">
-                    <li>Compartilhe seu link com amigos.</li>
-                    <li>Eles ganham 15 dias de Premium ao se cadastrar.</li>
-                    <li>Quando seu amigo registrar 10 lançamentos, você ganha 1 mês de Premium!</li>
-                  </ul>
-                </div>
-
-                {referralCode ? (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Seu Link de Indicação</label>
-                    <div className="flex gap-2">
-                      <Input value={`${window.location.origin}?ref=${referralCode}`} readOnly className="font-mono text-sm tracking-tight text-center bg-gray-50 dark:bg-gray-800/50" />
-                      <Button onClick={copyReferralLink} variant="outline" className="shrink-0">
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copiar
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Você ainda não tem um link de indicação.</p>
-                    <Button onClick={generateReferralCode} disabled={referralLoading} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                      {referralLoading ? 'Gerando...' : 'Gerar Meu Link'}
+                  {isPremium(user) && (
+                    <Button 
+                      variant="outline"
+                      className="w-full mt-3 border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 flex items-center justify-center gap-2"
+                      onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Suporte Premium (WhatsApp)
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </CardContent>
           )}
@@ -728,6 +711,63 @@ export function Configuracoes({
               <ChevronDown className="h-5 w-5 -rotate-90" />
             </Button>
           </div>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={() => setIsFeaturesSectionOpen(!isFeaturesSectionOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Briefcase className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Funcionalidades</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Conheça todos os recursos do Atlas Financeiro</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              {isFeaturesSectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isFeaturesSectionOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="space-y-3">
+                {featuresList.map((feature) => (
+                  <div key={feature.id} className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setExpandedFeature(expandedFeature === feature.id ? null : feature.id)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                          {feature.icon}
+                        </div>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{feature.title}</span>
+                      </div>
+                      {expandedFeature === feature.id ? (
+                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                    
+                    {expandedFeature === feature.id && (
+                      <div className="px-4 pb-4 pt-0 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="pl-11 pr-4">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                            {feature.description}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
@@ -898,7 +938,11 @@ export function Configuracoes({
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                      <Settings className="h-5 w-5 text-[#F59E0B]" />
+                      {!isPremium(user) && categorias.filter(c => !c.is_system_default).length >= 5 ? (
+                        <Lock className="h-5 w-5 text-amber-500" />
+                      ) : (
+                        <Settings className="h-5 w-5 text-[#F59E0B]" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-900 dark:text-gray-100">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
@@ -1184,6 +1228,13 @@ export function Configuracoes({
           </div>
         </div>
       </Modal>
+
+      <PremiumModal
+        isOpen={isPremiumModalOpen}
+        onClose={() => setIsPremiumModalOpen(false)}
+        featureName={premiumFeatureName}
+        user={user}
+      />
     </div>
   );
 }

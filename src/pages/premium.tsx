@@ -280,19 +280,11 @@ export function Premium({ user, refetch }: PremiumProps) {
               </li>
               <li className="flex items-start gap-3">
                 <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-                <span className="text-gray-600 dark:text-gray-300"><strong>Leitura de Notas com IA</strong> (Bateu foto, preencheu)</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
                 <span className="text-gray-600 dark:text-gray-300"><strong>Plano de Manutenção</strong> (Avisos de troca de óleo, etc)</span>
               </li>
               <li className="flex items-start gap-3">
                 <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
                 <span className="text-gray-600 dark:text-gray-300"><strong>Exportação de Relatórios</strong> (Para contador/IR)</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-                <span className="text-gray-600 dark:text-gray-300"><strong>Sistema de Indicação</strong> (Ganhe meses grátis)</span>
               </li>
             </ul>
 
