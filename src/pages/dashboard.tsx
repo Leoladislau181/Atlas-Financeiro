@@ -621,7 +621,9 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
               onChange={setQuickVehicleId}
               options={[
                 { value: '', label: 'Selecione um veículo' },
-                ...vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                ...vehicles
+                  .filter(v => v.status === 'active')
+                  .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
               ]}
             />
           </div>

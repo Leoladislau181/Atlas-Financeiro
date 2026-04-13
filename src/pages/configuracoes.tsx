@@ -1122,7 +1122,10 @@ export function Configuracoes({
             <CustomSelect
               value={shiftVehicleId}
               onChange={setShiftVehicleId}
-              options={vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))}
+              options={vehicles
+                .filter(v => v.status === 'active' || v.id === shiftVehicleId)
+                .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+              }
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

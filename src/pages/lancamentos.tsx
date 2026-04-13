@@ -875,7 +875,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                 onChange={setVehicleId}
                 options={[
                   { value: '', label: 'Nenhum veículo' },
-                  ...vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                  ...vehicles
+                    .filter(v => v.status === 'active' || v.id === vehicleId)
+                    .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
                 ]}
               />
             </div>
