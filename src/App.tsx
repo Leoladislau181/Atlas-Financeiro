@@ -322,6 +322,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             categorias={categorias} 
             workShifts={workShifts}
             vehicles={vehicles}
+            lancamentos={lancamentos}
             user={user} 
             refetch={refetch} 
             onNavigateToRelatorios={() => setActiveTab('relatorios')}

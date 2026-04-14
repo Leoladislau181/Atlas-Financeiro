@@ -971,7 +971,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                       </div>
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM em Turnos</p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.shiftOdometer.toFixed(1)} km</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.shiftOdometer.toFixed(2)} km</p>
                       </div>
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Custo Combustível Estimado</p>
@@ -995,16 +995,16 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
                           <p className="text-xs font-medium text-blue-600/80 dark:text-blue-400/80 mb-1">KM Restante</p>
                           <p className="font-bold text-lg text-blue-700 dark:text-blue-300">
-                            {v.contract_km_limit ? (v.contract_km_limit - (metrics.lastOdometer - (v.contract_initial_km || v.initial_odometer))).toLocaleString('pt-BR') : '-'} km
+                            {v.contract_km_limit ? (v.contract_km_limit - (metrics.lastOdometer - (v.contract_initial_km || v.initial_odometer))).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'} km
                           </p>
                         </div>
                         <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Franquia de KM</p>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{v.contract_km_limit ? v.contract_km_limit.toLocaleString('pt-BR') : '-'} km</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{v.contract_km_limit ? v.contract_km_limit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'} km</p>
                         </div>
                         <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM Inicial Contrato</p>
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{v.contract_initial_km ? v.contract_initial_km.toLocaleString('pt-BR') : '-'}</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{v.contract_initial_km ? v.contract_initial_km.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</p>
                         </div>
                       </div>
                     </div>
@@ -1019,11 +1019,11 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Último Odômetro</p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.lastOdometer.toLocaleString('pt-BR')}</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.lastOdometer.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM Rodado</p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.kmRodado.toLocaleString('pt-BR')} km</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.kmRodado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km</p>
                       </div>
                       <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
                         <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Média Consumo</p>
@@ -1261,7 +1261,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                     <div>
                       <h5 className="font-bold text-gray-900 dark:text-gray-100">{m.tipo}</h5>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        A cada {m.intervalo_km.toLocaleString('pt-BR')} km | Avisa faltando: {m.aviso_km_antes ? m.aviso_km_antes.toLocaleString('pt-BR') : '1.000'} km | Última: {m.ultimo_km_realizado.toLocaleString('pt-BR')} km
+                        A cada {m.intervalo_km.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km | Avisa faltando: {m.aviso_km_antes ? m.aviso_km_antes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '1.000,00'} km | Última: {m.ultimo_km_realizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km
                       </p>
                     </div>
                     <div className="flex items-center gap-1">

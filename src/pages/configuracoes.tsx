@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
-import { Categoria, TipoLancamento, User, WorkShift, Vehicle } from '@/types';
+import { Categoria, TipoLancamento, User, WorkShift, Vehicle, Lancamento } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
-import { isPremium, parseLocalDate } from '@/lib/utils';
+import { isPremium, parseLocalDate, formatCurrency, formatCurrencyInput, parseCurrency } from '@/lib/utils';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { PremiumModal } from '@/components/premium-modal';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
@@ -19,6 +19,7 @@ interface ConfiguracoesProps {
   categorias: Categoria[];
   workShifts: WorkShift[];
   vehicles: Vehicle[];
+  lancamentos: Lancamento[];
   user: User;
   refetch: () => void;
   onNavigateToRelatorios?: () => void;
@@ -33,6 +34,7 @@ export function Configuracoes({
   categorias, 
   workShifts,
   vehicles,
+  lancamentos,
   user, 
   refetch, 
   onNavigateToRelatorios, 
@@ -74,6 +76,17 @@ export function Configuracoes({
 
   // Shift Management States
   const [isShiftsOpen, setIsShiftsOpen] = useState(false);
+  const [isCalcOpen, setIsCalcOpen] = useState(false);
+  
+  // Calculator States
+  const [calcMode, setCalcMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [calcVehicleId, setCalcVehicleId] = useState('');
+  const [calcDaysPerWeek, setCalcDaysPerWeek] = useState('5');
+  const [calcKmPerDay, setCalcKmPerDay] = useState('150');
+  const [calcProfitGoal, setCalcProfitGoal] = useState(formatCurrency(1000));
+  const [calcFuelPrice, setCalcFuelPrice] = useState(formatCurrency(5.50));
+  const [calcConsumption, setCalcConsumption] = useState('10');
+  const [calcOtherFixed, setCalcOtherFixed] = useState(formatCurrency(0));
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
   const [shiftDate, setShiftDate] = useState('');
@@ -168,6 +181,119 @@ export function Configuracoes({
       return true;
     }).sort((a, b) => new Date(b.date + 'T' + b.start_time).getTime() - new Date(a.date + 'T' + a.start_time).getTime());
   }, [workShifts, shiftFilterTime, shiftFilterVehicle, shiftFilterStartDate, shiftFilterEndDate]);
+
+  const calculatorResults = React.useMemo(() => {
+    if (!calcVehicleId) return null;
+    
+    const vehicle = vehicles.find(v => v.id === calcVehicleId);
+    if (!vehicle) return null;
+
+    const days = Number(calcDaysPerWeek.replace(',', '.')) || 0;
+    const kmPerDay = Number(calcKmPerDay.replace(',', '.')) || 0;
+    const profitGoal = parseCurrency(calcProfitGoal) || 0;
+    const fuelPrice = parseCurrency(calcFuelPrice) || 0;
+    const consumption = Number(calcConsumption.replace(',', '.')) || 1;
+    const otherFixed = parseCurrency(calcOtherFixed) || 0;
+
+    const isMonthly = calcMode === 'monthly';
+    const totalKm = days * kmPerDay;
+    
+    // Variable Costs
+    const fuelCost = consumption > 0 ? (totalKm / consumption) * fuelPrice : 0;
+    
+    // Rented vehicles don't have maintenance reserve
+    const isRented = vehicle.type === 'rented';
+    const maintenanceCostPerKm = isRented ? 0 : (vehicle.maintenance_reserve || 0.15);
+    const maintenanceCost = totalKm * maintenanceCostPerKm;
+    
+    // Fixed Costs
+    const monthlyFixed = (isRented ? (vehicle.contract_value || 0) : 0) + otherFixed;
+    const fixedCost = isMonthly ? monthlyFixed : (monthlyFixed / 30) * 7;
+
+    const totalCosts = fuelCost + maintenanceCost + fixedCost;
+    const totalRevenueNeeded = totalCosts + profitGoal;
+    
+    const minPricePerKm = totalKm > 0 ? totalRevenueNeeded / totalKm : 0;
+    const dailyGrossTarget = days > 0 ? totalRevenueNeeded / days : 0;
+
+    return {
+      totalKm,
+      fuelCost,
+      maintenanceCost,
+      fixedCost,
+      totalCosts,
+      totalRevenueNeeded,
+      minPricePerKm,
+      dailyGrossTarget,
+      isRented,
+      mode: calcMode
+    };
+  }, [calcVehicleId, calcDaysPerWeek, calcKmPerDay, calcProfitGoal, calcFuelPrice, calcConsumption, calcOtherFixed, vehicles, calcMode]);
+
+  // Auto-pull vehicle analysis when vehicle changes
+  React.useEffect(() => {
+    if (!calcVehicleId) return;
+
+    const vehicle = vehicles.find(v => v.id === calcVehicleId);
+    if (!vehicle) return;
+
+    // Find fuel entries for this vehicle
+    const vLancamentos = lancamentos.filter(l => l.vehicle_id === calcVehicleId);
+    const sortedFuelEntries = vLancamentos
+      .filter(l => l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0 && l.odometer)
+      .sort((a, b) => a.odometer! - b.odometer!);
+
+    const fuelEntries = [...sortedFuelEntries]
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+    if (fuelEntries.length > 0) {
+      // Last fuel price
+      const lastPrice = fuelEntries[0].fuel_price_per_liter;
+      if (lastPrice) setCalcFuelPrice(formatCurrency(lastPrice));
+
+      // Average consumption calculation (matching Veiculos logic)
+      let mediaKmL = '0.0';
+      const fullTanks = sortedFuelEntries.filter(l => l.is_full_tank);
+      
+      if (fullTanks.length >= 2) {
+        const recentFullTanks = fullTanks.slice(-4);
+        const startFullTank = recentFullTanks[0];
+        const endFullTank = recentFullTanks[recentFullTanks.length - 1];
+        const distance = endFullTank.odometer! - startFullTank.odometer!;
+        const entriesInCycle = sortedFuelEntries.filter(l => l.odometer! > startFullTank.odometer! && l.odometer! <= endFullTank.odometer!);
+        const litersInCycle = entriesInCycle.reduce((acc, l) => acc + (l.fuel_liters || 0), 0);
+        
+        if (litersInCycle > 0 && distance > 0) {
+          mediaKmL = (distance / litersInCycle).toFixed(2);
+        }
+      } else {
+        // Fallback to simple average
+        let totalLitros = 0;
+        let kmRodadoCombustivel = 0;
+        sortedFuelEntries.forEach((entry, index) => {
+          totalLitros += Number(entry.fuel_liters);
+          const prevOdometer = index > 0 ? sortedFuelEntries[index - 1].odometer! : (vehicle.initial_odometer || 0);
+          const distance = entry.odometer! - prevOdometer;
+          if (distance > 0) kmRodadoCombustivel += distance;
+        });
+        if (totalLitros > 0 && kmRodadoCombustivel > 0) {
+          mediaKmL = (kmRodadoCombustivel / totalLitros).toFixed(2);
+        }
+      }
+
+      if (mediaKmL !== '0.0') {
+        setCalcConsumption(mediaKmL.replace('.', ','));
+      }
+    }
+
+    // Auto-set profit goal if vehicle has one
+    if (vehicle.profit_goal) {
+      const goal = calcMode === 'monthly' 
+        ? vehicle.profit_goal 
+        : (vehicle.profit_goal / 30) * 7;
+      setCalcProfitGoal(formatCurrency(goal));
+    }
+  }, [calcVehicleId, vehicles, lancamentos, calcMode]);
 
   React.useEffect(() => {
     setProfileNome(user.nome || '');
@@ -722,6 +848,209 @@ export function Configuracoes({
                   Suporte Premium (WhatsApp)
                 </Button>
               )}
+            </CardContent>
+          )}
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={() => setIsCalcOpen(!isCalcOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <Calculator className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Calculadora de Ganhos</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Planeje sua semana e descubra seu valor mínimo por KM</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              {isCalcOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isCalcOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              {/* Mode Toggle */}
+              <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-full max-w-xs mx-auto mb-8">
+                <button
+                  onClick={() => {
+                    setCalcMode('weekly');
+                    setCalcDaysPerWeek('5');
+                  }}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                    calcMode === 'weekly' 
+                      ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  Semanal
+                </button>
+                <button
+                  onClick={() => {
+                    setCalcMode('monthly');
+                    setCalcDaysPerWeek('22');
+                  }}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                    calcMode === 'monthly' 
+                      ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  Mensal
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Inputs */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo para Análise</label>
+                    <CustomSelect
+                      value={calcVehicleId}
+                      onChange={setCalcVehicleId}
+                      placeholder="Selecione um veículo"
+                      options={vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))}
+                    />
+                  </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Dias de Trabalho / {calcMode === 'weekly' ? 'Semana' : 'Mês'}
+                        </label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={calcDaysPerWeek}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9,]/g, '');
+                            setCalcDaysPerWeek(val);
+                          }}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta KM / Dia</label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={calcKmPerDay}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9,]/g, '');
+                            setCalcKmPerDay(val);
+                          }}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Meta de Lucro Líquido / {calcMode === 'weekly' ? 'Semana' : 'Mês'}
+                    </label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={calcProfitGoal}
+                      onChange={(e) => setCalcProfitGoal(formatCurrencyInput(e.target.value))}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Preço Combustível (L)</label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={calcFuelPrice}
+                        onChange={(e) => setCalcFuelPrice(formatCurrencyInput(e.target.value))}
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Consumo (KM/L)</label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={calcConsumption}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9,]/g, '');
+                          setCalcConsumption(val);
+                        }}
+                        placeholder="0,0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Outros Custos Fixos Mensais (Seguro, IPVA...)</label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={calcOtherFixed}
+                      onChange={(e) => setCalcOtherFixed(formatCurrencyInput(e.target.value))}
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+                </div>
+
+                {/* Results */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex flex-col justify-center">
+                  {!calcVehicleId ? (
+                    <div className="text-center space-y-3">
+                      <Calculator className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Selecione um veículo para ver os resultados.</p>
+                    </div>
+                  ) : calculatorResults && (
+                    <div className="space-y-6">
+                      <div className="text-center">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Valor Mínimo por KM</p>
+                        <h4 className="text-4xl font-black text-emerald-600 dark:text-emerald-400">
+                          R$ {calculatorResults.minPricePerKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-2 italic">Aceite corridas acima deste valor para atingir sua meta.</p>
+                      </div>
+
+                      <div className="space-y-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">KM Total / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
+                          <span className="font-semibold">{calculatorResults.totalKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KM</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Custo Combustível / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
+                          <span className="font-semibold text-red-500">R$ {calculatorResults.fuelCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        {!calculatorResults.isRented && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Reserva Manutenção / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
+                            <span className="font-semibold text-red-500">R$ {calculatorResults.maintenanceCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Custos Fixos / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
+                          <span className="font-semibold text-red-500">R$ {calculatorResults.fixedCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Consumo Médio</span>
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">{Number(calcConsumption.replace(',', '.')).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KM/L</span>
+                        </div>
+                        <div className="pt-3 flex justify-between text-base font-bold border-t border-dashed border-gray-300 dark:border-gray-600">
+                          <span className="text-gray-900 dark:text-white">Receita Necessária / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">R$ {calculatorResults.totalRevenueNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="pt-2 flex justify-between text-sm font-medium">
+                          <span className="text-gray-600 dark:text-gray-400">Meta de Ganhos Brutos / Dia</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">R$ {calculatorResults.dailyGrossTarget.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </CardContent>
           )}
         </Card>

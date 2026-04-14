@@ -1,12 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate } from '@/lib/utils';
+import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium } from '@/lib/utils';
 import { Lancamento, Categoria, Vehicle, Manutencao, User, FuelType } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, isWithinInterval, format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { isPremium } from '@/lib/utils';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 
 import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle } from 'lucide-react';
@@ -476,8 +475,8 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
                   <p className={`text-sm ${alert.status === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
                     {alert.manutencao.tipo} do veículo <strong>{alert.vehicle.name}</strong>. 
                     {alert.status === 'danger' 
-                      ? ` Passou ${Math.abs(alert.kmFaltante).toLocaleString('pt-BR')} km do limite.` 
-                      : ` Faltam apenas ${alert.kmFaltante.toLocaleString('pt-BR')} km.`}
+                      ? ` Passou ${Math.abs(alert.kmFaltante).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km do limite.` 
+                      : ` Faltam apenas ${alert.kmFaltante.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km.`}
                   </p>
                 </div>
               </div>
@@ -580,7 +579,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(value) => `R$ ${value}`}
+                  tickFormatter={(value) => formatCurrency(value)}
                   tick={{ fill: 'currentColor', fontSize: 12 }}
                   className="text-gray-500 dark:text-gray-400"
                   dx={-10}
