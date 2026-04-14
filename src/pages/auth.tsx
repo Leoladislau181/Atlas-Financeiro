@@ -166,7 +166,7 @@ export function Auth() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg mb-6 overflow-hidden">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg mb-4 overflow-hidden">
               <img 
                 src="/logo.svg" 
                 alt="Atlas Logo" 
@@ -174,13 +174,13 @@ export function Auth() {
                 referrerPolicy="no-referrer"
               />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
               Atlas Financeiro
             </h2>
           </div>
 
           <div className="text-center lg:text-left">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
               {isSignUp ? 'Comece sua jornada' : 'Bem-vindo de volta'}
             </h2>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -188,8 +188,8 @@ export function Auth() {
             </p>
           </div>
 
-          <Card className="border-none shadow-2xl lg:shadow-none bg-white dark:bg-gray-950 rounded-3xl lg:rounded-none overflow-hidden">
-            <CardContent className="p-0 lg:py-4">
+          <Card className="border-none shadow-xl lg:shadow-none bg-white dark:bg-gray-950 rounded-2xl lg:rounded-none overflow-hidden">
+            <CardContent className="p-6 sm:p-8 lg:p-0 lg:py-4">
               {!isConfigured && (
                 <div className="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
                   <div className="mt-0.5">⚠️</div>
@@ -280,8 +280,7 @@ export function Auth() {
                 </p>
               </div>
 
-              <div className="mt-8 flex items-center justify-center gap-4 opacity-50 grayscale">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/2560px-Stripe_Logo%2C_revised_2016.svg.png" alt="Stripe" className="h-4" />
+              <div className="mt-8 flex items-center justify-center gap-6 opacity-50 grayscale">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_Cloud_Logo.svg/2560px-Google_Cloud_Logo.svg.png" alt="Google Cloud" className="h-4" />
                 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Logo_of_Supabase.svg/1200px-Logo_of_Supabase.svg.png" alt="Supabase" className="h-4" />
               </div>
