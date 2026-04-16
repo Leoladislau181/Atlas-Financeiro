@@ -44,6 +44,24 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
   const [heatmapDate, setHeatmapDate] = useState(new Date());
   const [heatmapVehicleId, setHeatmapVehicleId] = useState<string>('all');
   const [exportLoading, setExportLoading] = useState(false);
+
+  const heatmapPersonalSummary = useMemo(() => {
+    const start = startOfMonth(heatmapDate);
+    const end = endOfMonth(heatmapDate);
+    
+    const personalLancamentos = lancamentos.filter(l => {
+      if (l.tipo !== 'pessoal') return false;
+      const d = parseLocalDate(l.data);
+      const matchesDate = isWithinInterval(d, { start, end });
+      const matchesVehicle = heatmapVehicleId === 'all' || l.vehicle_id === heatmapVehicleId;
+      return matchesDate && matchesVehicle;
+    });
+
+    const totalKm = personalLancamentos.reduce((acc, l) => acc + (l.km_rodados || 0), 0);
+    const totalCost = personalLancamentos.reduce((acc, l) => acc + Number(l.valor), 0);
+
+    return { totalKm, totalCost };
+  }, [heatmapDate, heatmapVehicleId, lancamentos]);
   const [importLoading, setImportLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -118,7 +136,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       if (data <= endFilterDate && matchesVehicle) {
         const valor = Number(l.valor);
         if (l.tipo === 'receita') saldoAcumulado += valor;
-        else saldoAcumulado -= valor;
+        else if (l.tipo === 'despesa') saldoAcumulado -= valor;
       }
     });
 
@@ -126,7 +144,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const valor = Number(l.valor);
       if (l.tipo === 'receita') {
         receitas += valor;
-      } else {
+      } else if (l.tipo === 'despesa') {
         despesas += valor;
       }
 
@@ -155,7 +173,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         if (l.tipo === 'receita') {
           porVeiculo[l.vehicle_id].receitas += valor;
           porVeiculo[l.vehicle_id].saldo += valor;
-        } else {
+        } else if (l.tipo === 'despesa') {
           porVeiculo[l.vehicle_id].despesas += valor;
           porVeiculo[l.vehicle_id].saldo -= valor;
         }
@@ -203,6 +221,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       despesas,
       lucroLiquido: receitas - despesas,
       saldoAcumulado,
+      pessoalTotal: filteredLancamentos.filter(l => l.tipo === 'pessoal').reduce((acc, l) => acc + Number(l.valor), 0),
+      pessoalKmTotal: filteredLancamentos.filter(l => l.tipo === 'pessoal').reduce((acc, l) => acc + (l.km_rodados || 0), 0),
       porCategoria: Object.values(porCategoria).sort((a, b) => b.valor - a.valor),
       porCategoriaRaw: porCategoria,
       porVeiculo: Object.values(porVeiculo).map(v => ({
@@ -1005,8 +1025,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const data = filteredLancamentos.map(l => ({
         'Data': format(parseLocalDate(l.data), 'dd/MM/yyyy'),
         'Descrição': l.observacao || '-',
-        'Categoria': l.categorias?.nome || '-',
-        'Tipo': l.tipo === 'receita' ? 'Receita' : 'Despesa',
+        'Categoria': l.categorias?.nome || (l.tipo === 'pessoal' ? 'Uso Pessoal' : '-'),
+        'Tipo': l.tipo === 'receita' ? 'Receita' : l.tipo === 'despesa' ? 'Despesa' : 'Uso Pessoal',
         'Valor': Number(l.valor),
         'Veículo': l.vehicles?.name || '-',
         'Placa': l.vehicles?.plate || '-',
@@ -1020,7 +1040,9 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         { 'Item': 'Total Receitas', 'Valor': stats.receitas },
         { 'Item': 'Total Despesas', 'Valor': stats.despesas },
         { 'Item': 'Saldo', 'Valor': stats.lucroLiquido },
-        { 'Item': 'Saldo Acumulado', 'Valor': stats.saldoAcumulado }
+        { 'Item': 'Saldo Acumulado', 'Valor': stats.saldoAcumulado },
+        { 'Item': 'Uso Pessoal (Custo Estimado)', 'Valor': stats.pessoalTotal },
+        { 'Item': 'Uso Pessoal (KM)', 'Valor': stats.pessoalKmTotal }
       ];
 
       const vehicleSummary = stats.porVeiculo.map(v => ({
@@ -1677,6 +1699,26 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   <span className="text-[11px] font-medium text-gray-500">&gt; R$ 500</span>
                 </div>
               </div>
+
+              {/* Personal Use Summary Section */}
+              {(heatmapPersonalSummary.totalKm > 0 || heatmapPersonalSummary.totalCost > 0) && (
+                <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <div className="flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-400">
+                    <Car className="h-4 w-4" />
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">Resumo de Uso Pessoal</h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Distância Percorrida</p>
+                      <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{heatmapPersonalSummary.totalKm} <span className="text-xs font-bold opacity-50">km</span></p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Custo Total Estimado</p>
+                      <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{formatCurrency(heatmapPersonalSummary.totalCost)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         )}

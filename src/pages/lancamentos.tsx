@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,12 +36,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [personalCalculatedValue, setPersonalCalculatedValue] = useState<number>(0);
+  const [personalKmRodados, setPersonalKmRodados] = useState<number>(0);
   const [tipo, setTipo] = useState<TipoLancamento>('despesa');
   const [items, setItems] = useState<LancamentoItem[]>([{ categoriaId: '', valorStr: '' }]);
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [observacao, setObservacao] = useState('');
-  
-  // Vehicle fields
   const [vehicleId, setVehicleId] = useState('');
   const useVehicle = vehicleId !== '';
   const [odometer, setOdometer] = useState('');
@@ -49,21 +49,99 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const [fuelPricePerLiterStr, setFuelPricePerLiterStr] = useState('');
   const [fuelType, setFuelType] = useState<FuelType | null>(null);
   const [isFullTank, setIsFullTank] = useState(true);
-
-  // Auto-fill states
   const [isOdometerManuallyEdited, setIsOdometerManuallyEdited] = useState(false);
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
-  
-  // Turn/Shift states
   const [turns, setTurns] = useState<{ startTime: string; endTime: string }[]>([]);
   const [showTurnFields, setShowTurnFields] = useState(false);
-
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
+  const [filterCategoriaId, setFilterCategoriaId] = useState('all');
+  const [filterVehicleId, setFilterVehicleId] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const getPersonalUseData = (vId: string) => {
+    const vehicle = vehicles.find(v => v.id === vId);
+    if (!vehicle) return { lastOdo: 0, fuelPrice: 5.5, consumption: 10 };
+
+    // KM Inicial: buscar último odômetro absoluto (apenas Receita ou Pessoal)
+    const allOdos = lancamentos
+      .filter(l => l.vehicle_id === vId && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+      .sort((a, b) => {
+        const dateA = parseLocalDate(a.data).getTime();
+        const dateB = parseLocalDate(b.data).getTime();
+        if (dateA !== dateB) return dateB - dateA;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+    const lastOdo = allOdos.length > 0 ? (allOdos[0].odometro_receita || allOdos[0].odometer || 0) : vehicle.initial_odometer;
+
+    // Fuel Price: buscar último abastecimento
+    const fuelLancamentos = lancamentos
+      .filter(l => l.fuel_price_per_liter && l.fuel_price_per_liter > 0)
+      .sort((a, b) => {
+        const dateA = parseLocalDate(a.data).getTime();
+        const dateB = parseLocalDate(b.data).getTime();
+        if (dateA !== dateB) return dateB - dateA;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    
+    const fuelPrice = fuelLancamentos.length > 0 ? fuelLancamentos[0].fuel_price_per_liter! : 5.5;
+
+    const vLancamentos = lancamentos.filter(l => l.vehicle_id === vId);
+    const sortedFuelEntries = vLancamentos
+      .filter(l => l.tipo === 'despesa' && l.fuel_liters && l.fuel_liters > 0 && l.odometer)
+      .sort((a, b) => a.odometer! - b.odometer!);
+
+    let consumption = 10;
+    const fullTanks = sortedFuelEntries.filter(l => l.is_full_tank);
+    
+    if (fullTanks.length >= 2) {
+      const recentFullTanks = fullTanks.slice(-4);
+      const startFullTank = recentFullTanks[0];
+      const endFullTank = recentFullTanks[recentFullTanks.length - 1];
+      const distance = endFullTank.odometer! - startFullTank.odometer!;
+      const entriesInCycle = sortedFuelEntries.filter(l => l.odometer! > startFullTank.odometer! && l.odometer! <= endFullTank.odometer!);
+      const litersInCycle = entriesInCycle.reduce((acc, l) => acc + (l.fuel_liters || 0), 0);
+      if (litersInCycle > 0 && distance > 0) {
+        consumption = distance / litersInCycle;
+      }
+    } else {
+      const totalLitros = sortedFuelEntries.reduce((acc, l) => acc + (l.fuel_liters || 0), 0);
+      let kmRodadoCombustivel = 0;
+      sortedFuelEntries.forEach((entry, index) => {
+        const prevOdo = index > 0 ? sortedFuelEntries[index - 1].odometer! : (vehicle.initial_odometer || 0);
+        const dist = entry.odometer! - (prevOdo || 0);
+        if (dist > 0) kmRodadoCombustivel += dist;
+      });
+      if (totalLitros > 0 && kmRodadoCombustivel > 0) {
+        consumption = kmRodadoCombustivel / totalLitros;
+      }
+    }
+
+    return { lastOdo, fuelPrice, consumption };
+  };
+
+  useEffect(() => {
+    if (tipo === 'pessoal' && vehicleId && odometer) {
+      const { lastOdo, fuelPrice, consumption } = getPersonalUseData(vehicleId);
+      const kmRodados = Number(odometer) - lastOdo;
+      if (kmRodados > 0) {
+        const value = (kmRodados / consumption) * fuelPrice;
+        setPersonalCalculatedValue(value);
+        setPersonalKmRodados(kmRodados);
+      } else {
+        setPersonalCalculatedValue(0);
+        setPersonalKmRodados(0);
+      }
+    }
+  }, [tipo, vehicleId, odometer]);
 
   const isCombustivel = () => {
     if (items.length === 0) return false;
@@ -99,15 +177,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     triggerDependency: items[0]?.categoriaId || ''
   });
 
-  // History Filters
-  const [filterMonth, setFilterMonth] = useState('');
-  const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
-  const [filterCategoriaId, setFilterCategoriaId] = useState('all');
-  const [filterVehicleId, setFilterVehicleId] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
   useEffect(() => {
     if (forceOpenForm) {
       setIsFormOpen(true);
@@ -119,6 +188,23 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       onFormClose();
     }
   }, [isFormOpen, onFormClose]);
+
+  const lastReferenceOdometer = useMemo(() => {
+    if (!vehicleId) return 0;
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (!vehicle) return 0;
+
+    const allOdos = lancamentos
+      .filter(l => l.vehicle_id === vehicleId && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+      .sort((a, b) => {
+        const dateA = parseLocalDate(a.data).getTime();
+        const dateB = parseLocalDate(b.data).getTime();
+        if (dateA !== dateB) return dateB - dateA;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+    return allOdos.length > 0 ? (allOdos[0].odometro_receita || allOdos[0].odometer || 0) : vehicle.initial_odometer;
+  }, [vehicleId, lancamentos, vehicles]);
 
   const nextMonth = () => setSelectedDate(addMonths(selectedDate, 1));
   const prevMonth = () => setSelectedDate(subMonths(selectedDate, 1));
@@ -203,8 +289,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     e.preventDefault();
     setErrorMsg('');
 
-    if (items.some(item => !item.categoriaId || !item.valorStr) || !data) {
-      setErrorMsg('Preencha todos os campos de categoria e valor.');
+    if (tipo !== 'pessoal' && (items.some(item => !item.categoriaId || !item.valorStr) || !data)) {
+      setErrorMsg('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    if (tipo === 'pessoal' && (!vehicleId || !odometer)) {
+      setErrorMsg('Informe o veículo e o odômetro final.');
       return;
     }
 
@@ -218,14 +309,16 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       return;
     }
 
-    // Duplicate category check
-    const categoryIds = items.map(i => i.categoriaId);
-    if (new Set(categoryIds).size !== categoryIds.length) {
-      setErrorMsg('Não é permitido repetir a mesma categoria no mesmo lançamento.');
-      return;
+    // Duplicate category check (not applicable to 'pessoal')
+    if (tipo !== 'pessoal') {
+      const categoryIds = items.map(i => i.categoriaId);
+      if (new Set(categoryIds).size !== categoryIds.length) {
+        setErrorMsg('Não é permitido repetir a mesma categoria no mesmo lançamento.');
+        return;
+      }
     }
 
-    const totalValorNum = totalValor;
+    const totalValorNum = tipo === 'pessoal' ? personalCalculatedValue : totalValor;
     if (totalValorNum <= 0) {
       setErrorMsg('O valor total deve ser maior que zero.');
       return;
@@ -250,9 +343,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       const vehicle = vehicles.find(v => v.id === vehicleId);
       const newOdo = odometer ? Number(odometer) : Number(odometroReceita);
       
-      // Busca o maior odômetro absoluto já registrado para este veículo
+      // Busca o maior odômetro absoluto já registrado para este veículo (apenas Receita ou Pessoal)
       const allOdos = lancamentos
-        .filter(l => l.vehicle_id === vehicleId && (l.odometer || l.odometro_receita))
+        .filter(l => l.vehicle_id === vehicleId && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
         .map(l => l.odometro_receita || l.odometer || 0);
       
       const lastOdo = allOdos.length > 0 ? Math.max(...allOdos) : (vehicle?.initial_odometer || 0);
@@ -265,88 +358,121 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
     setLoading(true);
     try {
-      const groupId = items.length > 1 ? crypto.randomUUID() : null;
-      
-      let kmRodados = null;
-      let odoReceitaNum = odometroReceita ? Number(odometroReceita) : null;
-      
-      if (tipo === 'receita' && odoReceitaNum && useVehicle) {
-        const vehicle = vehicles.find(v => v.id === vehicleId);
-        const launchDateStr = data;
-        const registrationDateStr = vehicle ? format(new Date(vehicle.created_at), 'yyyy-MM-dd') : null;
+      let finalPayloads: any[] = [];
+      let groupId = items.length > 1 ? crypto.randomUUID() : null;
 
-        let lastOdoRef = null;
-
-        if (vehicle && registrationDateStr) {
-          const isSameDayAsRegistration = launchDateStr === registrationDateStr;
-
-          if (isSameDayAsRegistration) {
-            // Se for o mesmo dia do cadastro, busca o último do mesmo dia (ou o inicial)
-            const sameDayOdos = lancamentos
-              .filter(l => l.vehicle_id === vehicleId && l.data === launchDateStr && (l.odometer || l.odometro_receita))
-              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-            
-            if (sameDayOdos.length > 0) {
-              lastOdoRef = sameDayOdos[0].odometro_receita || sameDayOdos[0].odometer;
-            } else {
-              lastOdoRef = vehicle.initial_odometer;
-            }
-          } else {
-            // Se for dia posterior, busca o último de dias ANTERIORES
-            const previousDayOdos = lancamentos
-              .filter(l => l.vehicle_id === vehicleId && l.data < launchDateStr && (l.odometer || l.odometro_receita))
-              .sort((a, b) => {
-                const dateA = parseLocalDate(a.data).getTime();
-                const dateB = parseLocalDate(b.data).getTime();
-                if (dateA !== dateB) return dateB - dateA;
-                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-              });
-            
-            if (previousDayOdos.length > 0) {
-              lastOdoRef = previousDayOdos[0].odometro_receita || previousDayOdos[0].odometer;
-            } else {
-              lastOdoRef = vehicle.initial_odometer;
-            }
-          }
+      if (tipo === 'pessoal') {
+        // Handle personal use
+        let personalCatId = '';
+        const personalCat = categorias.find(c => c.nome.toLowerCase() === 'uso pessoal');
+        if (personalCat) {
+          personalCatId = personalCat.id;
+        } else {
+          const { data: newCat, error: catError } = await supabase
+            .from('categorias')
+            .insert([{ user_id: user.id, nome: 'Uso Pessoal', tipo: 'despesa' }])
+            .select()
+            .single();
+          if (catError) throw catError;
+          personalCatId = newCat.id;
         }
 
-        if (lastOdoRef !== null && odoReceitaNum) {
-          kmRodados = odoReceitaNum - lastOdoRef;
-        }
-      }
-
-      const payloads = items.map((item) => {
-        const valorNum = parseCurrency(item.valorStr);
-        const payload: any = {
+        finalPayloads = [{
           user_id: user.id,
-          tipo,
-          categoria_id: item.categoriaId,
-          valor: valorNum,
+          tipo: 'pessoal',
+          categoria_id: personalCatId,
+          valor: personalCalculatedValue,
           data,
           observacao,
-          vehicle_id: useVehicle ? vehicleId : null,
-          group_id: groupId,
-          odometro_receita: tipo === 'receita' && odoReceitaNum ? odoReceitaNum : null,
-          km_rodados: tipo === 'receita' ? kmRodados : null,
-          odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
+          vehicle_id: vehicleId,
+          odometer: Number(odometer),
+          km_rodados: personalKmRodados,
           fuel_price_per_liter: null,
           fuel_liters: null,
           fuel_type: null,
           is_full_tank: null,
-        };
+        }];
+      } else {
+        // Handle Income/Expense
+        let kmRodados = null;
+        let odoReceitaNum = odometroReceita ? Number(odometroReceita) : null;
+        
+        if (tipo === 'receita' && odoReceitaNum && useVehicle) {
+          const vehicle = vehicles.find(v => v.id === vehicleId);
+          const launchDateStr = data;
+          const registrationDateStr = vehicle ? format(new Date(vehicle.created_at), 'yyyy-MM-dd') : null;
 
-        if (useVehicle && tipo === 'despesa' && isCombustivel()) {
-          const pricePerLiter = parseCurrency(fuelPricePerLiterStr);
-          if (pricePerLiter > 0 && valorNum > 0) {
-            payload.fuel_price_per_liter = pricePerLiter;
-            payload.fuel_liters = valorNum / pricePerLiter;
-            payload.fuel_type = fuelType;
-            payload.is_full_tank = isFullTank;
+          let lastOdoRef = null;
+
+          if (vehicle && registrationDateStr) {
+            const isSameDayAsRegistration = launchDateStr === registrationDateStr;
+
+            if (isSameDayAsRegistration) {
+              const sameDayOdos = lancamentos
+                .filter(l => l.vehicle_id === vehicleId && l.data === launchDateStr && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+              
+              if (sameDayOdos.length > 0) {
+                lastOdoRef = sameDayOdos[0].odometro_receita || sameDayOdos[0].odometer;
+              } else {
+                lastOdoRef = vehicle.initial_odometer;
+              }
+            } else {
+              const previousDayOdos = lancamentos
+                .filter(l => l.vehicle_id === vehicleId && l.data < launchDateStr && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+                .sort((a, b) => {
+                  const dateA = parseLocalDate(a.data).getTime();
+                  const dateB = parseLocalDate(b.data).getTime();
+                  if (dateA !== dateB) return dateB - dateA;
+                  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                });
+              
+              if (previousDayOdos.length > 0) {
+                lastOdoRef = previousDayOdos[0].odometro_receita || previousDayOdos[0].odometer;
+              } else {
+                lastOdoRef = vehicle.initial_odometer;
+              }
+            }
+          }
+
+          if (lastOdoRef !== null && odoReceitaNum) {
+            kmRodados = odoReceitaNum - lastOdoRef;
           }
         }
-        return payload;
-      });
 
+        finalPayloads = items.map((item) => {
+          const valorNum = parseCurrency(item.valorStr);
+          const payload: any = {
+            user_id: user.id,
+            tipo,
+            categoria_id: item.categoriaId,
+            valor: valorNum,
+            data,
+            observacao,
+            vehicle_id: useVehicle ? vehicleId : null,
+            group_id: groupId,
+            odometro_receita: tipo === 'receita' && odoReceitaNum ? odoReceitaNum : null,
+            km_rodados: tipo === 'receita' ? kmRodados : null,
+            odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
+            fuel_price_per_liter: null,
+            fuel_liters: null,
+            fuel_type: null,
+            is_full_tank: null,
+          };
+
+          if (useVehicle && tipo === 'despesa' && isCombustivel()) {
+            const pricePerLiter = parseCurrency(fuelPricePerLiterStr);
+            if (pricePerLiter > 0 && valorNum > 0) {
+              payload.fuel_price_per_liter = pricePerLiter;
+              payload.fuel_liters = valorNum / pricePerLiter;
+              payload.fuel_type = fuelType;
+              payload.is_full_tank = isFullTank;
+            }
+          }
+          return payload;
+        });
+      }
+      
       if (editingId) {
         const original = lancamentos.find(l => l.id === editingId);
         if (original?.group_id) {
@@ -355,10 +481,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         } else {
           await supabase.from('lancamentos').delete().eq('id', editingId);
         }
-        const { error } = await supabase.from('lancamentos').insert(payloads);
+        const { error } = await supabase.from('lancamentos').insert(finalPayloads);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('lancamentos').insert(payloads);
+        const { error } = await supabase.from('lancamentos').insert(finalPayloads);
         if (error) throw error;
       }
 
@@ -584,11 +710,18 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const monthSummary = React.useMemo(() => {
     let receitas = 0;
     let despesas = 0;
+    let pessoalKm = 0;
+    let pessoalCusto = 0;
     filteredLancamentos.forEach(l => {
-      if (l.tipo === 'receita') receitas += Number(l.valor);
-      else despesas += Number(l.valor);
+      const valor = Number(l.valor);
+      if (l.tipo === 'receita') receitas += valor;
+      else if (l.tipo === 'despesa') despesas += valor;
+      else if (l.tipo === 'pessoal') {
+        pessoalCusto += valor;
+        pessoalKm += (l.km_rodados || 0);
+      }
     });
-    return { receitas, despesas, saldo: receitas - despesas };
+    return { receitas, despesas, saldo: receitas - despesas, pessoalKm, pessoalCusto };
   }, [filteredLancamentos]);
 
   const visibleLancamentos = groupedLancamentos.slice(0, visibleCount);
@@ -658,7 +791,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       </div>
 
       {/* Month Summary Cards */}
-      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
@@ -697,13 +830,32 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
               )} />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo do Mês</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo Líquido</p>
               <h3 className={cn(
                 "text-lg font-bold",
                 monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
               )}>
                 {formatCurrency(monthSummary.saldo)}
               </h3>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+              <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Uso Pessoal</p>
+              <div className="flex items-center justify-between gap-1">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                  {monthSummary.pessoalKm} km
+                </h3>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  ({formatCurrency(monthSummary.pessoalCusto)})
+                </span>
+              </div>
+              <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-none mt-1">* Apenas controle de odômetro</p>
             </div>
           </CardContent>
         </Card>
@@ -786,21 +938,49 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo do Lançamento</label>
-              <CustomSelect 
-                value={tipo} 
-                onChange={(val) => {
-                  const newTipo = val as TipoLancamento;
-                  setTipo(newTipo);
-                  if (newTipo === 'despesa') {
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={tipo === 'receita' ? 'default' : 'outline'}
+                  className={cn(
+                    "h-10 text-xs font-bold uppercase tracking-wider",
+                    tipo === 'receita' ? "bg-[#10B981] hover:bg-[#059568] border-none text-white shadow-sm" : "border-gray-200 text-gray-500"
+                  )}
+                  onClick={() => setTipo('receita')}
+                >
+                  Receita
+                </Button>
+                <Button
+                  type="button"
+                  variant={tipo === 'despesa' ? 'default' : 'outline'}
+                  className={cn(
+                    "h-10 text-xs font-bold uppercase tracking-wider",
+                    tipo === 'despesa' ? "bg-[#EF4444] hover:bg-[#DC2626] border-none text-white shadow-sm" : "border-gray-200 text-gray-500"
+                  )}
+                  onClick={() => {
+                    setTipo('despesa');
                     setShowTurnFields(false);
                     setTurns([]);
-                  }
-                }}
-                options={[
-                  { value: 'despesa', label: 'Despesa' },
-                  { value: 'receita', label: 'Receita' }
-                ]}
-              />
+                  }}
+                >
+                  Despesa
+                </Button>
+                <Button
+                  type="button"
+                  variant={tipo === 'pessoal' ? 'default' : 'outline'}
+                  className={cn(
+                    "h-10 text-xs font-bold uppercase tracking-wider",
+                    tipo === 'pessoal' ? "bg-blue-600 hover:bg-blue-700 border-none text-white shadow-sm" : "border-gray-200 text-gray-500"
+                  )}
+                  onClick={() => {
+                    setTipo('pessoal');
+                    setShowTurnFields(false);
+                    setTurns([]);
+                  }}
+                >
+                  Pessoal
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Data</label>
@@ -813,7 +993,64 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             </div>
           </div>
 
-          <div className="space-y-4">
+          {tipo === 'pessoal' ? (
+            <div className="space-y-6 animate-in fade-in duration-300">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
+                  <CustomSelect
+                    value={vehicleId}
+                    onChange={setVehicleId}
+                    options={vehicles.map(v => ({ value: v.id, label: `${v.name} - ${v.plate}` }))}
+                    placeholder="Selecione o veículo..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Odômetro Final (KM)</label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Ex: 50100"
+                    value={odometer}
+                    onChange={(e) => setOdometer(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              {vehicleId && odometer && personalKmRodados > 0 && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700 dark:text-blue-300">Odômetro Anterior:</span>
+                    <span className="font-bold text-blue-900 dark:text-blue-100">{lastReferenceOdometer} km</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700 dark:text-blue-300">Distância Percorrida:</span>
+                    <span className="font-bold text-blue-900 dark:text-blue-100">{personalKmRodados} km</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700 dark:text-blue-300">Custo Estimado:</span>
+                    <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(personalCalculatedValue)}</span>
+                  </div>
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-2 italic">
+                    * Cálculo baseado no consumo médio do veículo e no último preço de combustível registrado.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Observação (Onde você foi?)</label>
+                <Input
+                  type="text"
+                  placeholder="Ex: Fui ao mercado / academia"
+                  value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : (
+            <React.Fragment>
+              <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Itens do Lançamento</label>
               <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-8 gap-1 text-xs">
@@ -884,7 +1121,14 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
             {useVehicle && tipo === 'receita' && (
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 space-y-2">
-                <label className="text-sm font-medium text-blue-900 dark:text-blue-100">Odômetro Atual (KM) - Opcional</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-sm font-medium text-blue-900 dark:text-blue-100">Odômetro Final (KM) - Opcional</label>
+                  {lastReferenceOdometer > 0 && (
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                      Anterior: {lastReferenceOdometer} km
+                    </span>
+                  )}
+                </div>
                 <Input
                   type="number"
                   inputMode="numeric"
@@ -898,7 +1142,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             )}
 
             {useVehicle && tipo === 'despesa' && (
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Odômetro Atual (KM) {isOdometerRequired() ? '*' : '(Opcional)'}
@@ -917,7 +1161,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                   </div>
 
                   {isCombustivel() && (
-                    <>
+                    <React.Fragment>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
                         <CustomSelect
@@ -968,7 +1212,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                           Tanque Cheio? (Usado para calcular a média de consumo)
                         </label>
                       </div>
-                    </>
+                    </React.Fragment>
                   )}
                 </div>
               )}
@@ -1048,16 +1292,20 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                 )}
               </div>
             )}
+            </React.Fragment>
+          )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Observação</label>
-              <Input
-                type="text"
-                placeholder="Detalhes do lançamento..."
-                value={observacao}
-                onChange={(e) => setObservacao(e.target.value)}
-              />
-            </div>
+            {tipo !== 'pessoal' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Observação</label>
+                <Input
+                  type="text"
+                  placeholder="Detalhes do lançamento..."
+                  value={observacao}
+                  onChange={(e) => setObservacao(e.target.value)}
+                />
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
               <Button
                 type="button"
@@ -1072,7 +1320,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading || filteredCategorias.length === 0} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706] text-white">
+              <Button type="submit" disabled={loading || (tipo !== 'pessoal' && filteredCategorias.length === 0)} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706] text-white">
                 {loading ? 'Salvando...' : editingId ? 'Atualizar Lançamento' : 'Salvar Lançamento'}
               </Button>
             </div>
@@ -1121,15 +1369,17 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                             {format(parseLocalDate(l.data), 'dd/MM/yyyy')}
                           </td>
                           <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                                l.tipo === 'receita'
-                                  ? 'bg-green-50 dark:bg-[#059568]/10 text-[#059568] dark:text-[#10B981]'
-                                  : 'bg-red-50 dark:bg-[#EF4444]/10 text-[#EF4444] dark:text-[#F87171]'
-                              }`}
-                            >
-                              {l.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                            </span>
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                              l.tipo === 'receita'
+                                ? 'bg-green-50 dark:bg-[#059568]/10 text-[#059568] dark:text-[#10B981]'
+                                : l.tipo === 'pessoal'
+                                ? 'bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400'
+                                : 'bg-red-50 dark:bg-[#EF4444]/10 text-[#EF4444] dark:text-[#F87171]'
+                            }`}
+                          >
+                            {l.tipo === 'receita' ? 'Receita' : l.tipo === 'pessoal' ? 'Pessoal' : 'Despesa'}
+                          </span>
                           </td>
                           <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                             {isMultiple ? (
@@ -1161,10 +1411,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                           </td>
                           <td
                             className={`px-6 py-4 text-right font-bold text-sm whitespace-nowrap ${
-                              l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
+                              l.tipo === 'receita' ? 'text-[#059568] dark:text-[#10B981]' : 
+                              l.tipo === 'pessoal' ? 'text-blue-500 dark:text-blue-400 opacity-80' :
+                              'text-[#EF4444] dark:text-[#F87171]'
                             }`}
                           >
-                            {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                            {l.tipo === 'receita' ? '+' : l.tipo === 'pessoal' ? 'ℹ ' : '-'}{formatCurrency(l.valor)}
                           </td>
                           <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1281,7 +1533,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-2 h-2 rounded-full shrink-0",
-                          l.tipo === 'receita' ? "bg-[#10B981]" : "bg-[#EF4444]"
+                          l.tipo === 'receita' ? "bg-[#10B981]" : 
+                          l.tipo === 'pessoal' ? "bg-blue-500" :
+                          "bg-[#EF4444]"
                         )} />
                         <div>
                           <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
@@ -1313,9 +1567,11 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                       <div className="text-right shrink-0 ml-2">
                         <p className={cn(
                           "text-sm font-bold",
-                          l.tipo === 'receita' ? "text-[#059568] dark:text-[#10B981]" : "text-[#EF4444] dark:text-[#F87171]"
+                          l.tipo === 'receita' ? "text-[#059568] dark:text-[#10B981]" : 
+                          l.tipo === 'pessoal' ? "text-blue-500 dark:text-blue-400 opacity-80" :
+                          "text-[#EF4444] dark:text-[#F87171]"
                         )}>
-                          {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                          {l.tipo === 'receita' ? '+' : l.tipo === 'pessoal' ? 'ℹ ' : '-'}{formatCurrency(l.valor)}
                         </p>
                       </div>
                     </div>

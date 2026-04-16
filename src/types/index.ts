@@ -1,4 +1,4 @@
-export type TipoLancamento = 'receita' | 'despesa';
+export type TipoLancamento = 'receita' | 'despesa' | 'pessoal';
 
 export interface Categoria {
   id: string;

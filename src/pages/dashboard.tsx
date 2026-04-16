@@ -134,7 +134,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       if (l.tipo === 'receita') {
         saldoGeral += valor;
         if (isCurrentMonth) receitasMes += valor;
-      } else {
+      } else if (l.tipo === 'despesa') {
         saldoGeral -= valor;
         if (isCurrentMonth) despesasMes += valor;
       }
