@@ -6,11 +6,11 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Input } from '@/components/ui/input';
 import { formatCurrency, parseLocalDate, isPremium } from '@/lib/utils';
 import { Categoria, Lancamento, Vehicle, User, WorkShift } from '@/types';
-import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay, startOfYear, endOfYear } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, addMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay, startOfYear, endOfYear, startOfWeek, endOfWeek, eachDayOfInterval, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock, Car } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 
@@ -41,6 +41,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
   const [isShiftsStatsOpen, setIsShiftsStatsOpen] = useState(true);
   const [isFuelSummaryOpen, setIsFuelSummaryOpen] = useState(true);
   const [isHeatmapOpen, setIsHeatmapOpen] = useState(true);
+  const [heatmapDate, setHeatmapDate] = useState(new Date());
+  const [heatmapVehicleId, setHeatmapVehicleId] = useState<string>('all');
   const [exportLoading, setExportLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -501,70 +503,61 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
     return data;
   }, [workShifts, filterType, selectedMonth, selectedYear, startDate, endDate]);
 
+  const nextHeatmapMonth = () => setHeatmapDate(addMonths(heatmapDate, 1));
+  const prevHeatmapMonth = () => setHeatmapDate(subMonths(heatmapDate, 1));
+
   const heatmapData = useMemo(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const monthStart = startOfMonth(heatmapDate);
+    const monthEnd = endOfMonth(heatmapDate);
     
-    // Initialize grid
-    const grid: Record<string, number> = {};
-    hours.forEach(h => {
-      days.forEach(d => {
-        grid[`${d}-${h}`] = 0;
-      });
-    });
-
-    // We only consider work shifts that have earnings linked or on the same day
-    const workShiftsInRange = workShifts.filter(s => {
-      const data = parseLocalDate(s.date);
-      let startRange: Date;
-      let endRange: Date;
-
-      if (filterType === 'month') {
-        const [year, month] = selectedMonth.split('-');
-        startRange = startOfMonth(new Date(Number(year), Number(month) - 1));
-        endRange = endOfMonth(new Date(Number(year), Number(month) - 1));
-      } else if (filterType === 'year') {
-        startRange = startOfYear(new Date(Number(selectedYear), 0));
-        endRange = endOfYear(new Date(Number(selectedYear), 0));
-      } else {
-        startRange = parseLocalDate(startDate);
-        endRange = parseLocalDate(endDate);
-      }
+    // Calendar starts on Monday
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    
+    const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+    
+    const weeks: { name: string; days: { date: Date; profit: number; isCurrentMonth: boolean }[] }[] = [];
+    let currentWeek: { date: Date; profit: number; isCurrentMonth: boolean }[] = [];
+    
+    allDays.forEach((day, index) => {
+      const dateStr = format(day, 'yyyy-MM-dd');
       
-      const matchesVehicle = selectedVehicleId === 'all' || s.vehicle_id === selectedVehicleId;
-      return isWithinInterval(data, { start: startRange, end: endRange }) && matchesVehicle && s.type === 'work';
-    });
-
-    workShiftsInRange.forEach(shift => {
-      if (!shift.start_time || !shift.end_time) return;
-      
-      const shiftDate = parseLocalDate(shift.date);
-      const dayName = days[shiftDate.getDay()];
-      
-      const [startH] = shift.start_time.split(':').map(Number);
-      const [endH] = shift.end_time.split(':').map(Number);
-      
-      // Find earnings for this specific shift
-      const shiftEarnings = lancamentos
-        .filter(l => l.shift_id === shift.id && l.tipo === 'receita')
+      // Calculate profit for this day
+      const dayReceitas = lancamentos
+        .filter(l => {
+          const matchesDate = l.data === dateStr;
+          const matchesVehicle = heatmapVehicleId === 'all' || l.vehicle_id === heatmapVehicleId;
+          return matchesDate && matchesVehicle && l.tipo === 'receita';
+        })
         .reduce((sum, l) => sum + Number(l.valor), 0);
       
-      if (shiftEarnings > 0) {
-        let durationHours = endH - startH;
-        if (durationHours <= 0) durationHours += 24;
-        
-        const earningPerHour = shiftEarnings / durationHours;
-        
-        // Distribute earning per hour across the shift hours
-        for (let h = startH; h < (startH + durationHours); h++) {
-          const actualHour = h % 24;
-          grid[`${dayName}-${actualHour}`] += earningPerHour;
-        }
+      const dayDespesas = lancamentos
+        .filter(l => {
+          const matchesDate = l.data === dateStr;
+          const matchesVehicle = heatmapVehicleId === 'all' || l.vehicle_id === heatmapVehicleId;
+          return matchesDate && matchesVehicle && l.tipo === 'despesa';
+        })
+        .reduce((sum, l) => sum + Number(l.valor), 0);
+      
+      const profit = dayReceitas - dayDespesas;
+      
+      currentWeek.push({
+        date: day,
+        profit,
+        isCurrentMonth: day.getMonth() === heatmapDate.getMonth()
+      });
+      
+      if (currentWeek.length === 7) {
+        weeks.push({
+          name: `Semana ${weeks.length + 1}`,
+          days: currentWeek
+        });
+        currentWeek = [];
       }
     });
 
-    return { grid, days, hours };
-  }, [workShifts, lancamentos, filterType, selectedMonth, selectedYear, startDate, endDate, selectedVehicleId]);
+    return { weeks, monthLabel: format(heatmapDate, 'MMMM yyyy', { locale: ptBR }) };
+  }, [heatmapDate, lancamentos, heatmapVehicleId]);
 
   const exportToPDF = async () => {
     setExportLoading(true);
@@ -1539,79 +1532,149 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
         <CardHeader 
-          className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-orange-50/50 dark:bg-orange-900/10 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
-          onClick={() => setIsHeatmapOpen(!isHeatmapOpen)}
+          className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-orange-50/50 dark:bg-orange-900/10"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 cursor-pointer min-w-[200px]" onClick={() => setIsHeatmapOpen(!isHeatmapOpen)}>
               <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
                 <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
-                <CardTitle className="text-lg text-orange-900 dark:text-orange-100">Mapa de Calor: Rentabilidade por Hora</CardTitle>
-                <p className="text-xs text-orange-700/70 dark:text-orange-400/70">Onde e quando você ganha mais (R$/hora)</p>
+                <CardTitle className="text-lg text-orange-900 dark:text-orange-100">Mapa de Calor: Lucro Diário</CardTitle>
+                <p className="text-xs text-orange-700/70 dark:text-orange-400/70">Visão mensal de rentabilidade</p>
+              </div>
+              {isHeatmapOpen ? <ChevronUp className="h-5 w-5 text-orange-400 ml-2" /> : <ChevronDown className="h-5 w-5 text-orange-400 ml-2" />}
+            </div>
+
+            <div className="flex-1 flex justify-center">
+              <div className="flex items-center bg-white dark:bg-gray-800 rounded-full px-4 py-1.5 border border-orange-100 dark:border-orange-900/30 shadow-sm min-w-[240px] justify-between">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600"
+                  onClick={prevHeatmapMonth}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-200 capitalize">
+                  {heatmapData.monthLabel}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600"
+                  onClick={nextHeatmapMonth}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-            {isHeatmapOpen ? <ChevronUp className="h-5 w-5 text-orange-400" /> : <ChevronDown className="h-5 w-5 text-orange-400" />}
+
+            <div className="flex items-center gap-2 min-w-[200px] justify-end">
+              <div className="relative w-full sm:w-48">
+                <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
+                <Select
+                  value={heatmapVehicleId}
+                  onChange={(e) => setHeatmapVehicleId(e.target.value)}
+                  className="pl-9 h-9 border-orange-100 dark:border-orange-900/30 bg-white dark:bg-gray-800 text-xs rounded-full focus:ring-orange-500/20"
+                >
+                  <option value="all">Todos os Veículos</option>
+                  <optgroup label="Ativos">
+                    {vehicles.filter(v => v.status === 'active').map(v => (
+                      <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Inativos">
+                    {vehicles.filter(v => v.status !== 'active').map(v => (
+                      <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
+                    ))}
+                  </optgroup>
+                </Select>
+              </div>
+            </div>
           </div>
         </CardHeader>
         {isHeatmapOpen && (
           <CardContent className="pt-6 overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="min-w-[600px]">
-              <div className="grid grid-cols-[50px_repeat(24,1fr)] gap-1 mb-2">
-                <div className="text-[10px] font-bold text-gray-400 flex items-center justify-center">DIA</div>
-                {heatmapData.hours.map(h => (
-                  <div key={h} className="text-[10px] font-bold text-gray-400 text-center">
-                    {h.toString().padStart(2, '0')}
+              <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-4">
+                <div className="text-[10px] font-bold text-gray-400 flex items-center justify-center">SEMANA</div>
+                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(d => (
+                  <div key={d} className="text-[10px] font-bold text-gray-400 text-center uppercase tracking-wider">
+                    {d}
                   </div>
                 ))}
               </div>
               
-              {heatmapData.days.map(day => (
-                <div key={day} className="grid grid-cols-[50px_repeat(24,1fr)] gap-1 mb-1">
-                  <div className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-2 justify-end">
-                    {day}
+              {heatmapData.weeks.map((week, wIndex) => (
+                <div key={wIndex} className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-2">
+                  <div className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-3 justify-end bg-gray-50 dark:bg-gray-800/50 rounded-l-lg">
+                    {week.name}
                   </div>
-                  {heatmapData.hours.map(hour => {
-                    const value = heatmapData.grid[`${day}-${hour}`];
-                    // Color scale based on R$/h
+                  {week.days.map((day, dIndex) => {
+                    const value = day.profit;
+                    const isCurrentMonth = day.isCurrentMonth;
+                    
+                    // Color scale based on Daily Profit
                     let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
-                    if (value > 0 && value < 20) bgColor = 'bg-emerald-100 dark:bg-emerald-900/20';
-                    else if (value >= 20 && value < 40) bgColor = 'bg-emerald-300 dark:bg-emerald-700/40';
-                    else if (value >= 40 && value < 60) bgColor = 'bg-emerald-500 dark:bg-emerald-500/60';
-                    else if (value >= 60) bgColor = 'bg-emerald-700 dark:bg-emerald-400/80';
+                    if (!isCurrentMonth) {
+                      bgColor = 'bg-transparent opacity-20';
+                    } else if (value > 0 && value < 100) {
+                      bgColor = 'bg-emerald-100 dark:bg-emerald-900/20';
+                    } else if (value >= 100 && value < 250) {
+                      bgColor = 'bg-emerald-300 dark:bg-emerald-700/40';
+                    } else if (value >= 250 && value < 500) {
+                      bgColor = 'bg-emerald-500 dark:bg-emerald-500/60';
+                    } else if (value >= 500) {
+                      bgColor = 'bg-emerald-700 dark:bg-emerald-400/80';
+                    } else if (value < 0) {
+                      bgColor = 'bg-red-100 dark:bg-red-900/20';
+                    }
 
                     return (
                       <div 
-                        key={hour}
-                        className={`h-6 rounded-sm transition-all hover:scale-110 hover:z-10 cursor-help ${bgColor}`}
-                        title={`${day} ${hour}h: ${formatCurrency(value)}/h`}
-                      ></div>
+                        key={dIndex}
+                        className={`h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-help flex flex-col items-center justify-center relative ${bgColor} border border-transparent ${isCurrentMonth ? 'hover:border-emerald-400/50' : ''}`}
+                        title={`${format(day.date, 'dd/MM/yyyy')}: ${formatCurrency(value)}`}
+                      >
+                        <span className={`text-[9px] absolute top-1 right-1 font-medium ${isCurrentMonth ? 'text-gray-400' : 'text-gray-300'}`}>
+                          {format(day.date, 'dd')}
+                        </span>
+                        {isCurrentMonth && value !== 0 && (
+                          <span className={`text-[10px] font-bold ${value > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {value > 0 ? '+' : ''}{Math.round(value)}
+                          </span>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               ))}
 
-              <div className="mt-6 flex items-center justify-end gap-4">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 bg-gray-100 dark:bg-gray-800/40 rounded-sm"></div>
-                  <span className="text-[10px] text-gray-500">R$ 0</span>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-6 p-4 bg-gray-50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-red-100 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800/30"></div>
+                  <span className="text-[11px] font-medium text-gray-500">Prejuízo</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-sm"></div>
-                  <span className="text-[10px] text-gray-500">&lt; R$ 20</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-gray-100 dark:bg-gray-800/40 rounded-md"></div>
+                  <span className="text-[11px] font-medium text-gray-500">R$ 0</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 bg-emerald-300 dark:bg-emerald-700/40 rounded-sm"></div>
-                  <span className="text-[10px] text-gray-500">R$ 20-40</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-emerald-100 dark:bg-emerald-900/20 rounded-md"></div>
+                  <span className="text-[11px] font-medium text-gray-500">&lt; R$ 100</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 bg-emerald-500 dark:bg-emerald-500/60 rounded-sm"></div>
-                  <span className="text-[10px] text-gray-500">R$ 40-60</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-emerald-300 dark:bg-emerald-700/40 rounded-md"></div>
+                  <span className="text-[11px] font-medium text-gray-500">R$ 100-250</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="h-3 w-3 bg-emerald-700 dark:bg-emerald-400/80 rounded-sm"></div>
-                  <span className="text-[10px] text-gray-500">&gt; R$ 60</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-emerald-500 dark:bg-emerald-500/60 rounded-md"></div>
+                  <span className="text-[11px] font-medium text-gray-500">R$ 250-500</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 bg-emerald-700 dark:bg-emerald-400/80 rounded-md"></div>
+                  <span className="text-[11px] font-medium text-gray-500">&gt; R$ 500</span>
                 </div>
               </div>
             </div>
