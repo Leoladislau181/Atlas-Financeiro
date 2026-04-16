@@ -1641,7 +1641,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                           {format(day.date, 'dd')}
                         </span>
                         {isCurrentMonth && value !== 0 && (
-                          <span className={`text-[10px] font-bold ${value > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                          <span className="text-sm font-black text-white [text-shadow:_1px_1px_0_#000,_-1px_-1px_0_#000,_1px_-1px_0_#000,_-1px_1px_0_#000]">
                             {value > 0 ? '+' : ''}{Math.round(value)}
                           </span>
                         )}
