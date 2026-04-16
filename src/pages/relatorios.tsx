@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock, Car } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
+import { useFeatures } from '@/contexts/FeatureContext';
 
 interface RelatoriosProps {
   lancamentos: Lancamento[];
@@ -24,6 +25,7 @@ interface RelatoriosProps {
 }
 
 export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch }: RelatoriosProps) {
+  const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
@@ -1241,22 +1243,24 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   <Download className="h-4 w-4" />
                   Exportar
                 </Button>
-                <Button 
-                  onClick={() => {
-                    if (!isPremium(user)) {
-                      setPremiumFeatureName('Importação de Relatórios');
-                      setIsPremiumModalOpen(true);
-                      return;
-                    }
-                    setIsImportModalOpen(true);
-                  }}
-                  variant="outline"
-                  className="w-full border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10 flex items-center justify-center gap-2"
-                >
-                  {!isPremium(user) && <Lock className="h-4 w-4" />}
-                  <Upload className="h-4 w-4" />
-                  Importar
-                </Button>
+                {preferences.modulo_importacao && (
+                  <Button 
+                    onClick={() => {
+                      if (!isPremium(user)) {
+                        setPremiumFeatureName('Importação de Relatórios');
+                        setIsPremiumModalOpen(true);
+                        return;
+                      }
+                      setIsImportModalOpen(true);
+                    }}
+                    variant="outline"
+                    className="w-full border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10 flex items-center justify-center gap-2"
+                  >
+                    {!isPremium(user) && <Lock className="h-4 w-4" />}
+                    <Upload className="h-4 w-4" />
+                    Importar
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -1427,32 +1431,36 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
-          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-full">
-              <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Tempo Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
-          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-full">
-              <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </div>
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Média/Hora</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {formatCurrency(shiftStats.ganhoPorHora)}
-            </div>
-          </CardContent>
-        </Card>
+        {preferences.modulo_turnos && (
+          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
+            <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-full">
+                <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Tempo Total</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {preferences.modulo_turnos && (
+          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
+            <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-full">
+                <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Média/Hora</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {formatCurrency(shiftStats.ganhoPorHora)}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
           <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
             <div className={`p-2 rounded-full ${stats.saldoAcumulado >= 0 ? 'bg-gray-100 dark:bg-gray-800' : 'bg-red-50 dark:bg-[#EF4444]/20'}`}>
@@ -1472,85 +1480,87 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       </div>
 
-      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-        <CardHeader 
-          className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
-          onClick={() => setIsShiftsStatsOpen(!isShiftsStatsOpen)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+      {preferences.modulo_turnos && isPremium(user) && (
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <CardHeader 
+            className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
+            onClick={() => setIsShiftsStatsOpen(!isShiftsStatsOpen)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Desempenho de Turnos (Raio-X)</CardTitle>
               </div>
-              <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Desempenho de Turnos (Raio-X)</CardTitle>
+              {isShiftsStatsOpen ? <ChevronUp className="h-5 w-5 text-indigo-400" /> : <ChevronDown className="h-5 w-5 text-indigo-400" />}
             </div>
-            {isShiftsStatsOpen ? <ChevronUp className="h-5 w-5 text-indigo-400" /> : <ChevronDown className="h-5 w-5 text-indigo-400" />}
-          </div>
-        </CardHeader>
-        {isShiftsStatsOpen && (
-          <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Horas Trabalhadas</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
-                </p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Distância Percorrida</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {shiftStats.totalOdometer.toFixed(2)} km
-                </p>
-              </div>
-              <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50 text-center">
-                <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
-                <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
-                  {formatCurrency(shiftStats.ganhoPorHora)}/h
-                </p>
-              </div>
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 text-center">
-                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1">Lucro por Hora</p>
-                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
-                  {formatCurrency(shiftStats.lucroPorHora)}/h
-                </p>
-              </div>
-            </div>
-
-            {shiftStats.totalGoal > 0 && (
-              <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-indigo-600" />
-                    <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Progresso das Metas do Período</p>
-                  </div>
-                  <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                    {formatCurrency(shiftStats.receitasTurno)} / {formatCurrency(shiftStats.totalGoal)}
+          </CardHeader>
+          {isShiftsStatsOpen && (
+            <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Horas Trabalhadas</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
                   </p>
                 </div>
-                <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-2.5">
-                  <div 
-                    className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, (shiftStats.receitasTurno / shiftStats.totalGoal) * 100)}%` }}
-                  ></div>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Distância Percorrida</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    {shiftStats.totalOdometer.toFixed(2)} km
+                  </p>
                 </div>
-                <p className="text-[10px] text-indigo-500 mt-2 italic">
-                  {shiftStats.receitasTurno >= shiftStats.totalGoal 
-                    ? 'Parabéns! Você atingiu 100% das suas metas neste período.' 
-                    : `Você atingiu ${((shiftStats.receitasTurno / shiftStats.totalGoal) * 100).toFixed(2)}% das metas acumuladas.`}
-                </p>
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50 text-center">
+                  <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
+                  <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
+                    {formatCurrency(shiftStats.ganhoPorHora)}/h
+                  </p>
+                </div>
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 text-center">
+                  <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1">Lucro por Hora</p>
+                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                    {formatCurrency(shiftStats.lucroPorHora)}/h
+                  </p>
+                </div>
               </div>
-            )}
 
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-800 dark:text-blue-300">
-                <p className="font-semibold mb-1">Estimativa de Custo de Combustível: {formatCurrency(shiftStats.estimatedFuelCost)}</p>
-                <p className="opacity-80">Baseado na distância percorrida nos turnos ({shiftStats.totalOdometer.toFixed(2)} km) e na média de preço dos seus abastecimentos.</p>
+              {shiftStats.totalGoal > 0 && (
+                <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-indigo-600" />
+                      <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Progresso das Metas do Período</p>
+                    </div>
+                    <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                      {formatCurrency(shiftStats.receitasTurno)} / {formatCurrency(shiftStats.totalGoal)}
+                    </p>
+                  </div>
+                  <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-2.5">
+                    <div 
+                      className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min(100, (shiftStats.receitasTurno / shiftStats.totalGoal) * 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-[10px] text-indigo-500 mt-2 italic">
+                    {shiftStats.receitasTurno >= shiftStats.totalGoal 
+                      ? 'Parabéns! Você atingiu 100% das suas metas neste período.' 
+                      : `Você atingiu ${((shiftStats.receitasTurno / shiftStats.totalGoal) * 100).toFixed(2)}% das metas acumuladas.`}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800 dark:text-blue-300">
+                  <p className="font-semibold mb-1">Estimativa de Custo de Combustível: {formatCurrency(shiftStats.estimatedFuelCost)}</p>
+                  <p className="opacity-80">Baseado na distância percorrida nos turnos ({shiftStats.totalOdometer.toFixed(2)} km) e na média de preço dos seus abastecimentos.</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
         <CardHeader 
@@ -1701,7 +1711,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
               </div>
 
               {/* Personal Use Summary Section */}
-              {(heatmapPersonalSummary.totalKm > 0 || heatmapPersonalSummary.totalCost > 0) && (
+              {preferences.modulo_pessoal && (heatmapPersonalSummary.totalKm > 0 || heatmapPersonalSummary.totalCost > 0) && (
                 <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-2 duration-500">
                   <div className="flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-400">
                     <Car className="h-4 w-4" />
@@ -1774,7 +1784,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       </div>
 
-      {stats.porCombustivel.length > 0 && (
+      {preferences.modulo_abastecimento_detalhado && isPremium(user) && stats.porCombustivel.length > 0 && (
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <CardHeader 
             className="border-b border-gray-50 dark:border-gray-800 pb-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"

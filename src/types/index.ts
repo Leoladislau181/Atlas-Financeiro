@@ -102,6 +102,16 @@ export interface SupportMessage {
   created_at: string;
 }
 
+export interface UserPreferences {
+  modulo_pessoal?: boolean;
+  modulo_turnos?: boolean;
+  modulo_abastecimento_detalhado?: boolean;
+  modulo_multiplas_categorias?: boolean;
+  alerta_manutencao?: boolean;
+  modulo_importacao?: boolean;
+  tema_escuro?: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -117,6 +127,7 @@ export interface User {
   was_premium_before_renewal?: boolean;
   role?: 'user' | 'admin';
   status?: 'active' | 'blocked';
+  preferences?: UserPreferences;
   created_at?: string;
   vehicle_count?: number;
   lancamentos_count?: number;

@@ -7,8 +7,10 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User, WorkShift, Vehicle, Lancamento } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign, Layout, Fuel, Layers, Bell, Upload } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
+import { useFeatures } from '@/contexts/FeatureContext';
+import { Switch } from '@/components/ui/switch';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { isPremium, parseLocalDate, formatCurrency, formatCurrencyInput, parseCurrency } from '@/lib/utils';
 import { OnboardingGuide } from '@/components/onboarding-guide';
@@ -64,9 +66,11 @@ export function Configuracoes({
   const [profileLoading, setProfileLoading] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
   const [isPlanOpen, setIsPlanOpen] = useState(false);
+  const [isModulesOpen, setIsModulesOpen] = useState(false);
   const [isSupportSectionOpen, setIsSupportSectionOpen] = useState(false);
   const [isCategoriesSectionOpen, setIsCategoriesSectionOpen] = useState(false);
   const [isFeaturesSectionOpen, setIsFeaturesSectionOpen] = useState(false);
+  const [isActivationsOpen, setIsActivationsOpen] = useState(false);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
@@ -107,6 +111,7 @@ export function Configuracoes({
   const [shiftFilterEndDate, setShiftFilterEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   const hasCategories = categorias.some(c => !c.is_system_default);
+  const { preferences, toggleFeature } = useFeatures();
 
   const featuresList = [
     {
@@ -1107,6 +1112,175 @@ export function Configuracoes({
                     )}
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Feature Activations Section */}
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-[#F59E0B]"
+            onClick={() => setIsActivationsOpen(!isActivationsOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
+                <Settings className="h-5 w-5 text-[#F59E0B]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Ativação de Funcionalidades</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Personalize sua experiência ativando ou desativando recursos</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              {isActivationsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isActivationsOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                      <Car className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Uso Pessoal</h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 uppercase tracking-wider">Livre</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Ativa campos de quilometragem para uso pessoal.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={preferences.modulo_pessoal}
+                    onCheckedChange={() => toggleFeature('modulo_pessoal')}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
+                      <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Controle de Turnos</h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Ativa o gerenciamento de horas e ganhos por turno.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={preferences.modulo_turnos}
+                    onCheckedChange={() => {
+                      if (!isPremium(user)) {
+                        setPremiumFeatureName('Gestão de Turnos');
+                        setIsPremiumModalOpen(true);
+                        return;
+                      }
+                      toggleFeature('modulo_turnos');
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
+                      <Fuel className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Abastecimento Detalhado</h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Campos extras como tipo de combustível e preço por litro.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={preferences.modulo_abastecimento_detalhado}
+                    onCheckedChange={() => {
+                      if (!isPremium(user)) {
+                        setPremiumFeatureName('Abastecimento Detalhado');
+                        setIsPremiumModalOpen(true);
+                        return;
+                      }
+                      toggleFeature('modulo_abastecimento_detalhado');
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                      <Layers className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Múltiplas Categorias</h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 uppercase tracking-wider">Livre</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Permite criar e gerenciar categorias personalizadas.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={preferences.modulo_multiplas_categorias}
+                    onCheckedChange={() => toggleFeature('modulo_multiplas_categorias')}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="p-2 bg-rose-50 dark:bg-rose-900/30 rounded-lg">
+                      <Bell className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Alertas de Manutenção</h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Notificações de manutenção na tela principal.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={preferences.alerta_manutencao}
+                    onCheckedChange={() => {
+                      if (!isPremium(user)) {
+                        setPremiumFeatureName('Alertas de Manutenção');
+                        setIsPremiumModalOpen(true);
+                        return;
+                      }
+                      toggleFeature('alerta_manutencao');
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+                      <Upload className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Módulo de Importação</h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Ativa a funcionalidade de importar dados de arquivos externos.</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={preferences.modulo_importacao}
+                    onCheckedChange={() => {
+                      if (!isPremium(user)) {
+                        setPremiumFeatureName('Módulo de Importação');
+                        setIsPremiumModalOpen(true);
+                        return;
+                      }
+                      toggleFeature('modulo_importacao');
+                    }}
+                  />
+                </div>
               </div>
             </CardContent>
           )}

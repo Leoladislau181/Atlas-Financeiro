@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { PremiumModal } from '@/components/premium-modal';
+import { useFeatures } from '@/contexts/FeatureContext';
 
 interface LancamentosProps {
   categorias: Categoria[];
@@ -32,6 +33,7 @@ interface LancamentoItem {
 }
 
 export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
+  const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -358,6 +360,24 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
     setLoading(true);
     try {
+      if (!isPremium(user)) {
+        const now = new Date();
+        const startOfCurrentMonth = startOfMonth(now);
+        const endOfCurrentMonth = endOfMonth(now);
+        
+        const monthEntriesCount = lancamentos.filter(l => {
+          const lDate = parseLocalDate(l.data);
+          return isWithinInterval(lDate, { start: startOfCurrentMonth, end: endOfCurrentMonth });
+        }).length;
+
+        if (monthEntriesCount >= 50 && !editingId) {
+          setPremiumFeatureName('Lançamentos Ilimitados');
+          setIsPremiumModalOpen(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       let finalPayloads: any[] = [];
       let groupId = items.length > 1 ? crypto.randomUUID() : null;
 
@@ -840,25 +860,27 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-              <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Uso Pessoal</p>
-              <div className="flex items-center justify-between gap-1">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                  {monthSummary.pessoalKm} km
-                </h3>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                  ({formatCurrency(monthSummary.pessoalCusto)})
-                </span>
+        {preferences.modulo_pessoal && (
+          <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+                <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-none mt-1">* Apenas controle de odômetro</p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Uso Pessoal</p>
+                <div className="flex items-center justify-between gap-1">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    {monthSummary.pessoalKm} km
+                  </h3>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    ({formatCurrency(monthSummary.pessoalCusto)})
+                  </span>
+                </div>
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-none mt-1">* Apenas controle de odômetro</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {showFilters && (
@@ -965,21 +987,23 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                 >
                   Despesa
                 </Button>
-                <Button
-                  type="button"
-                  variant={tipo === 'pessoal' ? 'default' : 'outline'}
-                  className={cn(
-                    "h-10 text-xs font-bold uppercase tracking-wider",
-                    tipo === 'pessoal' ? "bg-blue-600 hover:bg-blue-700 border-none text-white shadow-sm" : "border-gray-200 text-gray-500"
-                  )}
-                  onClick={() => {
-                    setTipo('pessoal');
-                    setShowTurnFields(false);
-                    setTurns([]);
-                  }}
-                >
-                  Pessoal
-                </Button>
+                {preferences.modulo_pessoal && (
+                  <Button
+                    type="button"
+                    variant={tipo === 'pessoal' ? 'default' : 'outline'}
+                    className={cn(
+                      "h-10 text-xs font-bold uppercase tracking-wider",
+                      tipo === 'pessoal' ? "bg-blue-600 hover:bg-blue-700 border-none text-white shadow-sm" : "border-gray-200 text-gray-500"
+                    )}
+                    onClick={() => {
+                      setTipo('pessoal');
+                      setShowTurnFields(false);
+                      setTurns([]);
+                    }}
+                  >
+                    Pessoal
+                  </Button>
+                )}
               </div>
             </div>
             <div className="space-y-2">
@@ -1160,7 +1184,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                     />
                   </div>
 
-                  {isCombustivel() && (
+                  {isCombustivel() && preferences.modulo_abastecimento_detalhado && (
                     <React.Fragment>
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
@@ -1218,7 +1242,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
               )}
             </div>
 
-            {useVehicle && tipo === 'receita' && (
+            {useVehicle && tipo === 'receita' && preferences.modulo_turnos && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Turnos de Trabalho (Opcional)</label>

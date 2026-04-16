@@ -6,6 +6,7 @@ import { Auth } from '@/pages/auth';
 import { Layout } from '@/components/layout';
 import { useFinanceData } from '@/hooks/useFinanceData';
 import { ThemeProvider } from '@/components/theme-provider';
+import { FeatureProvider } from '@/contexts/FeatureContext';
 
 const Dashboard = React.lazy(() => import('@/pages/dashboard').then(m => ({ default: m.Dashboard })));
 const Lancamentos = React.lazy(() => import('@/pages/lancamentos').then(m => ({ default: m.Lancamentos })));
@@ -94,10 +95,10 @@ export default function App() {
 
         setSession(session);
         if (session?.user) {
-          // Fetch profile data to get secure fields like role and premium_until
+          // Fetch profile data to get secure fields like role, premium_until and preferences
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('role, premium_until')
+            .select('role, premium_until, preferences')
             .eq('id', session.user.id)
             .single();
 
@@ -118,7 +119,8 @@ export default function App() {
             payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
             was_premium_before_renewal: session.user.user_metadata?.was_premium_before_renewal || false,
             premium_until: profile?.premium_until || '',
-            role: profile?.role || 'user'
+            role: profile?.role || 'user',
+            preferences: profile?.preferences
           });
         }
       } catch (err) {
@@ -135,10 +137,10 @@ export default function App() {
       setSession(session);
       
       if (session?.user) {
-        // Fetch profile data to get secure fields like role and premium_until
+        // Fetch profile data to get secure fields like role, premium_until and preferences
         supabase
           .from('profiles')
-          .select('role, premium_until')
+          .select('role, premium_until, preferences')
           .eq('id', session.user.id)
           .single()
           .then(({ data: profile, error: profileError }) => {
@@ -159,10 +161,12 @@ export default function App() {
               payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
               was_premium_before_renewal: session.user.user_metadata?.was_premium_before_renewal || false,
               premium_until: profile?.premium_until || '',
-              role: profile?.role || 'user'
+              role: profile?.role || 'user',
+              preferences: profile?.preferences
             });
           });
-      } else {
+      }
+ else {
         setUser(null);
       }
 
@@ -197,7 +201,9 @@ export default function App() {
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="atlas-theme">
-      <MainApp user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <FeatureProvider user={user}>
+        <MainApp user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+      </FeatureProvider>
     </ThemeProvider>
   );
 }

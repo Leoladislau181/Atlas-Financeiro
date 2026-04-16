@@ -16,6 +16,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { supabase } from '@/lib/supabase';
 import { PremiumModal } from '@/components/premium-modal';
 import { OnboardingGuide } from '@/components/onboarding-guide';
+import { useFeatures } from '@/contexts/FeatureContext';
 
 interface DashboardProps {
   lancamentos: Lancamento[];
@@ -28,6 +29,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onNavigate }: DashboardProps) {
+  const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -455,7 +457,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
         />
       ) : null}
 
-      {maintenanceAlerts.length > 0 && (
+      {maintenanceAlerts.length > 0 && preferences.alerta_manutencao && isPremium(user) && (
         <div className="grid grid-cols-1 gap-3">
           {maintenanceAlerts.map((alert, idx) => (
             <div 
@@ -641,33 +643,37 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
-              <CustomSelect
-                value={quickFuelType || ''}
-                onChange={(val) => setQuickFuelType(val as FuelType)}
-                options={[
-                  { value: 'gasolina', label: 'Gasolina' },
-                  { value: 'etanol', label: 'Etanol' },
-                  { value: 'diesel', label: 'Diesel' },
-                  { value: 'gnv', label: 'GNV' },
-                ]}
-                placeholder="Selecione"
-              />
-            </div>
+            {preferences.modulo_abastecimento_detalhado && isPremium(user) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+                <CustomSelect
+                  value={quickFuelType || ''}
+                  onChange={(val) => setQuickFuelType(val as FuelType)}
+                  options={[
+                    { value: 'gasolina', label: 'Gasolina' },
+                    { value: 'etanol', label: 'Etanol' },
+                    { value: 'diesel', label: 'Diesel' },
+                    { value: 'gnv', label: 'GNV' },
+                  ]}
+                  placeholder="Selecione"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Preço por Litro</label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={quickPricePerLiterStr}
-                onChange={(e) => setQuickPricePerLiterStr(formatCurrencyInput(e.target.value))}
-                placeholder="R$ 0,00"
-              />
-            </div>
+            {preferences.modulo_abastecimento_detalhado && isPremium(user) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Preço por Litro</label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={quickPricePerLiterStr}
+                  onChange={(e) => setQuickPricePerLiterStr(formatCurrencyInput(e.target.value))}
+                  placeholder="R$ 0,00"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">KM Atual</label>
@@ -685,18 +691,20 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
             </div>
           </div>
 
-          <div className="space-y-2 flex items-center pt-2">
-            <input
-              type="checkbox"
-              id="quickIsFullTank"
-              checked={quickIsFullTank}
-              onChange={(e) => setQuickIsFullTank(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
-            />
-            <label htmlFor="quickIsFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-              Tanque Cheio? (Usado para calcular a média de consumo)
-            </label>
-          </div>
+          {preferences.modulo_abastecimento_detalhado && isPremium(user) && (
+            <div className="space-y-2 flex items-center pt-2">
+              <input
+                type="checkbox"
+                id="quickIsFullTank"
+                checked={quickIsFullTank}
+                onChange={(e) => setQuickIsFullTank(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
+              />
+              <label htmlFor="quickIsFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                Tanque Cheio? (Usado para calcular a média de consumo)
+              </label>
+            </div>
+          )}
 
           <div className="pt-4">
             <Button 

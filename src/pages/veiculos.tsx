@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { OnboardingGuide } from '@/components/onboarding-guide';
+import { useFeatures } from '@/contexts/FeatureContext';
 
 interface VeiculosProps {
   vehicles: Vehicle[];
@@ -22,6 +23,7 @@ interface VeiculosProps {
 }
 
 export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user }: VeiculosProps) {
+  const { preferences } = useFeatures();
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
   const [type, setType] = useState<'own' | 'rented'>('own');
@@ -101,6 +103,12 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
 
     setLoading(true);
     try {
+      if (!editingId && !isPremium(user) && vehicles.filter(v => v.status === 'active').length >= 1) {
+        setPremiumFeatureName('Múltiplos Veículos Ativos');
+        setIsPremiumModalOpen(true);
+        setLoading(false);
+        return;
+      }
       const payload: any = {
         user_id: user.id,
         name,
@@ -866,12 +874,19 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                 </div>
                 
                 <div className="flex items-center gap-2 self-end sm:self-auto" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="outline" size="icon" onClick={() => {
-                    setMaintenanceVehicle(v);
-                    setMaintenanceModalOpen(true);
-                  }} className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-900/50 dark:hover:bg-blue-900/20" title="Plano de Manutenção">
-                    <Wrench className="h-4 w-4" />
-                  </Button>
+                  {preferences.alerta_manutencao && (
+                    <Button variant="outline" size="icon" onClick={() => {
+                      if (!isPremium(user)) {
+                        setPremiumFeatureName('Plano de Manutenção');
+                        setIsPremiumModalOpen(true);
+                        return;
+                      }
+                      setMaintenanceVehicle(v);
+                      setMaintenanceModalOpen(true);
+                    }} className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-900/50 dark:hover:bg-blue-900/20" title="Plano de Manutenção">
+                      <Wrench className="h-4 w-4" />
+                    </Button>
+                  )}
                   {v.type === 'rented' && (
                     <Button variant="outline" size="icon" onClick={() => handleOpenRenew(v)} className="text-[#059568] border-[#059568]/20 hover:bg-[#059568]/10 dark:text-[#10B981] dark:border-[#10B981]/20 dark:hover:bg-[#10B981]/10" title="Renovar Contrato">
                       <RefreshCw className="h-4 w-4" />
