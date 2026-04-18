@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { PremiumModal } from '@/components/premium-modal';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { InstallPWAButton } from '@/components/InstallPWAButton';
 
 interface DashboardProps {
   lancamentos: Lancamento[];
@@ -412,6 +413,8 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
           </Button>
         </div>
       )}
+
+      <InstallPWAButton />
 
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Resumo</h2>
