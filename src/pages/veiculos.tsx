@@ -929,48 +929,43 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                     </div>
                   </div>
 
-                  {/* Section: Histórico de Contratos */}
-                  <PremiumLockedOverlay
-                    user={user}
-                    onUnlock={() => { setPremiumFeatureName('Histórico de Contratos'); setIsPremiumModalOpen(true); }}
-                  >
-                    {v.type === 'rented' && metrics.contracts && metrics.contracts.length > 0 && (
-                      <div className="mb-8">
-                        <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
-                          Histórico de Contratos
-                        </h4>
-                        <div className="space-y-3">
-                          {metrics.contracts.map((contract, idx) => (
-                            <div key={contract.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                              <div>
-                                <p className="font-bold text-gray-900 dark:text-gray-100">{contract.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {contract.start_date.split('-').reverse().join('/')} até {contract.end_date ? contract.end_date.split('-').reverse().join('/') : 'Atual'}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-6">
-                                <div>
-                                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Receitas</p>
-                                  <p className="font-semibold text-sm text-[#059568] dark:text-[#10B981]">{formatCurrency(contract.receitas)}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Despesas</p>
-                                  <p className="font-semibold text-sm text-[#EF4444] dark:text-[#F87171]">{formatCurrency(contract.despesas)}</p>
-                                </div>
-                                <div className="bg-gray-50 dark:bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700">
-                                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Saldo</p>
-                                  <p className={`font-bold text-sm ${contract.saldo >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
-                                    {formatCurrency(contract.saldo)}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+          {/* Section: Histórico de Contratos */}
+          {v.type === 'rented' && metrics.contracts && metrics.contracts.length > 0 && (
+            <div className="mb-8">
+              <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
+                Histórico de Contratos
+              </h4>
+              <div className="space-y-3">
+                {metrics.contracts.map((contract, idx) => (
+                  <div key={contract.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-gray-900 dark:text-gray-100">{contract.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {contract.start_date.split('-').reverse().join('/')} até {contract.end_date ? contract.end_date.split('-').reverse().join('/') : 'Atual'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Receitas</p>
+                        <p className="font-semibold text-sm text-[#059568] dark:text-[#10B981]">{formatCurrency(contract.receitas)}</p>
                       </div>
-                    )}
-                  </PremiumLockedOverlay>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Despesas</p>
+                        <p className="font-semibold text-sm text-[#EF4444] dark:text-[#F87171]">{formatCurrency(contract.despesas)}</p>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Saldo</p>
+                        <p className={`font-bold text-sm ${contract.saldo >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
+                          {formatCurrency(contract.saldo)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
                   {/* Section: Turnos e Desempenho */}
                   <PremiumLockedOverlay

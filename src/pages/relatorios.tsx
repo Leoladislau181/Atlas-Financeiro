@@ -1886,75 +1886,70 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       )}
 
-      <PremiumLockedOverlay
-        user={user}
-        onUnlock={() => { setPremiumFeatureName('Comparativo Mensal'); setIsPremiumModalOpen(true); }}
-      >
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 underline-none">
-          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
-            <div className="relative">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setShowChartFilter(!showChartFilter)} 
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-              {showChartFilter && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="py-1">
-                    {[1, 3, 6, 12].map((months) => (
-                      <button
-                        key={months}
-                        onClick={() => {
-                          setChartMonthsFilter(months);
-                          setShowChartFilter(false);
-                        }}
-                        className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                          chartMonthsFilter === months 
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        Últimos {months} {months === 1 ? 'mês' : 'meses'}
-                      </button>
-                    ))}
-                  </div>
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 underline-none">
+        <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
+          <div className="relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShowChartFilter(!showChartFilter)} 
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <Filter className="h-4 w-4" />
+            </Button>
+            {showChartFilter && (
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="py-1">
+                  {[1, 3, 6, 12].map((months) => (
+                    <button
+                      key={months}
+                      onClick={() => {
+                        setChartMonthsFilter(months);
+                        setShowChartFilter(false);
+                      }}
+                      className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                        chartMonthsFilter === months 
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      Últimos {months} {months === 1 ? 'mês' : 'meses'}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2" ref={chartRef}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(value) => formatCurrency(value)}
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
-                    dx={-10}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                    cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
-                    itemStyle={{ color: '#111827' }}
-                    labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
-                  />
-                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                  <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
-                  <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </PremiumLockedOverlay>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2" ref={chartRef}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value) => formatCurrency(value)}
+                  tick={{ fill: '#6b7280', fontSize: 12 }}
+                  dx={-10}
+                />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
+                  itemStyle={{ color: '#111827' }}
+                  labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       <PremiumLockedOverlay
         user={user}
