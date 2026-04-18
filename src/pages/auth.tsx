@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, Car, Wrench, FileText, BarChart3, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Clock, Car, Wrench, FileText, BarChart3, ShieldCheck, CheckCircle2, ArrowRight, Gift, Sparkles } from 'lucide-react';
 
 export function Auth() {
   const [email, setEmail] = useState('');
@@ -12,6 +12,25 @@ export function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [referredBy, setReferredBy] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Detect referral code in URL
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setReferredBy(ref);
+      sessionStorage.setItem('atlas_referred_by', ref);
+      // Clean URL for a cleaner experience
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Check if it was previously saved in this session
+      const savedRef = sessionStorage.getItem('atlas_referred_by');
+      if (savedRef) {
+        setReferredBy(savedRef);
+      }
+    }
+  }, []);
 
   const features = [
     {
@@ -58,7 +77,12 @@ export function Auth() {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ 
           email, 
-          password
+          password,
+          options: {
+            data: {
+              referred_by: referredBy || ''
+            }
+          }
         });
         if (error) throw error;
         setSuccess('Conta criada com sucesso! Verifique seu email ou faça login.');
@@ -187,6 +211,27 @@ export function Auth() {
               {isSignUp ? 'Crie sua conta gratuita e assuma o controle hoje.' : 'Acesse sua conta para gerenciar suas finanças.'}
             </p>
           </div>
+
+          {isSignUp && referredBy && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-3 animate-in zoom-in duration-300 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:scale-110 transition-transform">
+                <Sparkles className="h-20 w-20 text-amber-500" />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                  <Gift className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="font-bold text-amber-900 dark:text-amber-300">Seja bem-vindo à elite! 🚀</h3>
+              </div>
+              <p className="text-sm text-amber-800 dark:text-amber-400 leading-relaxed">
+                Graças à indicação do seu amigo, você ganhou <strong>15 dias de Acesso Premium</strong> totalmente grátis para começar com o pé no acelerador!
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Bônus de Indicação Ativado</span>
+              </div>
+            </div>
+          )}
 
           <Card className="border-none shadow-xl lg:shadow-none bg-white dark:bg-gray-950 rounded-2xl lg:rounded-none overflow-hidden">
             <CardContent className="p-6 sm:p-8 lg:p-0 lg:py-4">

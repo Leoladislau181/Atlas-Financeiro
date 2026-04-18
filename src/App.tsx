@@ -101,7 +101,7 @@ export default function App() {
           // Fetch profile data to get secure fields like role, premium_until and preferences
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('role, premium_until, preferences')
+            .select('role, premium_until, preferences, referral_code, referred_by')
             .eq('id', session.user.id)
             .single();
 
@@ -115,8 +115,8 @@ export default function App() {
             nome: session.user.user_metadata?.nome || '',
             telefone: session.user.user_metadata?.telefone || '',
             foto_url: session.user.user_metadata?.foto_url || '',
-            referral_code: session.user.user_metadata?.referral_code || '',
-            referred_by: session.user.user_metadata?.referred_by || '',
+            referral_code: profile?.referral_code || session.user.user_metadata?.referral_code || '',
+            referred_by: profile?.referred_by || session.user.user_metadata?.referred_by || '',
             premium_status: session.user.user_metadata?.premium_status || 'none',
             premium_plan: session.user.user_metadata?.premium_plan || '',
             payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
@@ -143,7 +143,7 @@ export default function App() {
         // Fetch profile data to get secure fields like role, premium_until and preferences
         supabase
           .from('profiles')
-          .select('role, premium_until, preferences')
+          .select('role, premium_until, preferences, referral_code, referred_by')
           .eq('id', session.user.id)
           .single()
           .then(({ data: profile, error: profileError }) => {
@@ -157,8 +157,8 @@ export default function App() {
               nome: session.user.user_metadata?.nome || '',
               telefone: session.user.user_metadata?.telefone || '',
               foto_url: session.user.user_metadata?.foto_url || '',
-              referral_code: session.user.user_metadata?.referral_code || '',
-              referred_by: session.user.user_metadata?.referred_by || '',
+              referral_code: profile?.referral_code || session.user.user_metadata?.referral_code || '',
+              referred_by: profile?.referred_by || session.user.user_metadata?.referred_by || '',
               premium_status: session.user.user_metadata?.premium_status || 'none',
               premium_plan: session.user.user_metadata?.premium_plan || '',
               payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',

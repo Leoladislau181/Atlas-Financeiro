@@ -62,6 +62,7 @@ export function Configuracoes({
   const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isReferralOpen, setIsReferralOpen] = useState(false);
   const [profileNome, setProfileNome] = useState(user.nome || '');
   const [profileTelefone, setProfileTelefone] = useState(user.telefone || '');
   const [profileLoading, setProfileLoading] = useState(false);
@@ -902,6 +903,93 @@ export function Configuracoes({
                       {user.premium_status === 'pending' ? 'Acompanhar Assinatura' : 'Estender Assinatura'}
                     </Button>
                   )}
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-amber-500"
+            onClick={() => setIsReferralOpen(!isReferralOpen)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Gift className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Minhas Indicações</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Ganhe Premium indicando amigos</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              {isReferralOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {isReferralOpen && (
+            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="space-y-6">
+                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                  <div className="absolute top-[-20px] right-[-20px] opacity-10">
+                    <Gift className="h-32 w-32 rotate-12" />
+                  </div>
+                  <h4 className="text-lg font-bold mb-2">Dê 15 dias, Ganhe 30! 🎁</h4>
+                  <p className="text-sm text-white/90 leading-relaxed max-w-[80%]">
+                    Compartilhe o Atlas com seus amigos. Eles ganham 15 dias de Premium ao se cadastrar e você ganha 30 dias quando eles completarem 10 lançamentos!
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Seu Link de Convite</label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 bg-gray-50 dark:bg-gray-800 border-dashed border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex items-center justify-between group">
+                        <code className="text-sm font-mono text-emerald-600 dark:text-emerald-400 break-all">
+                          {`${window.location.origin}/auth?ref=${user.referral_code || ''}`}
+                        </code>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 shrink-0 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                          onClick={() => {
+                            const link = `${window.location.origin}/auth?ref=${user.referral_code || ''}`;
+                            navigator.clipboard.writeText(link);
+                            setSuccessMsg('Link copiado para a área de transferência!');
+                          }}
+                        >
+                          <Copy className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white flex items-center justify-center gap-2 h-12 rounded-xl transition-all active:scale-[0.98]"
+                    onClick={() => {
+                      const link = `${window.location.origin}/auth?ref=${user.referral_code || ''}`;
+                      const text = `Fala parceiro! Estou usando o Atlas para controlar meus ganhos e ele é fera! No link abaixo você já ganha 15 dias de Acesso Premium grátis: ${link}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    Convidar Amigos no WhatsApp
+                  </Button>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Suas métricas</h5>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
+                      <p className="text-2xl font-black text-gray-900 dark:text-white">0</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Indicados</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
+                      <p className="text-2xl font-black text-amber-500 font-mono">0</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Dias Ganhos</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
