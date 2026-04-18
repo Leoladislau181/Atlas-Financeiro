@@ -27,7 +27,14 @@ export function Premium({ user, refetch }: PremiumProps) {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success')) {
       setSuccess(true);
-      supabase.auth.refreshSession();
+      // Solo refrescar si existe una sesion activa para evitar error de "Refresh Token Not Found"
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase.auth.refreshSession().catch(err => {
+            console.warn("Não foi possível atualizar a sessão após o pagamento:", err.message);
+          });
+        }
+      });
       // Clear the URL parameters to prevent re-triggering on reload
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -114,7 +121,12 @@ export function Premium({ user, refetch }: PremiumProps) {
 
       setSuccess(true);
       setSelectedPlan(null);
-      await supabase.auth.refreshSession();
+      
+      // Refresca la sesión solo si sigue activa
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession) {
+        await supabase.auth.refreshSession().catch(() => {});
+      }
     } catch (err: any) {
       console.error('Erro no envio:', err);
       setError(err.message);

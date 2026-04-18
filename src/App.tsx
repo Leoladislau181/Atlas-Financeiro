@@ -85,8 +85,11 @@ export default function App() {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          // Se houver erro na sessão (ex: token expirado/inválido), o Supabase
-          // já lida com a invalidação interna. Apenas garantimos o estado limpo.
+          console.warn("Erro ao recuperar sessão:", error.message);
+          // Se houver erro de refresh token, limpamos tudo localmente
+          if (error.message.includes('Refresh Token Not Found') || error.message.includes('invalid_grant')) {
+            localStorage.removeItem('atlas-financeiro-auth');
+          }
           await supabase.auth.signOut().catch(() => {});
           setSession(null);
           setUser(null);
