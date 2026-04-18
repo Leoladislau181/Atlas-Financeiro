@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { useFeatures } from '@/contexts/FeatureContext';
 
+import { PremiumLockedOverlay } from '@/components/PremiumLockedOverlay';
+
 interface VeiculosProps {
   vehicles: Vehicle[];
   lancamentos: Lancamento[];
@@ -928,72 +930,82 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                   </div>
 
                   {/* Section: Histórico de Contratos */}
-                  {v.type === 'rented' && metrics.contracts && metrics.contracts.length > 0 && (
+                  <PremiumLockedOverlay
+                    user={user}
+                    onUnlock={() => { setPremiumFeatureName('Histórico de Contratos'); setIsPremiumModalOpen(true); }}
+                  >
+                    {v.type === 'rented' && metrics.contracts && metrics.contracts.length > 0 && (
+                      <div className="mb-8">
+                        <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
+                          Histórico de Contratos
+                        </h4>
+                        <div className="space-y-3">
+                          {metrics.contracts.map((contract, idx) => (
+                            <div key={contract.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div>
+                                <p className="font-bold text-gray-900 dark:text-gray-100">{contract.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {contract.start_date.split('-').reverse().join('/')} até {contract.end_date ? contract.end_date.split('-').reverse().join('/') : 'Atual'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-6">
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Receitas</p>
+                                  <p className="font-semibold text-sm text-[#059568] dark:text-[#10B981]">{formatCurrency(contract.receitas)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Despesas</p>
+                                  <p className="font-semibold text-sm text-[#EF4444] dark:text-[#F87171]">{formatCurrency(contract.despesas)}</p>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Saldo</p>
+                                  <p className={`font-bold text-sm ${contract.saldo >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
+                                    {formatCurrency(contract.saldo)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </PremiumLockedOverlay>
+
+                  {/* Section: Turnos e Desempenho */}
+                  <PremiumLockedOverlay
+                    user={user}
+                    onUnlock={() => { setPremiumFeatureName('Desempenho em Turnos'); setIsPremiumModalOpen(true); }}
+                  >
                     <div className="mb-8">
                       <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
-                        Histórico de Contratos
+                        Desempenho em Turnos (Trabalho)
                       </h4>
-                      <div className="space-y-3">
-                        {metrics.contracts.map((contract, idx) => (
-                          <div key={contract.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div>
-                              <p className="font-bold text-gray-900 dark:text-gray-100">{contract.name}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {contract.start_date.split('-').reverse().join('/')} até {contract.end_date ? contract.end_date.split('-').reverse().join('/') : 'Atual'}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-6">
-                              <div>
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Receitas</p>
-                                <p className="font-semibold text-sm text-[#059568] dark:text-[#10B981]">{formatCurrency(contract.receitas)}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Despesas</p>
-                                <p className="font-semibold text-sm text-[#EF4444] dark:text-[#F87171]">{formatCurrency(contract.despesas)}</p>
-                              </div>
-                              <div className="bg-gray-50 dark:bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-700">
-                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Saldo</p>
-                                <p className={`font-bold text-sm ${contract.saldo >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`}>
-                                  {formatCurrency(contract.saldo)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                          <p className="text-xs font-medium text-indigo-600/80 dark:text-indigo-400/80 mb-1">Horas Trabalhadas</p>
+                          <p className="font-bold text-lg text-indigo-700 dark:text-indigo-300">
+                            {Math.floor(metrics.shiftHours)}h {Math.round((metrics.shiftHours % 1) * 60)}m
+                          </p>
+                        </div>
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                          <p className="text-xs font-medium text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
+                          <p className="font-bold text-lg text-indigo-700 dark:text-indigo-300">
+                            {formatCurrency(metrics.shiftGanhoHora)}/h
+                          </p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM em Turnos</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.shiftOdometer.toFixed(2)} km</p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Custo Combustível Estimado</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.shiftEstimatedFuelCost)}</p>
+                        </div>
                       </div>
                     </div>
-                  )}
-
-                  {/* Section: Turnos e Desempenho */}
-                  <div className="mb-8">
-                    <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span>
-                      Desempenho em Turnos (Trabalho)
-                    </h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
-                        <p className="text-xs font-medium text-indigo-600/80 dark:text-indigo-400/80 mb-1">Horas Trabalhadas</p>
-                        <p className="font-bold text-lg text-indigo-700 dark:text-indigo-300">
-                          {Math.floor(metrics.shiftHours)}h {Math.round((metrics.shiftHours % 1) * 60)}m
-                        </p>
-                      </div>
-                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
-                        <p className="text-xs font-medium text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
-                        <p className="font-bold text-lg text-indigo-700 dark:text-indigo-300">
-                          {formatCurrency(metrics.shiftGanhoHora)}/h
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">KM em Turnos</p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">{metrics.shiftOdometer.toFixed(2)} km</p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Custo Combustível Estimado</p>
-                        <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(metrics.shiftEstimatedFuelCost)}</p>
-                      </div>
-                    </div>
-                  </div>
+                  </PremiumLockedOverlay>
 
                   {/* Section: Contrato */}
                   {v.type === 'rented' && (

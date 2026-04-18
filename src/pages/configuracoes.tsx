@@ -18,6 +18,8 @@ import { PremiumModal } from '@/components/premium-modal';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { PremiumLockedOverlay } from '@/components/PremiumLockedOverlay';
+
 interface ConfiguracoesProps {
   categorias: Categoria[];
   workShifts: WorkShift[];
@@ -930,7 +932,11 @@ export function Configuracoes({
 
           {isReferralOpen && (
             <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-6">
+              <PremiumLockedOverlay
+                user={user}
+                onUnlock={() => { setPremiumFeatureName('Indique e Ganhe'); setIsPremiumModalOpen(true); }}
+              >
+                <div className="space-y-6">
                 <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
                   <div className="absolute top-[-20px] right-[-20px] opacity-10">
                     <Gift className="h-32 w-32 rotate-12" />
@@ -992,6 +998,7 @@ export function Configuracoes({
                   </div>
                 </div>
               </div>
+            </PremiumLockedOverlay>
             </CardContent>
           )}
         </Card>
@@ -1102,48 +1109,52 @@ export function Configuracoes({
 
           {isCalcOpen && (
             <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* Mode Toggle */}
-              <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-full max-w-xs mx-auto mb-8">
-                <button
-                  onClick={() => {
-                    setCalcMode('weekly');
-                    setCalcDaysPerWeek('5');
-                  }}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                    calcMode === 'weekly' 
-                      ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                  }`}
-                >
-                  Semanal
-                </button>
-                <button
-                  onClick={() => {
-                    setCalcMode('monthly');
-                    setCalcDaysPerWeek('22');
-                  }}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
-                    calcMode === 'monthly' 
-                      ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                  }`}
-                >
-                  Mensal
-                </button>
-              </div>
+              <PremiumLockedOverlay
+                user={user}
+                onUnlock={() => { setPremiumFeatureName('Calculadora de Rentabilidade'); setIsPremiumModalOpen(true); }}
+              >
+                {/* Mode Toggle */}
+                <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-full max-w-xs mx-auto mb-8">
+                  <button
+                    onClick={() => {
+                      setCalcMode('weekly');
+                      setCalcDaysPerWeek('5');
+                    }}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                      calcMode === 'weekly' 
+                        ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
+                  >
+                    Semanal
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCalcMode('monthly');
+                      setCalcDaysPerWeek('22');
+                    }}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+                      calcMode === 'monthly' 
+                        ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
+                  >
+                    Mensal
+                  </button>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Inputs */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo para Análise</label>
-                    <CustomSelect
-                      value={calcVehicleId}
-                      onChange={setCalcVehicleId}
-                      placeholder="Selecione um veículo"
-                      options={vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))}
-                    />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Inputs */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo para Análise</label>
+                      <CustomSelect
+                        value={calcVehicleId}
+                        onChange={setCalcVehicleId}
+                        placeholder="Selecione um veículo"
+                        options={vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))}
+                      />
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -1280,6 +1291,7 @@ export function Configuracoes({
                   )}
                 </div>
               </div>
+            </PremiumLockedOverlay>
             </CardContent>
           )}
         </Card>
@@ -1384,55 +1396,71 @@ export function Configuracoes({
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
-                      <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Controle de Turnos</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                  <PremiumLockedOverlay
+                    user={user}
+                    onUnlock={() => { setPremiumFeatureName('Gestão de Turnos'); setIsPremiumModalOpen(true); }}
+                    className="flex-1"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3 text-left">
+                        <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
+                          <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">Controle de Turnos</h4>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Ativa o gerenciamento de horas e ganhos por turno.</p>
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Ativa o gerenciamento de horas e ganhos por turno.</p>
+                      <Switch
+                        checked={preferences.modulo_turnos}
+                        onCheckedChange={() => {
+                          if (!isPremium(user)) {
+                            setPremiumFeatureName('Gestão de Turnos');
+                            setIsPremiumModalOpen(true);
+                            return;
+                          }
+                          toggleFeature('modulo_turnos');
+                        }}
+                      />
                     </div>
-                  </div>
-                  <Switch
-                    checked={preferences.modulo_turnos}
-                    onCheckedChange={() => {
-                      if (!isPremium(user)) {
-                        setPremiumFeatureName('Gestão de Turnos');
-                        setIsPremiumModalOpen(true);
-                        return;
-                      }
-                      toggleFeature('modulo_turnos');
-                    }}
-                  />
+                  </PremiumLockedOverlay>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
-                      <Fuel className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Abastecimento Detalhado</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                  <PremiumLockedOverlay
+                    user={user}
+                    onUnlock={() => { setPremiumFeatureName('Abastecimento Detalhado'); setIsPremiumModalOpen(true); }}
+                    className="flex-1"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3 text-left">
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
+                          <Fuel className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">Abastecimento Detalhado</h4>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Campos extras como tipo de combustível e preço por litro.</p>
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Campos extras como tipo de combustível e preço por litro.</p>
+                      <Switch
+                        checked={preferences.modulo_abastecimento_detalhado}
+                        onCheckedChange={() => {
+                          if (!isPremium(user)) {
+                            setPremiumFeatureName('Abastecimento Detalhado');
+                            setIsPremiumModalOpen(true);
+                            return;
+                          }
+                          toggleFeature('modulo_abastecimento_detalhado');
+                        }}
+                      />
                     </div>
-                  </div>
-                  <Switch
-                    checked={preferences.modulo_abastecimento_detalhado}
-                    onCheckedChange={() => {
-                      if (!isPremium(user)) {
-                        setPremiumFeatureName('Abastecimento Detalhado');
-                        setIsPremiumModalOpen(true);
-                        return;
-                      }
-                      toggleFeature('modulo_abastecimento_detalhado');
-                    }}
-                  />
+                  </PremiumLockedOverlay>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">

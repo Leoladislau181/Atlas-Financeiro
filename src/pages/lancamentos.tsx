@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { PremiumModal } from '@/components/premium-modal';
+import { PremiumLockedOverlay } from '@/components/PremiumLockedOverlay';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { ShiftTimePicker } from '@/components/ui/shift-time-picker';
 
@@ -61,16 +62,18 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   // Load existing shift data reactively when date or vehicle changes
   useEffect(() => {
     if (tipo === 'receita' && vehicleId && data) {
-      const existingShift = workShifts.find(s => s.vehicle_id === vehicleId && s.date === data);
+      const editingLaunch = editingId ? lancamentos.find(l => l.id === editingId) : null;
+      const existingShift = workShifts.find(s => 
+        (editingLaunch?.group_id && s.group_id === editingLaunch.group_id) || 
+        (!editingLaunch?.group_id && s.date === data && s.vehicle_id === vehicleId && !s.group_id)
+      );
+      
       if (existingShift) {
         setShiftStartTime(existingShift.start_time.substring(0, 5));
         setShiftEndTime(existingShift.end_time?.substring(0, 5) || format(new Date(), 'HH:mm'));
-      } else {
-        // If no shift exists, we can suggest defaults if needed, but let's keep it clear
-        // setShiftStartTime(''); 
       }
     }
-  }, [data, vehicleId, tipo, workShifts]);
+  }, [data, vehicleId, tipo, workShifts, editingId, lancamentos]);
   const [visibleCount, setVisibleCount] = useState(20);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -88,10 +91,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     if (!vehicle) return { lastOdo: 0, fuelPrice: 5.5, consumption: 10 };
 
     // KM Inicial: buscar último odômetro absoluto (apenas Receita ou Pessoal)
+    const editingGroupId = editingId ? lancamentos.find(l => l.id === editingId)?.group_id : null;
+
     const allOdos = lancamentos
       .filter(l => 
         l.vehicle_id === vId && 
-        l.id !== editingId &&
+        (editingId ? (l.id !== editingId && (!editingGroupId || l.group_id !== editingGroupId)) : true) &&
         (l.odometer || l.odometro_receita) && 
         (l.tipo === 'receita' || l.tipo === 'pessoal')
       )
@@ -231,10 +236,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     const vehicle = vehicles.find(v => v.id === vehicleId);
     if (!vehicle) return 0;
 
+    // Se estiver editando, precisamos excluir todos os lançamentos que pertencem ao mesmo grupo
+    const editingGroupId = editingId ? lancamentos.find(l => l.id === editingId)?.group_id : null;
+
     const allOdos = lancamentos
       .filter(l => 
         l.vehicle_id === vehicleId && 
-        l.id !== editingId &&
+        (editingId ? (l.id !== editingId && (!editingGroupId || l.group_id !== editingGroupId)) : true) &&
         (l.odometer || l.odometro_receita) && 
         (l.tipo === 'receita' || l.tipo === 'pessoal')
       )
@@ -246,7 +254,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       });
 
     return allOdos.length > 0 ? (allOdos[0].odometro_receita || allOdos[0].odometer || 0) : vehicle.initial_odometer;
-  }, [vehicleId, lancamentos, vehicles]);
+  }, [vehicleId, lancamentos, vehicles, editingId]);
 
   const nextMonth = () => setSelectedDate(addMonths(selectedDate, 1));
   const prevMonth = () => setSelectedDate(subMonths(selectedDate, 1));
@@ -407,7 +415,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       }
 
       let finalPayloads: any[] = [];
-      let groupId = items.length > 1 ? crypto.randomUUID() : null;
+      const originalLaunch = editingId ? lancamentos.find(l => l.id === editingId) : null;
+      let groupId = items.length > 1 
+        ? (originalLaunch?.group_id || crypto.randomUUID()) 
+        : null;
 
       if (tipo === 'pessoal') {
         // Handle personal use
@@ -450,11 +461,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           let lastOdoRef = null;
 
           if (vehicle) {
-            // Busca o último odômetro absoluto registrado (Receita ou Pessoal) excluindo o registro atual se for edição
+            const editingGroupId = editingId ? lancamentos.find(l => l.id === editingId)?.group_id : null;
+
+            // Busca o último odômetro absoluto registrado (Receita ou Pessoal) excluindo o registro atual ou o seu grupo se for edição
             const odoEntries = lancamentos
               .filter(l => 
                 l.vehicle_id === vehicleId && 
-                l.id !== editingId &&
+                (editingId ? (l.id !== editingId && (!editingGroupId || l.group_id !== editingGroupId)) : true) &&
                 (l.odometer || l.odometro_receita) && 
                 (l.tipo === 'receita' || l.tipo === 'pessoal')
               )
@@ -514,8 +527,20 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         const original = lancamentos.find(l => l.id === editingId);
         if (original?.group_id) {
           await supabase.from('lancamentos').delete().eq('group_id', original.group_id);
+          // Se o group_id for mudar (ex: de múltiplos para único), deletamos o turno do grupo original
+          if (!groupId || groupId !== original.group_id) {
+            await supabase.from('work_shifts').delete().eq('group_id', original.group_id);
+          }
         } else {
           await supabase.from('lancamentos').delete().eq('id', editingId);
+          // Se era único e agora é múltiplo, limpamos o turno "sem grupo" do dia original
+          if (groupId) {
+             await supabase.from('work_shifts').delete()
+              .eq('user_id', user.id)
+              .eq('vehicle_id', original?.vehicle_id || vehicleId)
+              .eq('date', original?.data || data)
+              .is('group_id', null);
+          }
         }
         const { error } = await supabase.from('lancamentos').insert(finalPayloads);
         if (error) throw error;
@@ -524,73 +549,121 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         if (error) throw error;
       }
 
-      // Save work shifts automatically based on revenues for the day
-      if (tipo === 'receita' && useVehicle && vehicleId) {
-        // Fetch all revenues for this day/vehicle to determine odometer boundaries
-        const { data: dayRevenues } = await supabase
+      // Helper function to sync work shift for a given context
+      const syncDayShift = async (vId: string, d: string, gId: string | null) => {
+        // Fetch all revenues for this specific context
+        let query = supabase
           .from('lancamentos')
           .select('*')
           .eq('user_id', user.id)
-          .eq('vehicle_id', vehicleId)
-          .eq('data', data)
-          .eq('tipo', 'receita')
-          .order('created_at', { ascending: true });
+          .eq('vehicle_id', vId)
+          .eq('data', d)
+          .eq('tipo', 'receita');
 
-        if ((dayRevenues && dayRevenues.length > 0) || tipo === 'receita') {
-          const firstRev = dayRevenues && dayRevenues.length > 0 ? dayRevenues[0] : null;
-          const lastRev = dayRevenues && dayRevenues.length > 0 ? dayRevenues[dayRevenues.length - 1] : null;
-
-          // Find absolute last odometer recorded (revenue or personal) before today
-          const { data: lastGlobalOdoEntry } = await supabase
-            .from('lancamentos')
-            .select('odometer, odometro_receita, created_at')
-            .eq('user_id', user.id)
-            .eq('vehicle_id', vehicleId)
-            .in('tipo', ['receita', 'pessoal'])
-            .lt('data', data) // Compare by date string to get records before today
-            .order('data', { ascending: false })
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          const startOdo = lastGlobalOdoEntry?.[0] 
-            ? (lastGlobalOdoEntry[0].odometro_receita || lastGlobalOdoEntry[0].odometer || 0)
-            : vehicles.find(v => v.id === vehicleId)?.initial_odometer || 0;
-
-          // End odometer is the one from the current transaction being saved (or the last one of the day)
-          const currentOdo = odometroReceita ? Number(odometroReceita) : 0;
-          const endOdo = Math.max(currentOdo, lastRev?.odometro_receita || 0);
-
-          const shiftPayload = {
-            user_id: user.id,
-            vehicle_id: vehicleId,
-            type: 'work',
-            date: data,
-            start_time: shiftStartTime || (firstRev ? firstRev.created_at.substring(11, 16) : format(new Date(), 'HH:mm')),
-            end_time: shiftEndTime || format(new Date(), 'HH:mm'),
-            start_odometer: startOdo,
-            end_odometer: endOdo,
-            status: 'closed'
-          };
-
-          // Check if shift already exists for this day/vehicle
-          const { data: existingShift } = await supabase
-            .from('work_shifts')
-            .select('id, start_time')
-            .eq('user_id', user.id)
-            .eq('vehicle_id', vehicleId)
-            .eq('date', data)
-            .limit(1);
-
-          if (existingShift && existingShift.length > 0) {
-            // Keep the user-provided startTime if it was already set and not provided now
-            if (!shiftStartTime) {
-              shiftPayload.start_time = existingShift[0].start_time.substring(0, 5);
-            }
-            await supabase.from('work_shifts').update(shiftPayload).eq('id', existingShift[0].id);
-          } else {
-            await supabase.from('work_shifts').insert([shiftPayload]);
-          }
+        if (gId) {
+          query = query.eq('group_id', gId);
+        } else {
+          query = query.is('group_id', null);
         }
+
+        const { data: dayRevenues, error: revError } = await query.order('created_at', { ascending: true });
+        if (revError) throw revError;
+
+        if (!dayRevenues || dayRevenues.length === 0) {
+          // No more revenues for this context, delete the shift
+          const delQuery = supabase
+            .from('work_shifts')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('vehicle_id', vId)
+            .eq('date', d);
+          
+          if (gId) {
+            await delQuery.eq('group_id', gId);
+          } else {
+            await delQuery.is('group_id', null);
+          }
+          return;
+        }
+
+        // We have revenues, so sync the shift
+        const firstRev = dayRevenues[0];
+        const lastRev = dayRevenues[dayRevenues.length - 1];
+
+        // Find absolute last odometer recorded before this day
+        const { data: lastGlobalOdos } = await supabase
+          .from('lancamentos')
+          .select('odometer, odometro_receita')
+          .eq('user_id', user.id)
+          .eq('vehicle_id', vId)
+          .in('tipo', ['receita', 'pessoal'])
+          .lt('data', d)
+          .order('data', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const startOdo = lastGlobalOdos?.[0] 
+          ? (lastGlobalOdos[0].odometro_receita || lastGlobalOdos[0].odometer || 0)
+          : vehicles.find(v => v.id === vId)?.initial_odometer || 0;
+
+        const endOdo = lastRev.odometro_receita || 0;
+
+        const shiftPayload: any = {
+          user_id: user.id,
+          vehicle_id: vId,
+          type: 'work',
+          date: d,
+          // Use provided shift times if this is the current launch being handled, 
+          // but we'll try to find existing shift times first to preserve manual edits
+          start_time: (firstRev.id === editingId || (groupId && firstRev.group_id === groupId)) 
+            ? (shiftStartTime || firstRev.created_at.substring(11, 16))
+            : firstRev.created_at.substring(11, 16),
+          end_time: (lastRev.id === editingId || (groupId && lastRev.group_id === groupId))
+            ? (shiftEndTime || format(new Date(), 'HH:mm'))
+            : lastRev.created_at.substring(11, 16),
+          start_odometer: startOdo,
+          end_odometer: endOdo,
+          status: 'closed'
+        };
+
+        if (gId) shiftPayload.group_id = gId;
+
+        // Check for existing shift to preserve times
+        const sQuery = supabase.from('work_shifts').select('id, start_time, end_time').eq('user_id', user.id).eq('vehicle_id', vId).eq('date', d);
+        if (gId) sQuery.eq('group_id', gId); else sQuery.is('group_id', null);
+        const { data: existingS } = await sQuery.limit(1);
+
+        if (existingS && existingS.length > 0) {
+          // Preserve manual times if we are just background syncing, but use form values if they were just provided
+          const currentContext = (vId === vehicleId && d === data && gId === groupId);
+          if (currentContext) {
+            if (shiftStartTime) shiftPayload.start_time = shiftStartTime;
+            if (shiftEndTime) shiftPayload.end_time = shiftEndTime;
+          } else {
+             shiftPayload.start_time = existingS[0].start_time.substring(0, 5);
+             if (existingS[0].end_time) shiftPayload.end_time = existingS[0].end_time.substring(0, 5);
+          }
+          await supabase.from('work_shifts').update(shiftPayload).eq('id', existingS[0].id);
+        } else {
+          await supabase.from('work_shifts').insert([shiftPayload]);
+        }
+      };
+
+      // If editing, and date/vehicle/group changed, or was a revenue but isn't anymore
+      if (editingId && originalLaunch) {
+        const dateChanged = originalLaunch.data !== data;
+        const vehicleChanged = originalLaunch.vehicle_id !== vehicleId;
+        const wasRevenue = originalLaunch.tipo === 'receita';
+        
+        if (wasRevenue) {
+          // Sync old state (it might now be empty or have fewer revenues)
+          await syncDayShift(originalLaunch.vehicle_id || '', originalLaunch.data, originalLaunch.group_id || null);
+        }
+      }
+
+      // Sync current state if it's a revenue
+      if (tipo === 'receita' && useVehicle && vehicleId) {
+        await syncDayShift(vehicleId, data, groupId);
       }
 
       setTipo('despesa');
@@ -642,7 +715,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       setIsFullTank(lancamento.is_full_tank ?? true);
 
       // Populate shift times if available
-      const existingShift = workShifts.find(s => s.vehicle_id === lancamento.vehicle_id && s.date === lancamento.data);
+      const existingShift = workShifts.find(s => 
+        (lancamento.group_id && s.group_id === lancamento.group_id) || 
+        (!lancamento.group_id && s.date === lancamento.data && s.vehicle_id === lancamento.vehicle_id && !s.group_id)
+      );
       if (existingShift) {
         setShiftStartTime(existingShift.start_time.substring(0, 5));
         setShiftEndTime(existingShift.end_time?.substring(0, 5) || '');
@@ -728,7 +804,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         const total = group.reduce((acc, curr) => acc + Number(curr.valor), 0);
         
         // Calculate total time worked for this group
-        const groupShifts = workShifts.filter(s => s.group_id === l.group_id);
+        const groupShifts = workShifts.filter(s => 
+          (s.group_id === l.group_id) || 
+          (!s.group_id && s.date === l.data && s.vehicle_id === l.vehicle_id)
+        );
         let totalMinutes = 0;
         groupShifts.forEach(s => {
           if (s.start_time && s.end_time) {
@@ -748,8 +827,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         });
         processedGroups.add(l.group_id);
       } else {
-        // Single item might also have shifts (though unlikely in current UI, good for robustness)
-        const itemShifts = workShifts.filter(s => s.group_id === l.group_id || (l.id && s.group_id === l.id));
+        // Single item might also have shifts
+        const itemShifts = workShifts.filter(s => 
+          (s.group_id === l.group_id && l.group_id) || 
+          (l.id && s.group_id === l.id) ||
+          (!s.group_id && s.date === l.data && s.vehicle_id === l.vehicle_id)
+        );
         let totalMinutes = 0;
         itemShifts.forEach(s => {
           if (s.start_time && s.end_time) {
@@ -1229,101 +1312,112 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                   </div>
 
                   {isCombustivel() && preferences.modulo_abastecimento_detalhado && (
-                    <React.Fragment>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
-                        <CustomSelect
-                          value={fuelType || ''}
-                          onChange={(val) => setFuelType(val as FuelType)}
-                          options={[
-                            { value: 'gasolina', label: 'Gasolina' },
-                            { value: 'etanol', label: 'Etanol' },
-                            { value: 'diesel', label: 'Diesel' },
-                            { value: 'gnv', label: 'GNV' },
-                          ]}
-                          placeholder="Selecione o combustível"
-                        />
+                    <PremiumLockedOverlay
+                      user={user}
+                      onUnlock={() => { setPremiumFeatureName('Abastecimento Detalhado'); setIsPremiumModalOpen(true); }}
+                      className="md:col-span-2"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+                          <CustomSelect
+                            value={fuelType || ''}
+                            onChange={(val) => setFuelType(val as FuelType)}
+                            options={[
+                              { value: 'gasolina', label: 'Gasolina' },
+                              { value: 'etanol', label: 'Etanol' },
+                              { value: 'diesel', label: 'Diesel' },
+                              { value: 'gnv', label: 'GNV' },
+                            ]}
+                            placeholder="Selecione o combustível"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="R$ 0,00"
+                            value={fuelPricePerLiterStr}
+                            onChange={(e) => setFuelPricePerLiterStr(formatCurrencyInput(e.target.value))}
+                            required={useVehicle && tipo === 'despesa' && isCombustivel() && isPremium(user)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Litros (Calculado)</label>
+                          <Input
+                            type="text"
+                            value={
+                              parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(items[0]?.valorStr || '') > 0
+                                ? (parseCurrency(items[0]?.valorStr || '') / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
+                                : '0.00 L'
+                            }
+                            disabled
+                            className="bg-gray-100 dark:bg-gray-800"
+                          />
+                        </div>
+                        <div className="space-y-2 flex items-center pt-2">
+                          <input
+                            type="checkbox"
+                            id="isFullTank"
+                            checked={isFullTank}
+                            onChange={(e) => setIsFullTank(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
+                          />
+                          <label htmlFor="isFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                            Tanque Cheio?
+                          </label>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="R$ 0,00"
-                          value={fuelPricePerLiterStr}
-                          onChange={(e) => setFuelPricePerLiterStr(formatCurrencyInput(e.target.value))}
-                          required={useVehicle && tipo === 'despesa' && isCombustivel()}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Litros (Calculado)</label>
-                        <Input
-                          type="text"
-                          value={
-                            parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(items[0]?.valorStr || '') > 0
-                              ? (parseCurrency(items[0]?.valorStr || '') / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
-                              : '0.00 L'
-                          }
-                          disabled
-                          className="bg-gray-100 dark:bg-gray-800"
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2 flex items-center pt-2">
-                        <input
-                          type="checkbox"
-                          id="isFullTank"
-                          checked={isFullTank}
-                          onChange={(e) => setIsFullTank(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
-                        />
-                        <label htmlFor="isFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                          Tanque Cheio? (Usado para calcular a média de consumo)
-                        </label>
-                      </div>
-                    </React.Fragment>
+                    </PremiumLockedOverlay>
                   )}
                 </div>
               )}
             </div>
 
             {useVehicle && tipo === 'receita' && preferences.modulo_turnos && (
-              <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 dark:shadow-none">
-                      <Clock className="h-4 w-4 text-white" />
+              <PremiumLockedOverlay
+                user={user}
+                onUnlock={() => { setPremiumFeatureName('Gestão de Turnos'); setIsPremiumModalOpen(true); }}
+              >
+                <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 dark:shadow-none">
+                        <Clock className="h-4 w-4 text-white" />
+                      </div>
+                      <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
                     </div>
-                    <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
+                    {durationValue && (
+                      <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800">
+                        <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase italic">
+                          Duração: {durationValue.h}h {durationValue.m.toString().padStart(2, '0')}m
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  {durationValue && (
-                    <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800">
-                      <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase italic">
-                        Duração: {durationValue.h}h {durationValue.m.toString().padStart(2, '0')}m
-                      </span>
-                    </div>
-                  )}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <ShiftTimePicker
+                      label="Início da Jornada"
+                      value={shiftStartTime}
+                      onChange={setShiftStartTime}
+                    />
+                    <ShiftTimePicker
+                      label="Fim da Jornada"
+                      value={shiftEndTime}
+                      onChange={setShiftEndTime}
+                    />
+                  </div>
+                  
+                  <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50">
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
+                      <span className="font-black uppercase mr-1">Nota:</span>
+                      O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
+                    </p>
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <ShiftTimePicker
-                    label="Início da Jornada"
-                    value={shiftStartTime}
-                    onChange={setShiftStartTime}
-                  />
-                  <ShiftTimePicker
-                    label="Fim da Jornada"
-                    value={shiftEndTime}
-                    onChange={setShiftEndTime}
-                  />
-                </div>
-                
-                <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50">
-                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
-                    <span className="font-black uppercase mr-1">Nota:</span>
-                    O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
-                  </p>
-                </div>
-              </div>
+              </PremiumLockedOverlay>
             )}
             </React.Fragment>
           )}

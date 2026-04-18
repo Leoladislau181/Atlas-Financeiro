@@ -15,6 +15,8 @@ import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 import { useFeatures } from '@/contexts/FeatureContext';
 
+import { PremiumLockedOverlay } from '@/components/PremiumLockedOverlay';
+
 interface RelatoriosProps {
   lancamentos: Lancamento[];
   vehicles: Vehicle[];
@@ -85,22 +87,12 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const [year, month] = selectedMonth.split('-');
       const filterDate = new Date(Number(year), Number(month) - 1);
       
-      if (!isPremium(user)) {
-        const now = new Date();
-        const isCurrentMonth = filterDate.getMonth() === now.getMonth() && filterDate.getFullYear() === now.getFullYear();
-        if (!isCurrentMonth) {
-          return [];
-        }
-      }
-
       start = startOfMonth(filterDate);
       end = endOfMonth(filterDate);
     } else if (filterType === 'year') {
-      if (!isPremium(user)) return [];
       start = startOfYear(new Date(Number(selectedYear), 0));
       end = endOfYear(new Date(Number(selectedYear), 0));
     } else {
-      if (!isPremium(user)) return [];
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
     }
@@ -1499,259 +1491,269 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       </div>
 
-      {preferences.modulo_turnos && isPremium(user) && (
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <CardHeader 
-            className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
-            onClick={() => setIsShiftsStatsOpen(!isShiftsStatsOpen)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                  <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+      {preferences.modulo_turnos && (
+        <PremiumLockedOverlay 
+          user={user} 
+          onUnlock={() => { setPremiumFeatureName('Desempenho de Turnos'); setIsPremiumModalOpen(true); }}
+        >
+          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+            <CardHeader 
+              className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
+              onClick={() => setIsShiftsStatsOpen(!isShiftsStatsOpen)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Desempenho de Turnos (Raio-X)</CardTitle>
                 </div>
-                <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Desempenho de Turnos (Raio-X)</CardTitle>
+                {isShiftsStatsOpen ? <ChevronUp className="h-5 w-5 text-indigo-400" /> : <ChevronDown className="h-5 w-5 text-indigo-400" />}
               </div>
-              {isShiftsStatsOpen ? <ChevronUp className="h-5 w-5 text-indigo-400" /> : <ChevronDown className="h-5 w-5 text-indigo-400" />}
-            </div>
-          </CardHeader>
-          {isShiftsStatsOpen && (
-            <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Horas Trabalhadas</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
-                  </p>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Distância Percorrida</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {shiftStats.totalOdometer.toFixed(2)} km
-                  </p>
-                </div>
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50 text-center">
-                  <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
-                  <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
-                    {formatCurrency(shiftStats.ganhoPorHora)}/h
-                  </p>
-                </div>
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 text-center">
-                  <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1">Lucro por Hora</p>
-                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
-                    {formatCurrency(shiftStats.lucroPorHora)}/h
-                  </p>
-                </div>
-              </div>
-
-              {shiftStats.totalGoal > 0 && (
-                <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-indigo-600" />
-                      <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Progresso das Metas do Período</p>
-                    </div>
-                    <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                      {formatCurrency(shiftStats.receitasTurno)} / {formatCurrency(shiftStats.totalGoal)}
+            </CardHeader>
+            {isShiftsStatsOpen && (
+              <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Horas Trabalhadas</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {Math.floor(shiftStats.totalHours)}h {Math.round((shiftStats.totalHours % 1) * 60)}m
                     </p>
                   </div>
-                  <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-2.5">
-                    <div 
-                      className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(100, (shiftStats.receitasTurno / shiftStats.totalGoal) * 100)}%` }}
-                    ></div>
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Distância Percorrida</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {shiftStats.totalOdometer.toFixed(2)} km
+                    </p>
                   </div>
-                  <p className="text-[10px] text-indigo-500 mt-2 italic">
-                    {shiftStats.receitasTurno >= shiftStats.totalGoal 
-                      ? 'Parabéns! Você atingiu 100% das suas metas neste período.' 
-                      : `Você atingiu ${((shiftStats.receitasTurno / shiftStats.totalGoal) * 100).toFixed(2)}% das metas acumuladas.`}
-                  </p>
+                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50 text-center">
+                    <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mb-1">Ganho por Hora</p>
+                    <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
+                      {formatCurrency(shiftStats.ganhoPorHora)}/h
+                    </p>
+                  </div>
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 text-center">
+                    <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mb-1">Lucro por Hora</p>
+                    <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                      {formatCurrency(shiftStats.lucroPorHora)}/h
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800 dark:text-blue-300">
-                  <p className="font-semibold mb-1">Estimativa de Custo de Combustível: {formatCurrency(shiftStats.estimatedFuelCost)}</p>
-                  <p className="opacity-80">Baseado na distância percorrida nos turnos ({shiftStats.totalOdometer.toFixed(2)} km) e na média de preço dos seus abastecimentos.</p>
+                {shiftStats.totalGoal > 0 && (
+                  <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-indigo-600" />
+                        <p className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Progresso das Metas do Período</p>
+                      </div>
+                      <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                        {formatCurrency(shiftStats.receitasTurno)} / {formatCurrency(shiftStats.totalGoal)}
+                      </p>
+                    </div>
+                    <div className="w-full bg-indigo-200 dark:bg-indigo-800 rounded-full h-2.5">
+                      <div 
+                        className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" 
+                        style={{ width: `${Math.min(100, (shiftStats.receitasTurno / shiftStats.totalGoal) * 100)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[10px] text-indigo-500 mt-2 italic">
+                      {shiftStats.receitasTurno >= shiftStats.totalGoal 
+                        ? 'Parabéns! Você atingiu 100% das suas metas neste período.' 
+                        : `Você atingiu ${((shiftStats.receitasTurno / shiftStats.totalGoal) * 100).toFixed(2)}% das metas acumuladas.`}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                  <div className="text-sm text-blue-800 dark:text-blue-300">
+                    <p className="font-semibold mb-1">Estimativa de Custo de Combustível: {formatCurrency(shiftStats.estimatedFuelCost)}</p>
+                    <p className="opacity-80">Baseado na distância percorrida nos turnos ({shiftStats.totalOdometer.toFixed(2)} km) e na média de preço dos seus abastecimentos.</p>
+                  </div>
                 </div>
+              </CardContent>
+            )}
+          </Card>
+        </PremiumLockedOverlay>
+      )}
+
+      <PremiumLockedOverlay 
+        user={user} 
+        onUnlock={() => { setPremiumFeatureName('Mapa de Calor'); setIsPremiumModalOpen(true); }}
+      >
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <CardHeader 
+            className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-orange-50/50 dark:bg-orange-900/10"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 cursor-pointer min-w-[200px]" onClick={() => setIsHeatmapOpen(!isHeatmapOpen)}>
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-orange-900 dark:text-orange-100">Mapa de Calor: Lucro Diário</CardTitle>
+                  <p className="text-xs text-orange-700/70 dark:text-orange-400/70">Visão mensal de rentabilidade</p>
+                </div>
+                {isHeatmapOpen ? <ChevronUp className="h-5 w-5 text-orange-400 ml-2" /> : <ChevronDown className="h-5 w-5 text-orange-400 ml-2" />}
+              </div>
+
+              <div className="flex-1 flex justify-center">
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-full px-4 py-1.5 border border-orange-100 dark:border-orange-900/30 shadow-sm min-w-[240px] justify-between">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600"
+                    onClick={prevHeatmapMonth}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200 capitalize">
+                    {heatmapData.monthLabel}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600"
+                    onClick={nextHeatmapMonth}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 min-w-[200px] justify-end">
+                <div className="relative w-full sm:w-48">
+                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
+                  <Select
+                    value={heatmapVehicleId}
+                    onChange={(e) => setHeatmapVehicleId(e.target.value)}
+                    className="pl-9 h-9 border-orange-100 dark:border-orange-900/30 bg-white dark:bg-gray-800 text-xs rounded-full focus:ring-orange-500/20"
+                  >
+                    <option value="all">Todos os Veículos</option>
+                    <optgroup label="Ativos">
+                      {vehicles.filter(v => v.status === 'active').map(v => (
+                        <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Inativos">
+                      {vehicles.filter(v => v.status !== 'active').map(v => (
+                        <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
+                      ))}
+                    </optgroup>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          {isHeatmapOpen && (
+            <CardContent className="pt-6 overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="min-w-[600px]">
+                <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-4">
+                  <div className="text-[10px] font-bold text-gray-400 flex items-center justify-center">SEMANA</div>
+                  {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(d => (
+                    <div key={d} className="text-[10px] font-bold text-gray-400 text-center uppercase tracking-wider">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+                
+                {heatmapData.weeks.map((week, wIndex) => (
+                  <div key={wIndex} className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-2">
+                    <div className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-3 justify-end bg-gray-50 dark:bg-gray-800/50 rounded-l-lg">
+                      {week.name}
+                    </div>
+                    {week.days.map((day, dIndex) => {
+                      const value = day.profit;
+                      const isCurrentMonth = day.isCurrentMonth;
+                      
+                      // Color scale based on Daily Profit
+                      let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
+                      if (!isCurrentMonth) {
+                        bgColor = 'bg-transparent opacity-20';
+                      } else if (value > 0 && value < 100) {
+                        bgColor = 'bg-emerald-100 dark:bg-emerald-900/20';
+                      } else if (value >= 100 && value < 250) {
+                        bgColor = 'bg-emerald-300 dark:bg-emerald-700/40';
+                      } else if (value >= 250 && value < 500) {
+                        bgColor = 'bg-emerald-500 dark:bg-emerald-500/60';
+                      } else if (value >= 500) {
+                        bgColor = 'bg-emerald-700 dark:bg-emerald-400/80';
+                      } else if (value < 0) {
+                        bgColor = 'bg-red-100 dark:bg-red-900/20';
+                      }
+
+                      return (
+                        <div 
+                          key={dIndex}
+                          className={`h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-help flex flex-col items-center justify-center relative ${bgColor} border border-transparent ${isCurrentMonth ? 'hover:border-emerald-400/50' : ''}`}
+                          title={`${format(day.date, 'dd/MM/yyyy')}: ${formatCurrency(value)}`}
+                        >
+                          <span className={`text-[9px] absolute top-1 right-1 font-medium ${isCurrentMonth ? 'text-gray-400' : 'text-gray-300'}`}>
+                            {format(day.date, 'dd')}
+                          </span>
+                          {isCurrentMonth && value !== 0 && (
+                            <span className="text-sm font-black text-white [text-shadow:_1px_1px_0_#000,_-1px_-1px_0_#000,_1px_-1px_0_#000,_-1px_1px_0_#000]">
+                              {value > 0 ? '+' : ''}{Math.round(value)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-6 p-4 bg-gray-50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-red-100 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800/30"></div>
+                    <span className="text-[11px] font-medium text-gray-500">Prejuízo</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-gray-100 dark:bg-gray-800/40 rounded-md"></div>
+                    <span className="text-[11px] font-medium text-gray-500">R$ 0</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-emerald-100 dark:bg-emerald-900/20 rounded-md"></div>
+                    <span className="text-[11px] font-medium text-gray-500">&lt; R$ 100</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-emerald-300 dark:bg-emerald-700/40 rounded-md"></div>
+                    <span className="text-[11px] font-medium text-gray-500">R$ 100-250</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-emerald-500 dark:bg-emerald-500/60 rounded-md"></div>
+                    <span className="text-[11px] font-medium text-gray-500">R$ 250-500</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 bg-emerald-700 dark:bg-emerald-400/80 rounded-md"></div>
+                    <span className="text-[11px] font-medium text-gray-500">&gt; R$ 500</span>
+                  </div>
+                </div>
+
+                {/* Personal Use Summary Section */}
+                {preferences.modulo_pessoal && (heatmapPersonalSummary.totalKm > 0 || heatmapPersonalSummary.totalCost > 0) && (
+                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-2 duration-500">
+                    <div className="flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-400">
+                      <Car className="h-4 w-4" />
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">Resumo de Uso Pessoal</h4>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Distância Percorrida</p>
+                        <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{heatmapPersonalSummary.totalKm} <span className="text-xs font-bold opacity-50">km</span></p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Custo Total Estimado</p>
+                        <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{formatCurrency(heatmapPersonalSummary.totalCost)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           )}
         </Card>
-      )}
-
-      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-        <CardHeader 
-          className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-orange-50/50 dark:bg-orange-900/10"
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 cursor-pointer min-w-[200px]" onClick={() => setIsHeatmapOpen(!isHeatmapOpen)}>
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div>
-                <CardTitle className="text-lg text-orange-900 dark:text-orange-100">Mapa de Calor: Lucro Diário</CardTitle>
-                <p className="text-xs text-orange-700/70 dark:text-orange-400/70">Visão mensal de rentabilidade</p>
-              </div>
-              {isHeatmapOpen ? <ChevronUp className="h-5 w-5 text-orange-400 ml-2" /> : <ChevronDown className="h-5 w-5 text-orange-400 ml-2" />}
-            </div>
-
-            <div className="flex-1 flex justify-center">
-              <div className="flex items-center bg-white dark:bg-gray-800 rounded-full px-4 py-1.5 border border-orange-100 dark:border-orange-900/30 shadow-sm min-w-[240px] justify-between">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600"
-                  onClick={prevHeatmapMonth}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-200 capitalize">
-                  {heatmapData.monthLabel}
-                </span>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 rounded-full hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600"
-                  onClick={nextHeatmapMonth}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 min-w-[200px] justify-end">
-              <div className="relative w-full sm:w-48">
-                <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-orange-400" />
-                <Select
-                  value={heatmapVehicleId}
-                  onChange={(e) => setHeatmapVehicleId(e.target.value)}
-                  className="pl-9 h-9 border-orange-100 dark:border-orange-900/30 bg-white dark:bg-gray-800 text-xs rounded-full focus:ring-orange-500/20"
-                >
-                  <option value="all">Todos os Veículos</option>
-                  <optgroup label="Ativos">
-                    {vehicles.filter(v => v.status === 'active').map(v => (
-                      <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Inativos">
-                    {vehicles.filter(v => v.status !== 'active').map(v => (
-                      <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
-                    ))}
-                  </optgroup>
-                </Select>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        {isHeatmapOpen && (
-          <CardContent className="pt-6 overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="min-w-[600px]">
-              <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-4">
-                <div className="text-[10px] font-bold text-gray-400 flex items-center justify-center">SEMANA</div>
-                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(d => (
-                  <div key={d} className="text-[10px] font-bold text-gray-400 text-center uppercase tracking-wider">
-                    {d}
-                  </div>
-                ))}
-              </div>
-              
-              {heatmapData.weeks.map((week, wIndex) => (
-                <div key={wIndex} className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-2">
-                  <div className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-3 justify-end bg-gray-50 dark:bg-gray-800/50 rounded-l-lg">
-                    {week.name}
-                  </div>
-                  {week.days.map((day, dIndex) => {
-                    const value = day.profit;
-                    const isCurrentMonth = day.isCurrentMonth;
-                    
-                    // Color scale based on Daily Profit
-                    let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
-                    if (!isCurrentMonth) {
-                      bgColor = 'bg-transparent opacity-20';
-                    } else if (value > 0 && value < 100) {
-                      bgColor = 'bg-emerald-100 dark:bg-emerald-900/20';
-                    } else if (value >= 100 && value < 250) {
-                      bgColor = 'bg-emerald-300 dark:bg-emerald-700/40';
-                    } else if (value >= 250 && value < 500) {
-                      bgColor = 'bg-emerald-500 dark:bg-emerald-500/60';
-                    } else if (value >= 500) {
-                      bgColor = 'bg-emerald-700 dark:bg-emerald-400/80';
-                    } else if (value < 0) {
-                      bgColor = 'bg-red-100 dark:bg-red-900/20';
-                    }
-
-                    return (
-                      <div 
-                        key={dIndex}
-                        className={`h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-help flex flex-col items-center justify-center relative ${bgColor} border border-transparent ${isCurrentMonth ? 'hover:border-emerald-400/50' : ''}`}
-                        title={`${format(day.date, 'dd/MM/yyyy')}: ${formatCurrency(value)}`}
-                      >
-                        <span className={`text-[9px] absolute top-1 right-1 font-medium ${isCurrentMonth ? 'text-gray-400' : 'text-gray-300'}`}>
-                          {format(day.date, 'dd')}
-                        </span>
-                        {isCurrentMonth && value !== 0 && (
-                          <span className="text-sm font-black text-white [text-shadow:_1px_1px_0_#000,_-1px_-1px_0_#000,_1px_-1px_0_#000,_-1px_1px_0_#000]">
-                            {value > 0 ? '+' : ''}{Math.round(value)}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-6 p-4 bg-gray-50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-red-100 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800/30"></div>
-                  <span className="text-[11px] font-medium text-gray-500">Prejuízo</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-gray-100 dark:bg-gray-800/40 rounded-md"></div>
-                  <span className="text-[11px] font-medium text-gray-500">R$ 0</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-emerald-100 dark:bg-emerald-900/20 rounded-md"></div>
-                  <span className="text-[11px] font-medium text-gray-500">&lt; R$ 100</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-emerald-300 dark:bg-emerald-700/40 rounded-md"></div>
-                  <span className="text-[11px] font-medium text-gray-500">R$ 100-250</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-emerald-500 dark:bg-emerald-500/60 rounded-md"></div>
-                  <span className="text-[11px] font-medium text-gray-500">R$ 250-500</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 bg-emerald-700 dark:bg-emerald-400/80 rounded-md"></div>
-                  <span className="text-[11px] font-medium text-gray-500">&gt; R$ 500</span>
-                </div>
-              </div>
-
-              {/* Personal Use Summary Section */}
-              {preferences.modulo_pessoal && (heatmapPersonalSummary.totalKm > 0 || heatmapPersonalSummary.totalCost > 0) && (
-                <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-2 duration-500">
-                  <div className="flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-400">
-                    <Car className="h-4 w-4" />
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">Resumo de Uso Pessoal</h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Distância Percorrida</p>
-                      <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{heatmapPersonalSummary.totalKm} <span className="text-xs font-bold opacity-50">km</span></p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Custo Total Estimado</p>
-                      <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{formatCurrency(heatmapPersonalSummary.totalCost)}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        )}
-      </Card>
+      </PremiumLockedOverlay>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
@@ -1803,32 +1805,37 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       </div>
 
-      {preferences.modulo_abastecimento_detalhado && isPremium(user) && stats.porCombustivel.length > 0 && (
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <CardHeader 
-            className="border-b border-gray-50 dark:border-gray-800 pb-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsFuelSummaryOpen(!isFuelSummaryOpen)}
-          >
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Resumo por Combustível</CardTitle>
-              {isFuelSummaryOpen ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
-            </div>
-          </CardHeader>
-          {isFuelSummaryOpen && (
-            <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {stats.porCombustivel.map((comb, index) => (
-                  <div key={index} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">{comb.tipo}</div>
-                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(comb.valor)}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{comb.litros.toFixed(2)} Litros</div>
-                  </div>
-                ))}
+      <PremiumLockedOverlay
+        user={user}
+        onUnlock={() => { setPremiumFeatureName('Resumo por Combustível'); setIsPremiumModalOpen(true); }}
+      >
+        {preferences.modulo_abastecimento_detalhado && stats.porCombustivel.length > 0 && (
+          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+            <CardHeader 
+              className="border-b border-gray-50 dark:border-gray-800 pb-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              onClick={() => setIsFuelSummaryOpen(!isFuelSummaryOpen)}
+            >
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Resumo por Combustível</CardTitle>
+                {isFuelSummaryOpen ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
               </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
+            </CardHeader>
+            {isFuelSummaryOpen && (
+              <CardContent className="pt-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {stats.porCombustivel.map((comb, index) => (
+                    <div key={index} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">{comb.tipo}</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(comb.valor)}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{comb.litros.toFixed(2)} Litros</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
+      </PremiumLockedOverlay>
 
       {stats.porVeiculo.length > 0 && (
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
@@ -1879,102 +1886,112 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </Card>
       )}
 
-      <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-        <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
-          <div className="relative">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setShowChartFilter(!showChartFilter)} 
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              <Filter className="h-4 w-4" />
-            </Button>
-            {showChartFilter && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="py-1">
-                  {[1, 3, 6, 12].map((months) => (
-                    <button
-                      key={months}
-                      onClick={() => {
-                        setChartMonthsFilter(months);
-                        setShowChartFilter(false);
-                      }}
-                      className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                        chartMonthsFilter === months 
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      Últimos {months} {months === 1 ? 'mês' : 'meses'}
-                    </button>
-                  ))}
+      <PremiumLockedOverlay
+        user={user}
+        onUnlock={() => { setPremiumFeatureName('Comparativo Mensal'); setIsPremiumModalOpen(true); }}
+      >
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 underline-none">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Comparativo Mensal</CardTitle>
+            <div className="relative">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowChartFilter(!showChartFilter)} 
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+              {showChartFilter && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-10 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="py-1">
+                    {[1, 3, 6, 12].map((months) => (
+                      <button
+                        key={months}
+                        onClick={() => {
+                          setChartMonthsFilter(months);
+                          setShowChartFilter(false);
+                        }}
+                        className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                          chartMonthsFilter === months 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        Últimos {months} {months === 1 ? 'mês' : 'meses'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2" ref={chartRef}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(value) => formatCurrency(value)}
-                  tick={{ fill: '#6b7280', fontSize: 12 }}
-                  dx={-10}
-                />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
-                  itemStyle={{ color: '#111827' }}
-                  labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
-                <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2" ref={chartRef}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => formatCurrency(value)}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    dx={-10}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
+                    itemStyle={{ color: '#111827' }}
+                    labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                  <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                  <Bar dataKey="Despesas" fill="#EF4444" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </PremiumLockedOverlay>
 
-      <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
-        <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
-          <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Produtividade (Horas Trabalhadas)</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={productivityChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(value) => `${value}h`}
-                  tick={{ fill: '#6b7280', fontSize: 12 }}
-                  dx={-10}
-                />
-                <Tooltip
-                  formatter={(value: number) => [`${value} horas`, 'Tempo']}
-                  cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
-                  itemStyle={{ color: '#111827' }}
-                  labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar dataKey="Horas" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={50} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <PremiumLockedOverlay
+        user={user}
+        onUnlock={() => { setPremiumFeatureName('Produtividade'); setIsPremiumModalOpen(true); }}
+      >
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">Produtividade (Horas Trabalhadas)</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="h-[300px] w-full bg-white dark:bg-gray-900 rounded-lg p-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={productivityChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => `${value}h`}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    dx={-10}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`${value} horas`, 'Tempo']}
+                    cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
+                    itemStyle={{ color: '#111827' }}
+                    labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                  <Bar dataKey="Horas" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </PremiumLockedOverlay>
 
       {/* Hidden Chart for PDF Export */}
       <div 
