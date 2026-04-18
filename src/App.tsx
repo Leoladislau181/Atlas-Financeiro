@@ -305,6 +305,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             workShifts={workShifts}
             user={user} 
             refetch={refetch}
+            onBack={() => setActiveTab('configuracoes')}
           />
         )}
         {activeTab === 'veiculos' && (

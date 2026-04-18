@@ -10,7 +10,7 @@ import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, addMonth
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock, Car } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock, Car, X } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -22,9 +22,10 @@ interface RelatoriosProps {
   workShifts: WorkShift[];
   user: User;
   refetch: () => void;
+  onBack?: () => void;
 }
 
-export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch }: RelatoriosProps) {
+export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch, onBack }: RelatoriosProps) {
   const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
@@ -1085,6 +1086,24 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Relatórios Completos</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Análise detalhada do seu desempenho financeiro</p>
+        </div>
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBack}
+            className="rounded-full h-10 w-10 text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+            title="Sair dos Relatórios"
+          >
+            <X className="h-6 w-6" />
+          </Button>
+        )}
+      </div>
+
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900 relative z-20">
         <div 
           className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors rounded-t-xl"

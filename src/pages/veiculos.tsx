@@ -8,7 +8,7 @@ import { PremiumModal } from '@/components/premium-modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium, parseLocalDate } from '@/lib/utils';
 import { Lancamento, Vehicle, Manutencao, User, WorkShift } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock } from 'lucide-react';
+import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { useFeatures } from '@/contexts/FeatureContext';
