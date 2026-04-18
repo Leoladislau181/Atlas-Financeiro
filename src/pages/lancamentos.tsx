@@ -1339,7 +1339,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                 />
               </div>
             )}
-            <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2">
+            <div className="flex flex-col sm:flex-row justify-end pt-4 gap-2 pb-48">
               <Button
                 type="button"
                 variant="ghost"

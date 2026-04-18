@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Clock, ChevronUp, ChevronDown, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,10 +13,26 @@ interface ShiftTimePickerProps {
 export function ShiftTimePicker({ label, value, onChange, className }: ShiftTimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [internalValue, setInternalValue] = useState(value || '00:00');
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (value) setInternalValue(value);
   }, [value]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const [h, m] = internalValue.split(':').map(Number);
 
@@ -37,13 +53,14 @@ export function ShiftTimePicker({ label, value, onChange, className }: ShiftTime
   };
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative", className)} ref={containerRef}>
       <label className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase ml-1 block mb-1">{label}</label>
       
       <button
         type="button"
+        onFocus={() => setIsOpen(true)}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full h-12 px-4 bg-white dark:bg-gray-900 border border-indigo-200 dark:border-indigo-800 rounded-xl hover:border-indigo-400 transition-all shadow-sm"
+        className="flex items-center justify-between w-full h-12 px-4 bg-white dark:bg-gray-900 border border-indigo-200 dark:border-indigo-800 rounded-xl hover:border-indigo-400 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
       >
         <div className="flex items-center gap-3">
           <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
@@ -58,12 +75,11 @@ export function ShiftTimePicker({ label, value, onChange, className }: ShiftTime
       <AnimatePresence>
         {isOpen && (
           <>
-            <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setIsOpen(false)} />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute z-50 mt-2 p-5 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-[220px] left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0"
+              className="absolute z-50 mt-2 p-5 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-[220px] left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 bottom-auto top-full sm:top-full"
             >
               <div className="flex items-center justify-around mb-4">
                 {/* Hours */}
