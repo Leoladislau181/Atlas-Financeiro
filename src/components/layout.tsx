@@ -32,10 +32,10 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
 
   const mobileTabs = [
     { id: 'inicio', label: 'Início', icon: Home },
-    { id: 'lancamentos', label: 'Lançamentos', icon: List },
+    { id: 'lancamentos', label: 'Extrato', icon: List },
     { id: 'veiculos', label: 'Veículos', icon: Car },
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
-    { id: 'configuracoes', label: 'Mais', icon: Menu },
+    { id: 'configuracoes', label: 'Menu', icon: Menu },
   ];
 
   const handleLogout = async () => {
@@ -154,7 +154,7 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
         </div>
       )}
 
-      <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
+      <main className="mx-auto max-w-7xl p-3 sm:p-6 lg:p-8 animate-in fade-in duration-300">
         {children}
       </main>
 

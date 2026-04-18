@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { PremiumModal } from '@/components/premium-modal';
 import { useFeatures } from '@/contexts/FeatureContext';
+import { ShiftTimePicker } from '@/components/ui/shift-time-picker';
 
 interface LancamentosProps {
   categorias: Categoria[];
@@ -53,10 +54,24 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const [isFullTank, setIsFullTank] = useState(true);
   const [isOdometerManuallyEdited, setIsOdometerManuallyEdited] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [shiftStartTime, setShiftStartTime] = useState('');
+  const [shiftEndTime, setShiftEndTime] = useState(format(new Date(), 'HH:mm'));
   const [loading, setLoading] = useState(false);
+
+  // Load existing shift data reactively when date or vehicle changes
+  useEffect(() => {
+    if (tipo === 'receita' && vehicleId && data) {
+      const existingShift = workShifts.find(s => s.vehicle_id === vehicleId && s.date === data);
+      if (existingShift) {
+        setShiftStartTime(existingShift.start_time.substring(0, 5));
+        setShiftEndTime(existingShift.end_time?.substring(0, 5) || format(new Date(), 'HH:mm'));
+      } else {
+        // If no shift exists, we can suggest defaults if needed, but let's keep it clear
+        // setShiftStartTime(''); 
+      }
+    }
+  }, [data, vehicleId, tipo, workShifts]);
   const [visibleCount, setVisibleCount] = useState(20);
-  const [turns, setTurns] = useState<{ startTime: string; endTime: string }[]>([]);
-  const [showTurnFields, setShowTurnFields] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -74,7 +89,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
     // KM Inicial: buscar último odômetro absoluto (apenas Receita ou Pessoal)
     const allOdos = lancamentos
-      .filter(l => l.vehicle_id === vId && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+      .filter(l => 
+        l.vehicle_id === vId && 
+        l.id !== editingId &&
+        (l.odometer || l.odometro_receita) && 
+        (l.tipo === 'receita' || l.tipo === 'pessoal')
+      )
       .sort((a, b) => {
         const dateA = parseLocalDate(a.data).getTime();
         const dateB = parseLocalDate(b.data).getTime();
@@ -163,6 +183,21 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
            nome.includes('manutencao');
   };
 
+  const getShiftDuration = () => {
+    if (!shiftStartTime || !shiftEndTime) return null;
+    const [startH, startM] = shiftStartTime.split(':').map(Number);
+    const [endH, endM] = shiftEndTime.split(':').map(Number);
+    
+    let diffMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    if (diffMinutes < 0) diffMinutes += 24 * 60; // Lidar com turnos que viram a noite
+    
+    const h = Math.floor(diffMinutes / 60);
+    const m = diffMinutes % 60;
+    return { h, m };
+  };
+
+  const durationValue = getShiftDuration();
+
   const {
     suggestedPricePerLiter,
     suggestedOdometer,
@@ -197,7 +232,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     if (!vehicle) return 0;
 
     const allOdos = lancamentos
-      .filter(l => l.vehicle_id === vehicleId && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+      .filter(l => 
+        l.vehicle_id === vehicleId && 
+        l.id !== editingId &&
+        (l.odometer || l.odometro_receita) && 
+        (l.tipo === 'receita' || l.tipo === 'pessoal')
+      )
       .sort((a, b) => {
         const dateA = parseLocalDate(a.data).getTime();
         const dateB = parseLocalDate(b.data).getTime();
@@ -236,23 +276,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     if (filteredCategorias.length > 0) {
       setItems([...items, { categoriaId: filteredCategorias[0].id, valorStr: '' }]);
     }
-  };
-
-  const addTurn = () => {
-    setTurns([...turns, { startTime: '', endTime: '' }]);
-  };
-
-  const removeTurn = (index: number) => {
-    const newTurns = [...turns];
-    newTurns.splice(index, 1);
-    setTurns(newTurns);
-    if (newTurns.length === 0) setShowTurnFields(false);
-  };
-
-  const updateTurn = (index: number, field: 'startTime' | 'endTime', value: string) => {
-    const newTurns = [...turns];
-    newTurns[index][field] = value;
-    setTurns(newTurns);
   };
 
   const removeItem = (index: number) => {
@@ -298,6 +321,11 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
     if (tipo === 'pessoal' && (!vehicleId || !odometer)) {
       setErrorMsg('Informe o veículo e o odômetro final.');
+      return;
+    }
+
+    if (tipo === 'receita' && preferences.modulo_turnos && (!shiftStartTime || !shiftEndTime)) {
+      setErrorMsg('Informe o horário de início e fim da jornada de trabalho.');
       return;
     }
 
@@ -419,39 +447,28 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         
         if (tipo === 'receita' && odoReceitaNum && useVehicle) {
           const vehicle = vehicles.find(v => v.id === vehicleId);
-          const launchDateStr = data;
-          const registrationDateStr = vehicle ? format(new Date(vehicle.created_at), 'yyyy-MM-dd') : null;
-
           let lastOdoRef = null;
 
-          if (vehicle && registrationDateStr) {
-            const isSameDayAsRegistration = launchDateStr === registrationDateStr;
+          if (vehicle) {
+            // Busca o último odômetro absoluto registrado (Receita ou Pessoal) excluindo o registro atual se for edição
+            const odoEntries = lancamentos
+              .filter(l => 
+                l.vehicle_id === vehicleId && 
+                l.id !== editingId &&
+                (l.odometer || l.odometro_receita) && 
+                (l.tipo === 'receita' || l.tipo === 'pessoal')
+              )
+              .sort((a, b) => {
+                const dateA = parseLocalDate(a.data).getTime();
+                const dateB = parseLocalDate(b.data).getTime();
+                if (dateA !== dateB) return dateB - dateA;
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
 
-            if (isSameDayAsRegistration) {
-              const sameDayOdos = lancamentos
-                .filter(l => l.vehicle_id === vehicleId && l.data === launchDateStr && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-              
-              if (sameDayOdos.length > 0) {
-                lastOdoRef = sameDayOdos[0].odometro_receita || sameDayOdos[0].odometer;
-              } else {
-                lastOdoRef = vehicle.initial_odometer;
-              }
+            if (odoEntries.length > 0) {
+              lastOdoRef = odoEntries[0].odometro_receita || odoEntries[0].odometer;
             } else {
-              const previousDayOdos = lancamentos
-                .filter(l => l.vehicle_id === vehicleId && l.data < launchDateStr && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
-                .sort((a, b) => {
-                  const dateA = parseLocalDate(a.data).getTime();
-                  const dateB = parseLocalDate(b.data).getTime();
-                  if (dateA !== dateB) return dateB - dateA;
-                  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                });
-              
-              if (previousDayOdos.length > 0) {
-                lastOdoRef = previousDayOdos[0].odometro_receita || previousDayOdos[0].odometer;
-              } else {
-                lastOdoRef = vehicle.initial_odometer;
-              }
+              lastOdoRef = vehicle.initial_odometer;
             }
           }
 
@@ -497,7 +514,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         const original = lancamentos.find(l => l.id === editingId);
         if (original?.group_id) {
           await supabase.from('lancamentos').delete().eq('group_id', original.group_id);
-          await supabase.from('work_shifts').delete().eq('group_id', original.group_id);
         } else {
           await supabase.from('lancamentos').delete().eq('id', editingId);
         }
@@ -508,24 +524,72 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         if (error) throw error;
       }
 
-      // Save work shifts if any (Only for Income)
-      if (tipo === 'receita' && turns.length > 0 && useVehicle && vehicleId) {
-        const shiftsPayload = turns
-          .filter(t => t.startTime && t.endTime)
-          .map(t => ({
+      // Save work shifts automatically based on revenues for the day
+      if (tipo === 'receita' && useVehicle && vehicleId) {
+        // Fetch all revenues for this day/vehicle to determine odometer boundaries
+        const { data: dayRevenues } = await supabase
+          .from('lancamentos')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('vehicle_id', vehicleId)
+          .eq('data', data)
+          .eq('tipo', 'receita')
+          .order('created_at', { ascending: true });
+
+        if ((dayRevenues && dayRevenues.length > 0) || tipo === 'receita') {
+          const firstRev = dayRevenues && dayRevenues.length > 0 ? dayRevenues[0] : null;
+          const lastRev = dayRevenues && dayRevenues.length > 0 ? dayRevenues[dayRevenues.length - 1] : null;
+
+          // Find absolute last odometer recorded (revenue or personal) before today
+          const { data: lastGlobalOdoEntry } = await supabase
+            .from('lancamentos')
+            .select('odometer, odometro_receita, created_at')
+            .eq('user_id', user.id)
+            .eq('vehicle_id', vehicleId)
+            .in('tipo', ['receita', 'pessoal'])
+            .lt('data', data) // Compare by date string to get records before today
+            .order('data', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          const startOdo = lastGlobalOdoEntry?.[0] 
+            ? (lastGlobalOdoEntry[0].odometro_receita || lastGlobalOdoEntry[0].odometer || 0)
+            : vehicles.find(v => v.id === vehicleId)?.initial_odometer || 0;
+
+          // End odometer is the one from the current transaction being saved (or the last one of the day)
+          const currentOdo = odometroReceita ? Number(odometroReceita) : 0;
+          const endOdo = Math.max(currentOdo, lastRev?.odometro_receita || 0);
+
+          const shiftPayload = {
             user_id: user.id,
             vehicle_id: vehicleId,
             type: 'work',
             date: data,
-            start_time: t.startTime,
-            end_time: t.endTime,
-            status: 'closed',
-            group_id: groupId
-          }));
-        
-        if (shiftsPayload.length > 0) {
-          const { error: shiftError } = await supabase.from('work_shifts').insert(shiftsPayload);
-          if (shiftError) throw shiftError;
+            start_time: shiftStartTime || (firstRev ? firstRev.created_at.substring(11, 16) : format(new Date(), 'HH:mm')),
+            end_time: shiftEndTime || format(new Date(), 'HH:mm'),
+            start_odometer: startOdo,
+            end_odometer: endOdo,
+            status: 'closed'
+          };
+
+          // Check if shift already exists for this day/vehicle
+          const { data: existingShift } = await supabase
+            .from('work_shifts')
+            .select('id, start_time')
+            .eq('user_id', user.id)
+            .eq('vehicle_id', vehicleId)
+            .eq('date', data)
+            .limit(1);
+
+          if (existingShift && existingShift.length > 0) {
+            // Keep the user-provided startTime if it was already set and not provided now
+            if (!shiftStartTime) {
+              shiftPayload.start_time = existingShift[0].start_time.substring(0, 5);
+            }
+            await supabase.from('work_shifts').update(shiftPayload).eq('id', existingShift[0].id);
+          } else {
+            await supabase.from('work_shifts').insert([shiftPayload]);
+          }
         }
       }
 
@@ -536,11 +600,11 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       setVehicleId('');
       setOdometer('');
       setOdometroReceita('');
+      setShiftStartTime('');
+      setShiftEndTime(format(new Date(), 'HH:mm'));
       setFuelPricePerLiterStr('');
       setFuelType(null);
       setIsFullTank(true);
-      setTurns([]);
-      setShowTurnFields(false);
       setEditingId(null);
       setIsFormOpen(false);
       refetch();
@@ -563,30 +627,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     if (lancamento.group_id) {
       const groupItems = lancamentos.filter(l => l.group_id === lancamento.group_id);
       setItems(groupItems.map(l => ({ categoriaId: l.categoria_id, valorStr: formatCurrency(l.valor) })));
-      
-      // Fetch turns for this group
-      const fetchTurns = async () => {
-        const { data: shiftData } = await supabase
-          .from('work_shifts')
-          .select('*')
-          .eq('group_id', lancamento.group_id);
-        
-        if (shiftData && shiftData.length > 0) {
-          setTurns(shiftData.map(s => ({
-            startTime: s.start_time.substring(0, 5),
-            endTime: s.end_time?.substring(0, 5) || ''
-          })));
-          setShowTurnFields(true);
-        } else {
-          setTurns([]);
-          setShowTurnFields(false);
-        }
-      };
-      fetchTurns();
     } else {
       setItems([{ categoriaId: lancamento.categoria_id, valorStr: formatCurrency(lancamento.valor) }]);
-      setTurns([]);
-      setShowTurnFields(false);
     }
 
     if (lancamento.vehicle_id) {
@@ -598,6 +640,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       }
       setFuelType(lancamento.fuel_type || null);
       setIsFullTank(lancamento.is_full_tank ?? true);
+
+      // Populate shift times if available
+      const existingShift = workShifts.find(s => s.vehicle_id === lancamento.vehicle_id && s.date === lancamento.data);
+      if (existingShift) {
+        setShiftStartTime(existingShift.start_time.substring(0, 5));
+        setShiftEndTime(existingShift.end_time?.substring(0, 5) || '');
+      }
     } else {
       setOdometer('');
       setFuelPricePerLiterStr('');
@@ -656,7 +705,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     return matchesMonth && matchesTipo && matchesCategoria && matchesVehicle && matchesSearch;
   });
 
-   const groupedLancamentos = React.useMemo(() => {
+   const groupedLancamentos = useMemo(() => {
     const allGroups: { [key: string]: Lancamento[] } = {};
     lancamentos.forEach(l => {
       if (l.group_id) {
@@ -811,48 +860,48 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       </div>
 
       {/* Month Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl shrink-0">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Receitas</p>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Receitas</p>
+              <h3 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
                 {formatCurrency(monthSummary.receitas)}
               </h3>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
-              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-red-50 dark:bg-red-900/20 rounded-xl shrink-0">
+              <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 dark:text-red-400" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Despesas</p>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Despesas</p>
+              <h3 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
                 {formatCurrency(monthSummary.despesas)}
               </h3>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
+        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
             <div className={cn(
-              "p-3 rounded-xl",
+              "p-2 sm:p-3 rounded-xl shrink-0",
               monthSummary.saldo >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"
             )}>
               <DollarSign className={cn(
-                "h-5 w-5",
+                "h-4 w-4 sm:h-5 sm:w-5",
                 monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
               )} />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo Líquido</p>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Líquido</p>
               <h3 className={cn(
-                "text-lg font-bold",
+                "text-sm sm:text-lg font-bold truncate",
                 monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
               )}>
                 {formatCurrency(monthSummary.saldo)}
@@ -861,22 +910,21 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           </CardContent>
         </Card>
         {preferences.modulo_pessoal && (
-          <Card className="bg-white dark:bg-gray-900 border-none shadow-sm">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
+            <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl shrink-0">
+                <Car className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <div className="flex-1">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Uso Pessoal</p>
-                <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pessoal</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-0 sm:gap-1">
+                  <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                     {monthSummary.pessoalKm} km
                   </h3>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  <span className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500">
                     ({formatCurrency(monthSummary.pessoalCusto)})
                   </span>
                 </div>
-                <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-none mt-1">* Apenas controle de odômetro</p>
               </div>
             </CardContent>
           </Card>
@@ -981,8 +1029,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                   )}
                   onClick={() => {
                     setTipo('despesa');
-                    setShowTurnFields(false);
-                    setTurns([]);
                   }}
                 >
                   Despesa
@@ -997,8 +1043,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                     )}
                     onClick={() => {
                       setTipo('pessoal');
-                      setShowTurnFields(false);
-                      setTurns([]);
                     }}
                   >
                     Pessoal
@@ -1083,9 +1127,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             </div>
             
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 relative group">
-                <div className="sm:col-span-6 space-y-2">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Categoria</label>
+              <div key={index} className="grid grid-cols-1 gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 relative group">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Categoria</label>
                   <CustomSelect 
                     value={item.categoriaId} 
                     onChange={(val) => updateItem(index, 'categoriaId', val)}
@@ -1093,8 +1137,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                     placeholder="Selecione..."
                   />
                 </div>
-                <div className="sm:col-span-5 space-y-2">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Valor</label>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Valor</label>
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -1161,7 +1205,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                   onChange={(e) => setOdometroReceita(e.target.value)}
                   className="bg-white dark:bg-gray-900"
                 />
-                <p className="text-[10px] text-blue-600 dark:text-blue-400">Usado para calcular a quilometragem rodada no dia.</p>
+                <p className="text-[10px] text-blue-600 dark:text-blue-400">Usado para calcular a quilometragem rodada desde o último registro.</p>
               </div>
             )}
 
@@ -1243,77 +1287,42 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             </div>
 
             {useVehicle && tipo === 'receita' && preferences.modulo_turnos && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Turnos de Trabalho (Opcional)</label>
-                  {!showTurnFields ? (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => {
-                        setShowTurnFields(true);
-                        addTurn();
-                      }} 
-                      className="h-8 gap-1 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
-                    >
-                      <Plus className="h-3 w-3" /> Adicionar Turno
-                    </Button>
-                  ) : (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={addTurn} 
-                      className="h-8 gap-1 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
-                    >
-                      <Plus className="h-3 w-3" /> Mais um Turno
-                    </Button>
+              <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 dark:shadow-none">
+                      <Clock className="h-4 w-4 text-white" />
+                    </div>
+                    <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
+                  </div>
+                  {durationValue && (
+                    <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800">
+                      <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase italic">
+                        Duração: {durationValue.h}h {durationValue.m.toString().padStart(2, '0')}m
+                      </span>
+                    </div>
                   )}
                 </div>
-
-                {showTurnFields && (
-                  <div className="space-y-3">
-                    {turns.map((turn, index) => (
-                      <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/50 relative">
-                        <div className="sm:col-span-5 space-y-1">
-                          <label className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Início</label>
-                          <Input
-                            type="time"
-                            value={turn.startTime}
-                            onChange={(e) => updateTurn(index, 'startTime', e.target.value)}
-                            className="h-9 bg-white dark:bg-gray-900"
-                            required={showTurnFields}
-                          />
-                        </div>
-                        <div className="sm:col-span-5 space-y-1">
-                          <label className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">Término</label>
-                          <Input
-                            type="time"
-                            value={turn.endTime}
-                            onChange={(e) => updateTurn(index, 'endTime', e.target.value)}
-                            className="h-9 bg-white dark:bg-gray-900"
-                            required={showTurnFields}
-                          />
-                        </div>
-                        <div className="sm:col-span-2 flex items-end justify-center pb-0.5">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => removeTurn(index)}
-                            className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <p className="text-[10px] text-blue-500 dark:text-blue-400 italic">
-                      O tempo total trabalhado será usado para calcular seu ganho por hora.
-                    </p>
-                  </div>
-                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <ShiftTimePicker
+                    label="Início da Jornada"
+                    value={shiftStartTime}
+                    onChange={setShiftStartTime}
+                  />
+                  <ShiftTimePicker
+                    label="Fim da Jornada"
+                    value={shiftEndTime}
+                    onChange={setShiftEndTime}
+                  />
+                </div>
+                
+                <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50">
+                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
+                    <span className="font-black uppercase mr-1">Nota:</span>
+                    O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
+                  </p>
+                </div>
               </div>
             )}
             </React.Fragment>

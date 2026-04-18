@@ -846,20 +846,20 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
           return (
             <Card key={v.id} className={`overflow-hidden transition-all duration-200 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 ${v.status !== 'active' ? 'opacity-75 grayscale-[0.5]' : 'hover:shadow-md'}`}>
               <div 
-                className="bg-white dark:bg-gray-900 px-6 py-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                className="bg-white dark:bg-gray-900 px-4 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 onClick={() => toggleInfo(v.id)}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl shadow-sm border ${v.status === 'sold' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : v.status === 'deactivated' ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-[#F59E0B]/10 border-[#F59E0B]/20'}`}>
-                    <Car className={`h-6 w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className={`p-2 sm:p-3 rounded-xl shadow-sm border ${v.status === 'sold' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : v.status === 'deactivated' ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-[#F59E0B]/10 border-[#F59E0B]/20'}`}>
+                    <Car className={`h-5 w-5 sm:h-6 sm:w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">{v.name}</h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
+                      <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 truncate">{v.name}</h3>
                       {expandedInfo[v.id] ? (
-                        <ChevronUp className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 shrink-0" />
                       ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                        <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 shrink-0" />
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-medium">

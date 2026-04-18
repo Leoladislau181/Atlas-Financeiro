@@ -494,15 +494,15 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6">
-        <Card className="col-span-2 md:col-span-1 border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-4">
-          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <DollarSign className={`h-6 w-6 md:h-6 md:w-6 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
-            <CardTitle className="text-base md:text-lg font-medium text-gray-500 dark:text-gray-400">Saldo</CardTitle>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+        <Card className="col-span-2 lg:col-span-1 border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-3 sm:py-4">
+          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-1 sm:pb-2">
+            <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
+            <CardTitle className="text-xs sm:text-lg font-medium text-gray-500 dark:text-gray-400">SaldoTotal</CardTitle>
           </CardHeader>
-          <CardContent className="px-2">
+          <CardContent className="px-1 sm:px-2">
             <div
-              className={`text-3xl md:text-4xl font-bold break-words ${
+              className={`text-xl sm:text-4xl font-bold break-words px-1 ${
                 stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
               }`}
             >
@@ -511,25 +511,25 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-4">
-          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <ArrowUpCircle className="h-5 w-5 md:h-6 md:w-6 text-[#059568] dark:text-[#10B981]" />
-            <CardTitle className="text-sm md:text-lg font-medium text-gray-500 dark:text-gray-400">Receitas</CardTitle>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-3 sm:py-4">
+          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-1 sm:pb-2">
+            <ArrowUpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-[#059568] dark:text-[#10B981]" />
+            <CardTitle className="text-xs sm:text-lg font-medium text-gray-500 dark:text-gray-400">Ganhos</CardTitle>
           </CardHeader>
-          <CardContent className="px-2">
-            <div className="text-lg md:text-3xl font-bold text-[#059568] dark:text-[#10B981] break-words">
+          <CardContent className="px-1 sm:px-2">
+            <div className="text-base sm:text-3xl font-bold text-[#059568] dark:text-[#10B981] break-words px-1">
               {formatCurrency(stats.receitasMes)}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-4">
-          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-2">
-            <ArrowDownCircle className="h-5 w-5 md:h-6 md:w-6 text-[#EF4444] dark:text-[#F87171]" />
-            <CardTitle className="text-sm md:text-lg font-medium text-gray-500 dark:text-gray-400">Despesas</CardTitle>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-3 sm:py-4">
+          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-1 sm:pb-2">
+            <ArrowDownCircle className="h-5 w-5 sm:h-6 sm:w-6 text-[#EF4444] dark:text-[#F87171]" />
+            <CardTitle className="text-xs sm:text-lg font-medium text-gray-500 dark:text-gray-400">Gastos</CardTitle>
           </CardHeader>
-          <CardContent className="px-2">
-            <div className="text-lg md:text-3xl font-bold text-[#EF4444] dark:text-[#F87171] break-words">
+          <CardContent className="px-1 sm:px-2">
+            <div className="text-base sm:text-3xl font-bold text-[#EF4444] dark:text-[#F87171] break-words px-1">
               {formatCurrency(stats.despesasMes)}
             </div>
           </CardContent>
@@ -572,19 +572,19 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
             )}
           </div>
         </CardHeader>
-        <CardContent className="pl-2">
-          <div className="h-[300px] w-full">
+        <CardContent className="pl-0 pr-2">
+          <div className="h-[280px] sm:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-gray-200 dark:text-gray-800" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-500 dark:text-gray-400" dy={10} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'currentColor', fontSize: 10 }} className="text-gray-500 dark:text-gray-400" dy={10} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(value) => formatCurrency(value)}
-                  tick={{ fill: 'currentColor', fontSize: 12 }}
+                  tickFormatter={(value) => `v.${(value/1000).toFixed(0)}k`}
+                  tick={{ fill: 'currentColor', fontSize: 10 }}
                   className="text-gray-500 dark:text-gray-400"
-                  dx={-10}
+                  dx={0}
                 />
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}

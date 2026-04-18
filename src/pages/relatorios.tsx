@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -67,8 +67,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
   const [importLoading, setImportLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const chartRef = React.useRef<HTMLDivElement>(null);
-  const reportChartRef = React.useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const reportChartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (window.innerWidth < 768) {
@@ -1387,43 +1387,43 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </div>
       </Modal>
 
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
-          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className="p-2 bg-green-50 dark:bg-[#059568]/20 rounded-full">
-              <TrendingUp className="h-4 w-4 text-[#059568] dark:text-[#10B981]" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6 sm:gap-4">
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-2 sm:py-0">
+          <CardHeader className="pb-1 sm:pb-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 space-y-0">
+            <div className="p-1.5 sm:p-2 bg-green-50 dark:bg-[#059568]/20 rounded-full">
+              <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#059568] dark:text-[#10B981]" />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Receitas</CardTitle>
+            <CardTitle className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Receitas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#059568] dark:text-[#10B981]">
+          <CardContent className="px-1 sm:px-6">
+            <div className="text-sm sm:text-2xl font-bold text-[#059568] dark:text-[#10B981] break-words">
               {formatCurrency(stats.receitas)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
-          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className="p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-full">
-              <TrendingDown className="h-4 w-4 text-[#EF4444] dark:text-[#F87171]" />
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-2 sm:py-0">
+          <CardHeader className="pb-1 sm:pb-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 space-y-0">
+            <div className="p-1.5 sm:p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-full">
+              <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#EF4444] dark:text-[#F87171]" />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Despesas</CardTitle>
+            <CardTitle className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total Despesas</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#EF4444] dark:text-[#F87171]">
+          <CardContent className="px-1 sm:px-6">
+            <div className="text-sm sm:text-2xl font-bold text-[#EF4444] dark:text-[#F87171] break-words">
               {formatCurrency(stats.despesas)}
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center">
-          <CardHeader className="pb-2 flex flex-row items-center justify-center gap-2 space-y-0">
-            <div className={`p-2 rounded-full ${stats.lucroLiquido >= 0 ? 'bg-green-50 dark:bg-[#059568]/20' : 'bg-red-50 dark:bg-[#EF4444]/20'}`}>
-              <DollarSign className={`h-4 w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-2 sm:py-0">
+          <CardHeader className="pb-1 sm:pb-2 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 space-y-0">
+            <div className={`p-1.5 sm:p-2 rounded-full ${stats.lucroLiquido >= 0 ? 'bg-green-50 dark:bg-[#059568]/20' : 'bg-red-50 dark:bg-[#EF4444]/20'}`}>
+              <DollarSign className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
             </div>
-            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">Saldo</CardTitle>
+            <CardTitle className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400">Saldo</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-1 sm:px-6">
             <div
-              className={`text-2xl font-bold ${
+              className={`text-sm sm:text-2xl font-bold break-words ${
                 stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
               }`}
             >

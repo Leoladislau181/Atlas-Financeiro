@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,11 @@ import { useTheme } from '@/components/theme-provider';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { Switch } from '@/components/ui/switch';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
-import { isPremium, parseLocalDate, formatCurrency, formatCurrencyInput, parseCurrency } from '@/lib/utils';
+import { isPremium, parseLocalDate, formatCurrency, formatCurrencyInput, parseCurrency, cn } from '@/lib/utils';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { PremiumModal } from '@/components/premium-modal';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ConfiguracoesProps {
   categorias: Categoria[];
@@ -81,6 +82,12 @@ export function Configuracoes({
   // Shift Management States
   const [isShiftsOpen, setIsShiftsOpen] = useState(false);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
+  const [visibleShiftsCount, setVisibleShiftsCount] = useState(7);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+
+  const toggleDateExpansion = (date: string) => {
+    setExpandedDate(prev => prev === date ? null : date);
+  };
   
   // Calculator States
   const [calcMode, setCalcMode] = useState<'weekly' | 'monthly'>('weekly');
@@ -152,7 +159,7 @@ export function Configuracoes({
     }
   ];
 
-  const filteredShifts = React.useMemo(() => {
+  const filteredShifts = useMemo(() => {
     return workShifts.filter(shift => {
       // Vehicle Filter
       if (shiftFilterVehicle !== 'all' && shift.vehicle_id !== shiftFilterVehicle) {
@@ -187,7 +194,7 @@ export function Configuracoes({
     }).sort((a, b) => new Date(b.date + 'T' + b.start_time).getTime() - new Date(a.date + 'T' + a.start_time).getTime());
   }, [workShifts, shiftFilterTime, shiftFilterVehicle, shiftFilterStartDate, shiftFilterEndDate]);
 
-  const calculatorResults = React.useMemo(() => {
+  const calculatorResults = useMemo(() => {
     if (!calcVehicleId) return null;
     
     const vehicle = vehicles.find(v => v.id === calcVehicleId);
@@ -235,8 +242,137 @@ export function Configuracoes({
     };
   }, [calcVehicleId, calcDaysPerWeek, calcKmPerDay, calcProfitGoal, calcFuelPrice, calcConsumption, calcOtherFixed, vehicles, calcMode]);
 
+  const groupedShiftsByDate = useMemo(() => {
+    const groups: Record<string, { 
+      shifts: WorkShift[]; 
+      transactions: Lancamento[];
+      totalMinutes: number;
+      revenue: number;
+      expenses: number;
+      categoryBreakdown: Record<string, { value: number; type: string; name: string }>;
+      vehicleKM: Record<string, { km: number; vehicleName: string }>;
+    }> = {};
+    
+    filteredShifts.forEach(shift => {
+      if (!groups[shift.date]) {
+        groups[shift.date] = { 
+          shifts: [], 
+          transactions: [], 
+          totalMinutes: 0, 
+          revenue: 0, 
+          expenses: 0,
+          categoryBreakdown: {},
+          vehicleKM: {}
+        };
+      }
+      groups[shift.date].shifts.push(shift);
+      
+      if (shift.start_time && shift.end_time) {
+        const start = new Date(`2000-01-01T${shift.start_time}`);
+        const end = new Date(`2000-01-01T${shift.end_time}`);
+        let diff = (end.getTime() - start.getTime()) / (1000 * 60);
+        if (diff < 0) diff += 24 * 60;
+        groups[shift.date].totalMinutes += diff;
+      }
+    });
+
+    lancamentos.forEach(l => {
+      if (!groups[l.data]) return;
+      
+      groups[l.data].transactions.push(l);
+      
+      if (l.tipo === 'receita') {
+        groups[l.data].revenue += Number(l.valor);
+      } else if (l.tipo === 'despesa') {
+        groups[l.data].expenses += Number(l.valor);
+      }
+      
+      const catName = l.categorias?.nome || 'Outros';
+      // Use name + type as key to keep them separate even if names are identical
+      const breakdownKey = `${catName}-${l.tipo}`;
+      if (!groups[l.data].categoryBreakdown[breakdownKey]) {
+        groups[l.data].categoryBreakdown[breakdownKey] = { 
+          value: 0, 
+          type: l.tipo,
+          // Store original name for display
+          name: catName 
+        };
+      }
+      groups[l.data].categoryBreakdown[breakdownKey].value += Number(l.valor);
+    });
+
+    Object.keys(groups).forEach(date => {
+      // First, iterate through work shifts to sum distances
+      groups[date].shifts.forEach(shift => {
+        if (shift.vehicle_id) {
+          const vehicle = vehicles.find(v => v.id === shift.vehicle_id);
+          if (vehicle) {
+            const sOdo = shift.start_odometer || 0;
+            const eOdo = shift.end_odometer || 0;
+            const km = Math.max(0, eOdo - sOdo);
+            
+            if (!groups[date].vehicleKM[shift.vehicle_id]) {
+              groups[date].vehicleKM[shift.vehicle_id] = { km, vehicleName: vehicle.name };
+            } else {
+              groups[date].vehicleKM[shift.vehicle_id].km += km;
+            }
+          }
+        }
+      });
+
+      // Then, check for vehicles that had transactions but might have more accurate data or missing shifts
+      const dayTransactions = groups[date].transactions;
+      const dayVehicleIds = Array.from(new Set(dayTransactions.filter(l => l.vehicle_id).map(l => l.vehicle_id)));
+      
+      dayVehicleIds.forEach(vId => {
+        if (!vId) return;
+        
+        const vehicle = vehicles.find(v => v.id === vId);
+        if (!vehicle) return;
+        
+        // If we already have KM from shifts and it's > 0, we can trust it.
+        // But if it's 0, let's try to find it in the transactions.
+        const currentData = groups[date].vehicleKM[vId];
+        if (currentData && currentData.km > 0) return;
+        
+        const vehicleEntries = dayTransactions.filter(l => l.vehicle_id === vId);
+        if (vehicleEntries.length > 0) {
+          // For legacy/personal entries, we use the max - min to estimate the day's span
+          const odos = vehicleEntries.map(l => l.odometro_receita || l.odometer || 0).filter(o => o > 0);
+          
+          let km = 0;
+          if (odos.length > 1) {
+            const maxDayOdo = Math.max(...odos);
+            const minDayOdo = Math.min(...odos);
+            km = maxDayOdo - minDayOdo;
+          }
+
+          // Sum any explicit km_rodados
+          const explicitKm = vehicleEntries.reduce((acc, l) => acc + (l.km_rodados || 0), 0);
+          
+          const finalKm = Math.max(km, explicitKm);
+          
+          if (finalKm > 0) {
+            if (!groups[date].vehicleKM[vId]) {
+              groups[date].vehicleKM[vId] = { km: finalKm, vehicleName: vehicle.name };
+            } else {
+              groups[date].vehicleKM[vId].km = finalKm;
+            }
+          } else if (!groups[date].vehicleKM[vId]) {
+            // Even if 0, at least register the vehicle was used
+            groups[date].vehicleKM[vId] = { km: 0, vehicleName: vehicle.name };
+          }
+        }
+      });
+    });
+
+    return Object.entries(groups)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([date, data]) => ({ date, ...data }));
+  }, [filteredShifts, lancamentos, vehicles]);
+
   // Auto-pull vehicle analysis when vehicle changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!calcVehicleId) return;
 
     const vehicle = vehicles.find(v => v.id === calcVehicleId);
@@ -300,12 +436,12 @@ export function Configuracoes({
     }
   }, [calcVehicleId, vehicles, lancamentos, calcMode]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setProfileNome(user.nome || '');
     setProfileTelefone(user.telefone || '');
   }, [user]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (forceOpenProfile) {
       setIsProfileOpen(true);
       onProfileOpened?.();
@@ -1307,20 +1443,23 @@ export function Configuracoes({
 
           {isShiftsOpen && (
             <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100">Meus Turnos</h4>
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 self-start sm:self-auto">Meus Turnos</h4>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Button 
                     variant={showShiftFilters ? "default" : "outline"}
                     size="sm" 
                     onClick={() => setShowShiftFilters(!showShiftFilters)}
-                    className={showShiftFilters ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 border-transparent" : ""}
+                    className={cn(
+                      "flex-1 sm:flex-none",
+                      showShiftFilters ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 border-transparent" : ""
+                    )}
                   >
-                    <Filter className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Filtros</span>
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtros
                   </Button>
-                  <Button onClick={handleOpenNewShift} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                    Adicionar Turno
+                  <Button onClick={handleOpenNewShift} size="sm" className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white">
+                    Adicionar
                   </Button>
                 </div>
               </div>
@@ -1383,38 +1522,181 @@ export function Configuracoes({
                 </div>
               )}
 
-              {filteredShifts.length === 0 ? (
+              {groupedShiftsByDate.length === 0 ? (
                 <div className="text-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
                   <Briefcase className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum turno encontrado para os filtros selecionados.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredShifts.map((shift) => (
-                    <div key={shift.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">
-                          {format(new Date(shift.date + 'T00:00:00'), 'dd/MM/yyyy')}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {shift.start_time.slice(0, 5)} - {shift.end_time ? shift.end_time.slice(0, 5) : 'Em andamento'}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditShift(shift)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => confirmDeleteShift(shift.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                <div className="space-y-6">
+                  {/* Resumo do Período */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">Horas Totais</p>
+                      <p className="text-2xl font-black text-indigo-900 dark:text-indigo-100">
+                        {(groupedShiftsByDate.reduce((acc, g) => acc + g.totalMinutes, 0) / 60).toFixed(1)}h
+                      </p>
                     </div>
-                  ))}
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/50 shadow-sm">
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Lucro no Período</p>
+                      <p className="text-2xl font-black text-emerald-900 dark:text-emerald-100">
+                        {formatCurrency(groupedShiftsByDate.reduce((acc, g) => acc + (g.revenue - g.expenses), 0))}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800/50 shadow-sm">
+                      <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">KM Total Rodado</p>
+                      <p className="text-2xl font-black text-blue-900 dark:text-blue-100">
+                        {groupedShiftsByDate.reduce((acc, g) => {
+                          const dayKm = Object.values(g.vehicleKM).reduce((sum, v) => sum + v.km, 0);
+                          return acc + dayKm;
+                        }, 0)} km
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                  {groupedShiftsByDate.slice(0, visibleShiftsCount).map((group) => {
+                    const isExpanded = expandedDate === group.date;
+                    const hours = group.totalMinutes / 60;
+                    const hourlyRate = hours > 0 ? group.revenue / hours : 0;
+
+                    return (
+                      <div key={group.date} className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-2xl bg-white dark:bg-gray-900 shadow-sm transition-all hover:shadow-md">
+                        <div 
+                          className="p-4 cursor-pointer flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50"
+                          onClick={() => toggleDateExpansion(group.date)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
+                              <Calendar className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900 dark:text-gray-100">
+                                {format(new Date(group.date + 'T00:00:00'), "dd 'de' MMMM", { locale: ptBR })}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" /> {hours.toFixed(1)}h trabalhadas
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <DollarSign className="h-3 w-3" /> {formatCurrency(group.revenue)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isExpanded ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="p-4 space-y-6">
+                              {/* Turnos Section */}
+                              <div className="space-y-3">
+                                <h5 className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                                  <Clock className="h-3 w-3" /> Horários dos Turnos
+                                </h5>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {group.shifts.map(shift => (
+                                    <div key={shift.id} className="group flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800 transition-colors hover:border-indigo-200 dark:hover:border-indigo-800">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                          {shift.start_time.slice(0, 5)} — {shift.end_time ? shift.end_time.slice(0, 5) : 'Em andamento'}
+                                        </span>
+                                      </div>
+                                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditShift(shift); }} className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                          <Edit2 className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); confirmDeleteShift(shift.id); }} className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Categorias Section */}
+                              <div className="space-y-3">
+                                <h5 className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                                  <Tag className="h-3 w-3" /> Detalhamento por Categoria
+                                </h5>
+                                <div className="space-y-2">
+                                  {/* Use categorical names including type for distinct display */}
+                                  {Object.entries(group.categoryBreakdown).map(([key, data]) => {
+                                    // Extract original name from typed key (or use the name field if we added it)
+                                    const displayName = (data as any).name || key.split('-')[0];
+                                    return (
+                                      <div key={key} className="flex items-center justify-between text-sm py-1 border-b border-gray-50 dark:border-gray-800/50 last:border-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-600 dark:text-gray-400">{displayName}</span>
+                                          <span className="text-[10px] px-1 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 rounded uppercase font-medium">
+                                            {data.type}
+                                          </span>
+                                        </div>
+                                        <span className={`font-semibold ${data.type === 'receita' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                          {data.type === 'receita' ? '+' : '-'} {formatCurrency(data.value)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="pt-2 flex justify-between items-center border-t border-gray-100 dark:border-gray-800 mt-2">
+                                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase">Valor Total</span>
+                                    <span className="text-base font-black text-gray-900 dark:text-gray-100">
+                                      {formatCurrency(group.revenue - group.expenses)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Desempenho Section */}
+                              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                                <div className="p-2 sm:p-3 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-800/50 min-w-0">
+                                  <p className="text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase mb-1 truncate">Ganho/Hora</p>
+                                  <p className="text-sm sm:text-xl font-black text-indigo-700 dark:text-indigo-300 truncate">
+                                    {formatCurrency(hourlyRate)}/h
+                                  </p>
+                                </div>
+                                
+                                <div className="p-2 sm:p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100/50 dark:border-emerald-800/50 min-w-0">
+                                  <p className="text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-1 truncate">Km no Dia</p>
+                                  <div className="space-y-0.5">
+                                    {Object.keys(group.vehicleKM).length > 0 ? Object.entries(group.vehicleKM).map(([vId, data]) => (
+                                      <div key={vId} className="flex justify-between items-center gap-1 min-w-0">
+                                        <span className="text-[9px] sm:text-xs text-emerald-700 dark:text-emerald-300 font-medium truncate shrink-0">{data.vehicleName.split(' ')[0]}:</span>
+                                        <span className="text-[10px] sm:text-sm font-bold text-emerald-800 dark:text-emerald-200 shrink-0">{Math.round(data.km)} km</span>
+                                      </div>
+                                    )) : (
+                                      <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-600 italic">Nenhum</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {groupedShiftsByDate.length > visibleShiftsCount && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-12 border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:text-indigo-600 hover:border-indigo-300 transition-all rounded-xl"
+                      onClick={() => setVisibleShiftsCount(prev => prev + 7)}
+                    >
+                      Ver mais dias
+                    </Button>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          )}
-        </Card>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
         {!hasCategories && (
           <OnboardingGuide
