@@ -909,10 +909,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={onBack}
-          className="h-10 w-10 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl"
+          onClick={() => setShowFilters(!showFilters)}
+          className={cn(
+            "h-10 w-10 transition-all rounded-xl",
+            showFilters 
+              ? "bg-[#F59E0B] text-white hover:bg-[#D97706]" 
+              : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+          )}
         >
-          <X className="h-6 w-6" />
+          <Filter className="h-6 w-6" />
         </Button>
       </div>
 
@@ -966,24 +971,11 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         </div>
 
         <div className="flex items-center justify-end w-10 sm:w-auto sm:ml-4 gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              "h-9 w-9 sm:h-11 sm:w-11 rounded-xl transition-all",
-              showFilters 
-                ? "bg-[#F59E0B] text-white border-[#F59E0B] hover:bg-[#D97706]" 
-                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-            )}
-          >
-            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
         </div>
       </div>
 
       {/* Month Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="hidden sm:grid grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
         <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
           <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
             <div className="p-2 sm:p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl shrink-0">
@@ -1010,48 +1002,6 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
-          <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
-            <div className={cn(
-              "p-2 sm:p-3 rounded-xl shrink-0",
-              monthSummary.saldo >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"
-            )}>
-              <DollarSign className={cn(
-                "h-4 w-4 sm:h-5 sm:w-5",
-                monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
-              )} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Líquido</p>
-              <h3 className={cn(
-                "text-sm sm:text-lg font-bold truncate",
-                monthSummary.saldo >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"
-              )}>
-                {formatCurrency(monthSummary.saldo)}
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
-        {preferences.modulo_pessoal && (
-          <Card className="bg-white dark:bg-gray-900 border-none shadow-sm overflow-hidden">
-            <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
-              <div className="p-2 sm:p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl shrink-0">
-                <Car className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pessoal</p>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-0 sm:gap-1">
-                  <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-                    {monthSummary.pessoalKm} km
-                  </h3>
-                  <span className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500">
-                    ({formatCurrency(monthSummary.pessoalCusto)})
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {showFilters && (
@@ -1857,6 +1807,35 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         featureName={premiumFeatureName}
         user={user}
       />
+
+      {/* Fixed Bottom Quick Actions for Lancamentos */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-6 pt-2 bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] to-transparent dark:from-gray-950 dark:via-gray-950 sm:hidden">
+        <div className="mx-auto max-w-lg flex items-center justify-between gap-3 h-16">
+          <div className="flex-1 h-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm rounded-2xl flex flex-col items-center justify-center p-2">
+            <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase">Gastos</span>
+            <span className="text-sm font-bold text-red-600 dark:text-red-400 truncate w-full text-center">
+              {formatCurrency(monthSummary.despesas)}
+            </span>
+          </div>
+
+          <Button 
+            onClick={() => {
+              setTipo('receita');
+              setIsFormOpen(true);
+            }}
+            className="h-14 w-14 rounded-2xl bg-[#F59E0B] text-white shadow-lg shadow-orange-500/30 hover:bg-[#D97706] transition-all active:scale-95 flex-shrink-0"
+          >
+            <Plus className="h-8 w-8" />
+          </Button>
+
+          <div className="flex-1 h-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-sm rounded-2xl flex flex-col items-center justify-center p-2">
+            <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase">Ganhos</span>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate w-full text-center">
+              {formatCurrency(monthSummary.receitas)}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

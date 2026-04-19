@@ -1578,6 +1578,44 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         </PremiumLockedOverlay>
       )}
 
+      {preferences.modulo_pessoal && (
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden mb-6">
+          <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Uso Pessoal</CardTitle>
+                <p className="text-xs text-indigo-700/70 dark:text-indigo-400/70">Resumo de quilometragem e custos pessoais no período</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Quilômetros</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {stats.pessoalKmTotal.toFixed(1)} km
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Custo Total</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {formatCurrency(stats.pessoalTotal)}
+                </p>
+              </div>
+              <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 lg:col-span-1 sm:col-span-2">
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-1">Média por KM</p>
+                <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
+                  {stats.pessoalKmTotal > 0 ? formatCurrency(stats.pessoalTotal / stats.pessoalKmTotal) : 'R$ 0,00'}/km
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <PremiumLockedOverlay 
         user={user} 
         onUnlock={() => { setPremiumFeatureName('Mapa de Calor'); setIsPremiumModalOpen(true); }}

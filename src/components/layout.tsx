@@ -152,68 +152,70 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
       </main>
 
       {/* Floating Bottom Navigation for Mobile */}
-      <nav className="fixed bottom-4 left-4 right-4 z-50 sm:hidden">
-        <div className="flex h-16 items-center justify-between rounded-2xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg shadow-lg border border-gray-100 dark:border-gray-800 px-2 lg:px-4">
-          <div className="flex flex-1 justify-around items-center h-full">
-            {leftTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'relative flex flex-col items-center justify-center gap-1 w-14 h-full transition-all duration-200',
-                    isActive ? 'text-[#D97706] dark:text-[#FBBF24]' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-                  )}
-                >
-                  {isActive && (
-                    <span className="absolute -top-3 w-1 h-1 rounded-full bg-[#D97706] dark:bg-[#FBBF24]" />
-                  )}
-                  <Icon className="h-5 w-5" />
-                  <span className={cn("text-[10px] font-medium transition-all duration-200", isActive ? "opacity-100" : "opacity-70")}>{"Início"}</span>
-                </button>
-              );
-            })}
-          </div>
+      {activeTab !== 'lancamentos' && (
+        <nav className="fixed bottom-4 left-4 right-4 z-50 sm:hidden">
+          <div className="flex h-16 items-center justify-between rounded-2xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg shadow-lg border border-gray-100 dark:border-gray-800 px-2 lg:px-4">
+            <div className="flex flex-1 justify-around items-center h-full">
+              {leftTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'relative flex flex-col items-center justify-center gap-1 w-14 h-full transition-all duration-200',
+                      isActive ? 'text-[#D97706] dark:text-[#FBBF24]' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute -top-3 w-1 h-1 rounded-full bg-[#D97706] dark:bg-[#FBBF24]" />
+                    )}
+                    <Icon className="h-5 w-5" />
+                    <span className={cn("text-[10px] font-medium transition-all duration-200", isActive ? "opacity-100" : "opacity-70")}>{"Início"}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Central Plus Button */}
-          <div className="relative -top-6 flex-shrink-0">
-            <button
-              onClick={onNewLancamento}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F59E0B] text-white shadow-lg shadow-orange-500/40 hover:bg-[#D97706] transition-all duration-200 active:scale-90"
-            >
-              <Plus className="h-7 w-7" />
-              <span className="sr-only">Novo Lançamento</span>
-              <div className="absolute inset-0 rounded-full bg-[#F59E0B] animate-ping opacity-20 -z-10" />
-            </button>
-          </div>
+            {/* Central Plus Button */}
+            <div className="relative -top-6 flex-shrink-0">
+              <button
+                onClick={onNewLancamento}
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F59E0B] text-white shadow-lg shadow-orange-500/40 hover:bg-[#D97706] transition-all duration-200 active:scale-90"
+              >
+                <Plus className="h-7 w-7" />
+                <span className="sr-only">Novo Lançamento</span>
+                <div className="absolute inset-0 rounded-full bg-[#F59E0B] animate-ping opacity-20 -z-10" />
+              </button>
+            </div>
 
-          <div className="flex flex-1 justify-around items-center h-full">
-            {rightTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              // On mobile we only want to show the 'configuracoes' as Menu icon or Admin if exists
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'relative flex flex-col items-center justify-center gap-1 w-14 h-full transition-all duration-200',
-                    isActive ? 'text-[#D97706] dark:text-[#FBBF24]' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-                  )}
-                >
-                  {isActive && (
-                    <span className="absolute -top-3 w-1 h-1 rounded-full bg-[#D97706] dark:bg-[#FBBF24]" />
-                  )}
-                  <Icon className="h-5 w-5" />
-                  <span className={cn("text-[10px] font-medium transition-all duration-200", isActive ? "opacity-100" : "opacity-70")}>{tab.label === 'Menu' || tab.label === 'Mais' ? 'Menu' : tab.label}</span>
-                </button>
-              );
-            })}
+            <div className="flex flex-1 justify-around items-center h-full">
+              {rightTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                // On mobile we only want to show the 'configuracoes' as Menu icon or Admin if exists
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      'relative flex flex-col items-center justify-center gap-1 w-14 h-full transition-all duration-200',
+                      isActive ? 'text-[#D97706] dark:text-[#FBBF24]' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute -top-3 w-1 h-1 rounded-full bg-[#D97706] dark:bg-[#FBBF24]" />
+                    )}
+                    <Icon className="h-5 w-5" />
+                    <span className={cn("text-[10px] font-medium transition-all duration-200", isActive ? "opacity-100" : "opacity-70")}>{tab.label === 'Menu' || tab.label === 'Mais' ? 'Menu' : tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
     </div>
   );
 }
