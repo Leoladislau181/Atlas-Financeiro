@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Input } from '@/components/ui/input';
-import { formatCurrency, parseLocalDate, isPremium } from '@/lib/utils';
+import { formatCurrency, parseLocalDate, isPremium, cn } from '@/lib/utils';
 import { Categoria, Lancamento, Vehicle, User, WorkShift } from '@/types';
 import { format, isWithinInterval, startOfMonth, endOfMonth, subMonths, addMonths, eachMonthOfInterval, differenceInDays, addDays, isSameDay, startOfYear, endOfYear, startOfWeek, endOfWeek, eachDayOfInterval, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { supabase } from '@/lib/supabase';
-import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock, Car, X } from 'lucide-react';
+import { Filter, TrendingUp, TrendingDown, DollarSign, Wallet, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText, Download, FileSpreadsheet, FileJson, MessageSquare, Upload, AlertCircle, CheckCircle2, Clock, Lock, Car, X, Calendar } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -49,24 +49,43 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
   const [heatmapDate, setHeatmapDate] = useState(new Date());
   const [heatmapVehicleId, setHeatmapVehicleId] = useState<string>('all');
   const [exportLoading, setExportLoading] = useState(false);
+  const [personalMonthFilter, setPersonalMonthFilter] = useState(format(new Date(), 'yyyy-MM'));
+  const [selectedHeatmapDay, setSelectedHeatmapDay] = useState<{ date: Date; profit: number; revenue: number; expenses: number } | null>(null);
 
-  const heatmapPersonalSummary = useMemo(() => {
-    const start = startOfMonth(heatmapDate);
-    const end = endOfMonth(heatmapDate);
-    
-    const personalLancamentos = lancamentos.filter(l => {
+  const prevPersonalMonth = () => {
+    const [year, month] = personalMonthFilter.split('-');
+    const currentDate = new Date(Number(year), Number(month) - 1);
+    const prevDate = subMonths(currentDate, 1);
+    setPersonalMonthFilter(format(prevDate, 'yyyy-MM'));
+  };
+
+  const nextPersonalMonth = () => {
+    const [year, month] = personalMonthFilter.split('-');
+    const currentDate = new Date(Number(year), Number(month) - 1);
+    const nextDate = addMonths(currentDate, 1);
+    setPersonalMonthFilter(format(nextDate, 'yyyy-MM'));
+  };
+
+  const personalSectionStats = useMemo(() => {
+    const [year, month] = personalMonthFilter.split('-');
+    const filterDate = new Date(Number(year), Number(month) - 1);
+    const start = startOfMonth(filterDate);
+    const end = endOfMonth(filterDate);
+
+    const personalL = lancamentos.filter(l => {
       if (l.tipo !== 'pessoal') return false;
       const d = parseLocalDate(l.data);
       const matchesDate = isWithinInterval(d, { start, end });
-      const matchesVehicle = heatmapVehicleId === 'all' || l.vehicle_id === heatmapVehicleId;
+      const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
       return matchesDate && matchesVehicle;
     });
 
-    const totalKm = personalLancamentos.reduce((acc, l) => acc + (l.km_rodados || 0), 0);
-    const totalCost = personalLancamentos.reduce((acc, l) => acc + Number(l.valor), 0);
+    const totalKm = personalL.reduce((acc, l) => acc + (l.km_rodados || 0), 0);
+    const totalCost = personalL.reduce((acc, l) => acc + Number(l.valor), 0);
 
     return { totalKm, totalCost };
-  }, [heatmapDate, heatmapVehicleId, lancamentos]);
+  }, [personalMonthFilter, lancamentos, selectedVehicleId]);
+
   const [importLoading, setImportLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -531,8 +550,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
     
     const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
     
-    const weeks: { name: string; days: { date: Date; profit: number; isCurrentMonth: boolean }[] }[] = [];
-    let currentWeek: { date: Date; profit: number; isCurrentMonth: boolean }[] = [];
+    const weeks: { name: string; days: { date: Date; profit: number; revenue: number; expenses: number; isCurrentMonth: boolean }[] }[] = [];
+    let currentWeek: { date: Date; profit: number; revenue: number; expenses: number; isCurrentMonth: boolean }[] = [];
     
     allDays.forEach((day, index) => {
       const dateStr = format(day, 'yyyy-MM-dd');
@@ -559,12 +578,14 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       currentWeek.push({
         date: day,
         profit,
+        revenue: dayReceitas,
+        expenses: dayDespesas,
         isCurrentMonth: day.getMonth() === heatmapDate.getMonth()
       });
       
       if (currentWeek.length === 7) {
         weeks.push({
-          name: `Semana ${weeks.length + 1}`,
+          name: `Sem ${weeks.length + 1}`,
           days: currentWeek
         });
         currentWeek = [];
@@ -1581,34 +1602,57 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       {preferences.modulo_pessoal && (
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden mb-6">
           <CardHeader className="border-b border-gray-50 dark:border-gray-800 pb-4 bg-indigo-50/50 dark:bg-indigo-900/10">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                  <Car className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Uso Pessoal</CardTitle>
+                  <p className="text-xs text-indigo-700/70 dark:text-indigo-400/70">Resumo de quilometragem e custos pessoais</p>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Uso Pessoal</CardTitle>
-                <p className="text-xs text-indigo-700/70 dark:text-indigo-400/70">Resumo de quilometragem e custos pessoais no período</p>
+              <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-1 rounded-full border border-indigo-100 dark:border-indigo-900/30 shadow-sm min-w-[180px] justify-between">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600"
+                  onClick={prevPersonalMonth}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs font-black text-gray-700 dark:text-gray-200 capitalize">
+                  {format(parseLocalDate(personalMonthFilter + '-01'), 'MMMM yyyy', { locale: ptBR })}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-indigo-600"
+                  onClick={nextPersonalMonth}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Quilômetros</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Quilômetros ({format(parseLocalDate(personalMonthFilter + '-01'), 'MMMM', { locale: ptBR })})</p>
                 <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats.pessoalKmTotal.toFixed(1)} km
+                  {personalSectionStats.totalKm.toFixed(1)} km
                 </p>
               </div>
               <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Custo Total</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Custo Total ({format(parseLocalDate(personalMonthFilter + '-01'), 'MMMM', { locale: ptBR })})</p>
                 <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {formatCurrency(stats.pessoalTotal)}
+                  {formatCurrency(personalSectionStats.totalCost)}
                 </p>
               </div>
               <div className="p-4 bg-indigo-50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100 dark:border-indigo-800/50 lg:col-span-1 sm:col-span-2">
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-1">Média por KM</p>
                 <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300">
-                  {stats.pessoalKmTotal > 0 ? formatCurrency(stats.pessoalTotal / stats.pessoalKmTotal) : 'R$ 0,00'}/km
+                  {personalSectionStats.totalKm > 0 ? formatCurrency(personalSectionStats.totalCost / personalSectionStats.totalKm) : 'R$ 0,00'}/km
                 </p>
               </div>
             </div>
@@ -1685,27 +1729,81 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
             </div>
           </CardHeader>
           {isHeatmapOpen && (
-            <CardContent className="pt-6 overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="min-w-[600px]">
-                <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-4">
-                  <div className="text-[10px] font-bold text-gray-400 flex items-center justify-center">SEMANA</div>
+            <CardContent className="pt-6 overflow-x-auto md:overflow-x-visible animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="w-full">
+                {/* Header for Days */}
+                <div className="grid grid-cols-[50px_repeat(7,1fr)] md:grid-cols-[80px_repeat(7,1fr)] gap-1 md:gap-2 mb-4">
+                  <div className="text-[9px] md:text-[10px] font-bold text-gray-400 flex items-center justify-center">SEM</div>
                   {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(d => (
-                    <div key={d} className="text-[10px] font-bold text-gray-400 text-center uppercase tracking-wider">
+                    <div key={d} className="text-[9px] md:text-[10px] font-bold text-gray-400 text-center uppercase tracking-wider">
                       {d}
                     </div>
                   ))}
                 </div>
                 
                 {heatmapData.weeks.map((week, wIndex) => (
-                  <div key={wIndex} className="grid grid-cols-[80px_repeat(7,1fr)] gap-2 mb-2">
-                    <div className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-3 justify-end bg-gray-50 dark:bg-gray-800/50 rounded-l-lg">
+                  <div key={wIndex} className="grid grid-cols-[50px_repeat(7,1fr)] md:grid-cols-[80px_repeat(7,1fr)] gap-1 md:gap-2 mb-1 md:mb-2">
+                    <div className="text-[10px] md:text-[11px] font-bold text-gray-500 dark:text-gray-400 flex items-center pr-1 md:pr-3 justify-end bg-gray-50 dark:bg-gray-800/50 rounded-l-lg">
                       {week.name}
                     </div>
                     {week.days.map((day, dIndex) => {
                       const value = day.profit;
+                      const hasTransactions = day.revenue > 0 || day.expenses > 0;
                       const isCurrentMonth = day.isCurrentMonth;
                       
                       // Color scale based on Daily Profit
+                      let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
+                      if (!isCurrentMonth) {
+                        bgColor = 'bg-transparent opacity-20';
+                      } else if (!hasTransactions) {
+                        bgColor = 'bg-gray-100 dark:bg-gray-800/40';
+                      } else if (value < 0) {
+                        bgColor = 'bg-red-500 text-white';
+                      } else if (value > 0) {
+                        bgColor = 'bg-emerald-500 text-white';
+                      } else {
+                        // value is 0 but has transactions (Break even)
+                        bgColor = 'bg-blue-500 text-white';
+                      }
+
+                      // Adjust colors for Desktop Heatmap (keep previous behavior if on desktop)
+                      // The user wants mobile to be a simple calendar and desktop "as it is".
+                      // So we'll use conditional classes or media queries.
+                      
+                      return (
+                        <div 
+                          key={dIndex}
+                          onClick={() => {
+                            if (hasTransactions && isCurrentMonth) {
+                              setSelectedHeatmapDay({
+                                date: day.date,
+                                profit: day.profit,
+                                revenue: day.revenue,
+                                expenses: day.expenses
+                              });
+                            }
+                          }}
+                          className={cn(
+                            "h-10 md:h-12 rounded-lg transition-all relative flex flex-col items-center justify-center border border-transparent",
+                            isCurrentMonth ? "cursor-pointer hover:scale-105 hover:shadow-md hover:z-10" : "pointer-events-none",
+                            // Mobile Styles
+                            "md:hidden",
+                            bgColor,
+                            !isCurrentMonth && "opacity-0"
+                          )}
+                        >
+                          <span className="text-[10px] font-bold">
+                            {format(day.date, 'dd')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Desktop Version - Repeating for MD screens to maintain original look */}
+                    {week.days.map((day, dIndex) => {
+                      const value = day.profit;
+                      const isCurrentMonth = day.isCurrentMonth;
+                      
                       let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
                       if (!isCurrentMonth) {
                         bgColor = 'bg-transparent opacity-20';
@@ -1723,8 +1821,12 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
                       return (
                         <div 
-                          key={dIndex}
-                          className={`h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-help flex flex-col items-center justify-center relative ${bgColor} border border-transparent ${isCurrentMonth ? 'hover:border-emerald-400/50' : ''}`}
+                          key={`desktop-${dIndex}`}
+                          className={cn(
+                            "hidden md:flex h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-help flex-col items-center justify-center relative border border-transparent",
+                            isCurrentMonth ? 'hover:border-emerald-400/50' : '',
+                            bgColor
+                          )}
                           title={`${format(day.date, 'dd/MM/yyyy')}: ${formatCurrency(value)}`}
                         >
                           <span className={`text-[9px] absolute top-1 right-1 font-medium ${isCurrentMonth ? 'text-gray-400' : 'text-gray-300'}`}>
@@ -1741,57 +1843,96 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   </div>
                 ))}
 
-                <div className="mt-8 flex flex-wrap items-center justify-center gap-6 p-4 bg-gray-50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <div className="mt-8 grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2 md:gap-6 p-4 bg-gray-50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-red-100 dark:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800/30"></div>
+                    <div className="h-4 w-4 bg-red-500 md:bg-red-100 dark:md:bg-red-900/20 rounded-md border border-red-200 dark:border-red-800/30"></div>
                     <span className="text-[11px] font-medium text-gray-500">Prejuízo</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 bg-gray-100 dark:bg-gray-800/40 rounded-md"></div>
-                    <span className="text-[11px] font-medium text-gray-500">R$ 0</span>
+                    <span className="text-[11px] font-medium text-gray-500">R$ 0 / Sem Uso</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 bg-emerald-100 dark:bg-emerald-900/20 rounded-md"></div>
-                    <span className="text-[11px] font-medium text-gray-500">&lt; R$ 100</span>
+                    <div className="h-4 w-4 bg-emerald-500 md:bg-emerald-100 dark:md:bg-emerald-900/20 rounded-md border border-emerald-200 dark:border-emerald-800/30"></div>
+                    <span className="text-[11px] font-medium text-gray-500">Lucro</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="hidden md:flex items-center gap-2">
                     <div className="h-4 w-4 bg-emerald-300 dark:bg-emerald-700/40 rounded-md"></div>
                     <span className="text-[11px] font-medium text-gray-500">R$ 100-250</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="hidden md:flex items-center gap-2">
                     <div className="h-4 w-4 bg-emerald-500 dark:bg-emerald-500/60 rounded-md"></div>
                     <span className="text-[11px] font-medium text-gray-500">R$ 250-500</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="hidden md:flex items-center gap-2">
                     <div className="h-4 w-4 bg-emerald-700 dark:bg-emerald-400/80 rounded-md"></div>
                     <span className="text-[11px] font-medium text-gray-500">&gt; R$ 500</span>
                   </div>
                 </div>
-
-                {/* Personal Use Summary Section */}
-                {preferences.modulo_pessoal && (heatmapPersonalSummary.totalKm > 0 || heatmapPersonalSummary.totalCost > 0) && (
-                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/30 animate-in fade-in slide-in-from-top-2 duration-500">
-                    <div className="flex items-center gap-2 mb-3 text-blue-700 dark:text-blue-400">
-                      <Car className="h-4 w-4" />
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">Resumo de Uso Pessoal</h4>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Distância Percorrida</p>
-                        <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{heatmapPersonalSummary.totalKm} <span className="text-xs font-bold opacity-50">km</span></p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-blue-500 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Custo Total Estimado</p>
-                        <p className="text-xl font-black text-blue-900 dark:text-blue-100 tabular-nums">{formatCurrency(heatmapPersonalSummary.totalCost)}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </CardContent>
           )}
         </Card>
       </PremiumLockedOverlay>
+
+      <Modal
+        isOpen={!!selectedHeatmapDay}
+        onClose={() => setSelectedHeatmapDay(null)}
+        title="Detalhes do Dia"
+      >
+        {selectedHeatmapDay && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
+              <Calendar className="h-5 w-5 text-indigo-500" />
+              <div>
+                <p className="text-xs text-gray-500">Data Selecionada</p>
+                <p className="font-bold text-gray-900 dark:text-gray-100 capitalize">
+                  {format(selectedHeatmapDay.date, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-800/50">
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black uppercase tracking-wider mb-1">Receitas</p>
+                <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
+                  {formatCurrency(selectedHeatmapDay.revenue)}
+                </p>
+              </div>
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-100 dark:border-red-800/50">
+                <p className="text-[10px] text-red-600 dark:text-red-400 font-black uppercase tracking-wider mb-1">Despesas</p>
+                <p className="text-lg font-black text-red-700 dark:text-red-300">
+                  {formatCurrency(selectedHeatmapDay.expenses)}
+                </p>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-2xl border ${
+              selectedHeatmapDay.profit >= 0 
+                ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800' 
+                : 'bg-orange-50 border-orange-100 dark:bg-orange-900/20 dark:border-orange-800'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider mb-1 opacity-70">Lucro Diário</p>
+                  <p className={`text-2xl font-black ${
+                    selectedHeatmapDay.profit >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-orange-700 dark:text-orange-300'
+                  }`}>
+                    {formatCurrency(selectedHeatmapDay.profit)}
+                  </p>
+                </div>
+                <TrendingUp className={`h-8 w-8 opacity-40 ${
+                  selectedHeatmapDay.profit >= 0 ? 'text-blue-500' : 'text-orange-500 rotate-180'
+                }`} />
+              </div>
+            </div>
+
+            <Button onClick={() => setSelectedHeatmapDay(null)} className="w-full">
+              Fechar
+            </Button>
+          </div>
+        )}
+      </Modal>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900">

@@ -88,6 +88,35 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       setVehicleId(mostUsedVehicleId);
     }
   }, [isFormOpen, editingId, vehicles, mostUsedVehicleId]);
+
+  // Handle fuel type pre-selection and vehicle fuel type logic
+  useEffect(() => {
+    if (isFormOpen && !editingId && vehicleId && isCombustivel()) {
+      const vehicle = vehicles.find(v => v.id === vehicleId);
+      if (vehicle) {
+        if (vehicle.fuel_type && vehicle.fuel_type !== 'flex') {
+          setFuelType(vehicle.fuel_type);
+        } else {
+          // If flex or undefined, look for the last refueling of this vehicle to pre-select
+          const lastRefueling = lancamentos
+            .filter(l => l.vehicle_id === vehicleId && l.fuel_type)
+            .sort((a,b) => {
+              const dateA = parseLocalDate(a.data).getTime();
+              const dateB = parseLocalDate(b.data).getTime();
+              if (dateA !== dateB) return dateB - dateA;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            })[0];
+          
+          if (lastRefueling) {
+            setFuelType(lastRefueling.fuel_type as FuelType);
+          } else if (vehicle.fuel_type === 'flex') {
+            setFuelType('gasolina'); // Default for flex if no history
+          }
+        }
+      }
+    }
+  }, [isFormOpen, editingId, vehicleId, items[0]?.categoriaId, vehicles, lancamentos]);
+
   const [filterMonth, setFilterMonth] = useState('');
   const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
   const [filterCategoriaId, setFilterCategoriaId] = useState('all');
@@ -1312,20 +1341,22 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                       className="md:col-span-2"
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
-                          <CustomSelect
-                            value={fuelType || ''}
-                            onChange={(val) => setFuelType(val as FuelType)}
-                            options={[
-                              { value: 'gasolina', label: 'Gasolina' },
-                              { value: 'etanol', label: 'Etanol' },
-                              { value: 'diesel', label: 'Diesel' },
-                              { value: 'gnv', label: 'GNV' },
-                            ]}
-                            placeholder="Selecione o combustível"
-                          />
-                        </div>
+                        {(!vehicleId || vehicles.find(v => v.id === vehicleId)?.fuel_type === 'flex' || !vehicles.find(v => v.id === vehicleId)?.fuel_type) && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+                            <CustomSelect
+                              value={fuelType || ''}
+                              onChange={(val) => setFuelType(val as FuelType)}
+                              options={[
+                                { value: 'gasolina', label: 'Gasolina' },
+                                { value: 'etanol', label: 'Álcool / Etanol' },
+                                { value: 'diesel', label: 'Diesel' },
+                                { value: 'gnv', label: 'GNV' },
+                              ]}
+                              placeholder="Selecione o combustível"
+                            />
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
                           <Input

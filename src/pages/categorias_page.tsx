@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ interface CategoriasPageProps {
   onBackToConfig: () => void;
   onBackToHome: () => void;
   onNavigateToPremium?: () => void;
+  forceOpenAdd?: boolean;
 }
 
 export function CategoriasPage({ 
@@ -24,17 +25,24 @@ export function CategoriasPage({
   refetch, 
   onBackToConfig, 
   onBackToHome,
-  onNavigateToPremium 
+  onNavigateToPremium,
+  forceOpenAdd = false
 }: CategoriasPageProps) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<TipoLancamento | ''>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNome, setEditNome] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(forceOpenAdd);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (forceOpenAdd) {
+      setIsAddModalOpen(true);
+    }
+  }, [forceOpenAdd]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

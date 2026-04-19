@@ -12,12 +12,14 @@ const Dashboard = React.lazy(() => import('@/pages/dashboard').then(m => ({ defa
 const Lancamentos = React.lazy(() => import('@/pages/lancamentos').then(m => ({ default: m.Lancamentos })));
 const Relatorios = React.lazy(() => import('@/pages/relatorios').then(m => ({ default: m.Relatorios })));
 const Configuracoes = React.lazy(() => import('@/pages/configuracoes').then(m => ({ default: m.Configuracoes })));
-const Veiculos = React.lazy(() => import('@/pages/veiculos').then(m => ({ default: m.Veiculos })));
+const VeiculosManutencaoPage = React.lazy(() => import('@/pages/veiculos_manutencao_page').then(m => ({ default: m.VeiculosManutencaoPage })));
 const Funcionalidades = React.lazy(() => import('@/pages/funcionalidades').then(m => ({ default: m.Funcionalidades })));
 const CategoriasPage = React.lazy(() => import('@/pages/categorias_page').then(m => ({ default: m.CategoriasPage })));
 const Premium = React.lazy(() => import('@/pages/premium').then(m => ({ default: m.Premium })));
 const Admin = React.lazy(() => import('@/pages/admin').then(m => ({ default: m.Admin })));
 const Suporte = React.lazy(() => import('@/pages/suporte').then(m => ({ default: m.Suporte })));
+const PlanoIndicacoesPage = React.lazy(() => import('@/pages/plano_indicacoes').then(m => ({ default: m.PlanoIndicacoesPage })));
+const PerfilPage = React.lazy(() => import('@/pages/perfil_page').then(m => ({ default: m.PerfilPage })));
 import { PremiumModal } from '@/components/premium-modal';
 
 function SupabaseSetupScreen() {
@@ -217,6 +219,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
   const { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, refetch } = useFinanceData();
   const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
   const [forceOpenProfile, setForceOpenProfile] = useState(false);
+  const [forceOpenVehicle, setForceOpenVehicle] = useState(false);
+  const [forceOpenCategory, setForceOpenCategory] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
 
@@ -260,6 +264,16 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
     setForceOpenProfile(true);
   };
 
+  const handleNavigateToNewVehicle = () => {
+    setActiveTab('veiculos');
+    setForceOpenVehicle(true);
+  };
+
+  const handleNavigateToNewCategory = () => {
+    setActiveTab('categorias');
+    setForceOpenCategory(true);
+  };
+
   return (
     <Layout 
       activeTab={activeTab} 
@@ -285,6 +299,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             refetch={refetch}
             user={user}
             onNavigate={setActiveTab}
+            onNavigateToNewVehicle={handleNavigateToNewVehicle}
+            onNavigateToNewCategory={handleNavigateToNewCategory}
           />
         )}
         {activeTab === 'lancamentos' && (
@@ -312,15 +328,16 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
           />
         )}
         {activeTab === 'veiculos' && (
-          <Veiculos
+          <VeiculosManutencaoPage
+            user={user}
             vehicles={vehicles}
             lancamentos={lancamentos}
             manutencoes={manutencoes}
             workShifts={workShifts}
             refetch={refetch}
-            user={user}
-            onBackToConfig={() => setActiveTab('configuracoes')}
+            onBack={() => setActiveTab('configuracoes')}
             onBackToHome={() => setActiveTab('inicio')}
+            forceOpenAdd={forceOpenVehicle}
           />
         )}
         {activeTab === 'funcionalidades' && (
@@ -339,6 +356,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onBackToConfig={() => setActiveTab('configuracoes')}
             onBackToHome={() => setActiveTab('inicio')}
             onNavigateToPremium={() => setActiveTab('premium')}
+            forceOpenAdd={forceOpenCategory}
           />
         )}
         {activeTab === 'premium' && (
@@ -349,6 +367,21 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         )}
         {activeTab === 'suporte' && (
           <Suporte user={user} onBack={() => setActiveTab('configuracoes')} />
+        )}
+        {activeTab === 'plano_indicacoes' && (
+          <PlanoIndicacoesPage
+            user={user}
+            onBack={() => setActiveTab('configuracoes')}
+            onNavigateToPremium={() => setActiveTab('premium')}
+          />
+        )}
+        {activeTab === 'perfil' && (
+          <PerfilPage
+            user={user}
+            refetch={refetch}
+            onBackToConfig={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
+          />
         )}
         {activeTab === 'configuracoes' && (
           <Configuracoes 
@@ -361,9 +394,12 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onNavigateToRelatorios={() => setActiveTab('relatorios')}
             onNavigateToPremium={() => setActiveTab('premium')}
             onNavigateToVeiculos={() => setActiveTab('veiculos')}
+            onNavigateToManutencao={() => setActiveTab('manutencao')}
             onNavigateToFuncionalidades={() => setActiveTab('funcionalidades')}
             onNavigateToCategorias={() => setActiveTab('categorias')}
             onNavigateToSuporte={() => setActiveTab('suporte')}
+            onNavigateToPlanoIndicacoes={() => setActiveTab('plano_indicacoes')}
+            onNavigateToPerfil={() => setActiveTab('perfil')}
             forceOpenProfile={forceOpenProfile}
             onProfileOpened={() => setForceOpenProfile(false)}
           />

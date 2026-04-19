@@ -17,6 +17,7 @@ export interface Vehicle {
   type: 'own' | 'rented';
   status: 'active' | 'sold' | 'deactivated';
   initial_odometer: number;
+  fuel_type?: FuelType;
   contract_value?: number;
   contract_start_date?: string;
   contract_end_date?: string;
@@ -57,7 +58,7 @@ export interface WorkShift {
   created_at: string;
 }
 
-export type FuelType = 'gasolina' | 'etanol' | 'diesel' | 'gnv';
+export type FuelType = 'gasolina' | 'etanol' | 'diesel' | 'flex' | 'gnv';
 
 export interface Lancamento {
   id: string;

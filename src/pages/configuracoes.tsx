@@ -7,7 +7,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User, WorkShift, Vehicle, Lancamento } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign, Layout, Fuel, Layers, Bell, Upload } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign, Layout, Fuel, Layers, Bell, Upload, CheckCircle, Wrench } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { Switch } from '@/components/ui/switch';
@@ -30,9 +30,14 @@ interface ConfiguracoesProps {
   onNavigateToRelatorios?: () => void;
   onNavigateToPremium?: () => void;
   onNavigateToVeiculos?: () => void;
+  onNavigateToManutencao?: () => void;
   onNavigateToFuncionalidades?: () => void;
   onNavigateToCategorias?: () => void;
   onNavigateToSuporte?: () => void;
+  onNavigateToPlanoIndicacoes?: () => void;
+  onNavigateToPerfil?: () => void;
+  onNavigateToNewVehicle?: () => void;
+  onNavigateToNewCategory?: () => void;
   forceOpenProfile?: boolean;
   onProfileOpened?: () => void;
 }
@@ -47,27 +52,20 @@ export function Configuracoes({
   onNavigateToRelatorios, 
   onNavigateToPremium, 
   onNavigateToVeiculos, 
+  onNavigateToManutencao,
   onNavigateToFuncionalidades,
   onNavigateToCategorias,
   onNavigateToSuporte,
+  onNavigateToPlanoIndicacoes,
+  onNavigateToPerfil,
+  onNavigateToNewVehicle,
+  onNavigateToNewCategory,
   forceOpenProfile, 
   onProfileOpened 
 }: ConfiguracoesProps) {
   const [loading, setLoading] = useState(false);
 
-  const [newPassword, setNewPassword] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
-
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isReferralOpen, setIsReferralOpen] = useState(false);
-  const [profileNome, setProfileNome] = useState(user.nome || '');
-  const [profileTelefone, setProfileTelefone] = useState(user.telefone || '');
-  const [profileLoading, setProfileLoading] = useState(false);
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
-  const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [isModulesOpen, setIsModulesOpen] = useState(false);
   const [isSupportSectionOpen, setIsSupportSectionOpen] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
@@ -408,93 +406,11 @@ export function Configuracoes({
   }, [calcVehicleId, vehicles, lancamentos, calcMode]);
 
   useEffect(() => {
-    setProfileNome(user.nome || '');
-    setProfileTelefone(user.telefone || '');
-  }, [user]);
-
-  useEffect(() => {
     if (forceOpenProfile) {
-      setIsProfileOpen(true);
+      onNavigateToPerfil?.();
       onProfileOpened?.();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [forceOpenProfile, onProfileOpened]);
-
-
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!currentPassword) {
-      setErrorMsg('Por favor, informe sua senha atual.');
-      return;
-    }
-
-    if (!newPassword || newPassword.length < 6) {
-      setErrorMsg('A nova senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setErrorMsg('A nova senha e a confirmação não coincidem.');
-      return;
-    }
-
-    setPasswordLoading(true);
-    try {
-      // First verify current password by re-authenticating
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
-      });
-
-      if (signInError) {
-        throw new Error('Senha atual incorreta.');
-      }
-
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      
-      setSuccessMsg('Senha atualizada com sucesso!');
-      setNewPassword('');
-      setCurrentPassword('');
-      setConfirmPassword('');
-      setIsPasswordFormOpen(false);
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao atualizar senha.');
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const handleProfileUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProfileLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          nome: profileNome,
-          telefone: profileTelefone
-        }
-      });
-      if (error) throw error;
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          nome: profileNome,
-          telefone: profileTelefone
-        })
-        .eq('id', user.id);
-      if (profileError) throw profileError;
-
-      setSuccessMsg('Perfil atualizado com sucesso!');
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao atualizar perfil.');
-    } finally {
-      setProfileLoading(false);
-    }
-  };
+  }, [forceOpenProfile, onProfileOpened, onNavigateToPerfil]);
 
   const handleOpenNewShift = () => {
     setEditingShiftId(null);
@@ -617,8 +533,8 @@ export function Configuracoes({
       <div className="flex flex-col gap-4">
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-blue-500"
+            onClick={onNavigateToPerfil}
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -630,129 +546,9 @@ export function Configuracoes({
               </div>
             </div>
             <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isProfileOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              <ChevronDown className="h-5 w-5 -rotate-90" />
             </Button>
           </div>
-          
-          {isProfileOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="flex justify-center mb-8">
-                <ProfilePhotoUpload user={user} onUpdate={refetch} />
-              </div>
-
-              <form onSubmit={handleProfileUpdate} className="space-y-4 mb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome</label>
-                    <Input 
-                      type="text" 
-                      value={profileNome} 
-                      onChange={(e) => setProfileNome(e.target.value)} 
-                      placeholder="Seu nome completo" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Telefone</label>
-                    <Input 
-                      type="tel" 
-                      inputMode="tel"
-                      value={profileTelefone} 
-                      onChange={(e) => setProfileTelefone(e.target.value)} 
-                      placeholder="(00) 00000-0000" 
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-                  <Input type="email" value={user.email} disabled className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400" />
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">O email não pode ser alterado.</p>
-                </div>
-                <Button type="submit" disabled={profileLoading} className="w-full sm:w-auto">
-                  {profileLoading ? 'Salvando...' : 'Salvar Detalhes'}
-                </Button>
-              </form>
-
-              <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
-                <button 
-                  onClick={() => setIsPasswordFormOpen(!isPasswordFormOpen)}
-                  className="flex items-center justify-between w-full group"
-                >
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Alterar Senha</h4>
-                  </div>
-                  <div className="text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
-                    {isPasswordFormOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                </button>
-
-                {isPasswordFormOpen && (
-                  <form onSubmit={handlePasswordChange} className="space-y-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Senha Atual</label>
-                      <Input
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Sua senha atual"
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Senha</label>
-                        <Input
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Mínimo 6 caracteres"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmar Nova Senha</label>
-                        <Input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Repita a nova senha"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <Button type="submit" disabled={passwordLoading} className="w-full sm:w-auto">
-                      {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
-                    </Button>
-                  </form>
-                )}
-              </div>
-
-              <div className="space-y-4 pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Moon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Aparência</h4>
-                </div>
-                <div 
-                  onClick={() => {
-                    const currentTheme = theme === "system" 
-                      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-                      : theme;
-                    setTheme(currentTheme === "light" ? "dark" : "light");
-                  }}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 group"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Modo Escuro</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Alterne entre o tema claro e escuro</p>
-                  </div>
-                  <div className="flex items-center justify-center rounded-lg p-2 text-gray-500 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-gray-100 transition-colors">
-                    <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
@@ -777,146 +573,24 @@ export function Configuracoes({
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsPlanOpen(!isPlanOpen)}
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-amber-500"
+            onClick={onNavigateToPlanoIndicacoes}
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                 <Shield className="h-5 w-5 text-amber-500 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Meu Plano</h3>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Meu Plano e Indicações</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {user.premium_status === 'pending' ? 'Assinatura em Análise ⏳' : (isPremium(user) ? 'Você é Premium 🌟' : 'Plano Gratuito')}
+                  {user.premium_status === 'pending' ? 'Assinatura em Análise ⏳' : (isPremium(user) ? 'Plano Premium 🌟' : 'Plano Gratuito')} • Indicações
                 </p>
               </div>
             </div>
             <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isPlanOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              <ChevronDown className="h-5 w-5 -rotate-90" />
             </Button>
           </div>
-
-          {isPlanOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-4">
-                <div className={`p-4 rounded-xl border ${user.premium_status === 'pending' ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30' : (isPremium(user) ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-900/30' : 'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700')}`}>
-                  <h4 className={`font-semibold mb-2 ${user.premium_status === 'pending' ? 'text-amber-800 dark:text-amber-300' : (isPremium(user) ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-800 dark:text-gray-300')}`}>
-                    {user.premium_status === 'pending' ? 'Assinatura em Análise' : (isPremium(user) ? 'Plano Premium Ativo' : 'Plano Gratuito')}
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    {user.premium_status === 'pending' 
-                      ? 'Seu pagamento está sendo analisado. Seu acesso será liberado assim que o pagamento for confirmado.'
-                      : (isPremium(user) 
-                        ? 'Você tem acesso a todas as funcionalidades do Atlas Financeiro, incluindo veículos ilimitados e exportação de relatórios.'
-                        : 'Faça o upgrade para desbloquear veículos ilimitados, exportação de relatórios e muito mais.')}
-                  </p>
-                  
-                  {!isPremium(user) && user.premium_status !== 'pending' ? (
-                    <Button 
-                      onClick={onNavigateToPremium} 
-                      className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                    >
-                      Ver Planos Premium
-                    </Button>
-                  ) : (
-                    <Button 
-                      onClick={onNavigateToPremium} 
-                      className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                    >
-                      {user.premium_status === 'pending' ? 'Acompanhar Assinatura' : 'Estender Assinatura'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-amber-500"
-            onClick={() => setIsReferralOpen(!isReferralOpen)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <Gift className="h-5 w-5 text-amber-500 dark:text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Minhas Indicações</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Ganhe Premium indicando amigos</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isReferralOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </Button>
-          </div>
-
-          {isReferralOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                  <div className="absolute top-[-20px] right-[-20px] opacity-10">
-                    <Gift className="h-32 w-32 rotate-12" />
-                  </div>
-                  <h4 className="text-lg font-bold mb-2">Dê 15 dias, Ganhe 30! 🎁</h4>
-                  <p className="text-sm text-white/90 leading-relaxed max-w-[80%]">
-                    Compartilhe o Atlas com seus amigos. Eles ganham 15 dias de Premium ao se cadastrar e você ganha 30 dias quando eles completarem 10 lançamentos!
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Seu Link de Convite</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1 bg-gray-50 dark:bg-gray-800 border-dashed border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex items-center justify-between group">
-                        <code className="text-sm font-mono text-emerald-600 dark:text-emerald-400 break-all">
-                          {`${window.location.origin}/auth?ref=${user.referral_code || ''}`}
-                        </code>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 shrink-0 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                          onClick={() => {
-                            const link = `${window.location.origin}/auth?ref=${user.referral_code || ''}`;
-                            navigator.clipboard.writeText(link);
-                            setSuccessMsg('Link copiado para a área de transferência!');
-                          }}
-                        >
-                          <Copy className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button 
-                    className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white flex items-center justify-center gap-2 h-12 rounded-xl transition-all active:scale-[0.98]"
-                    onClick={() => {
-                      const link = `${window.location.origin}/auth?ref=${user.referral_code || ''}`;
-                      const text = `Fala parceiro! Estou usando o Atlas para controlar meus ganhos e ele é fera! No link abaixo você já ganha 15 dias de Acesso Premium grátis: ${link}`;
-                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                    }}
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    Convidar Amigos no WhatsApp
-                  </Button>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Suas métricas</h5>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
-                      <p className="text-2xl font-black text-gray-900 dark:text-white">0</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Indicados</p>
-                    </div>
-                    <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800 text-center">
-                      <p className="text-2xl font-black text-amber-500 font-mono">0</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Dias Ganhos</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          )}
         </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
@@ -929,8 +603,8 @@ export function Configuracoes({
                 <Car className="h-5 w-5 text-blue-500 dark:text-blue-400" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Meus Veículos</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie seus veículos e manutenções</p>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Veículos e Manutenção</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie sua frota e agendamentos de revisão</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">

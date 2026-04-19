@@ -8,7 +8,7 @@ import { startOfMonth, endOfMonth, isWithinInterval, format, subMonths } from 'd
 import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 
-import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle, ChevronRight, X } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle, ChevronRight, X, Car, Tag } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -27,9 +27,21 @@ interface DashboardProps {
   refetch: () => void;
   user: User;
   onNavigate?: (tab: string) => void;
+  onNavigateToNewVehicle?: () => void;
+  onNavigateToNewCategory?: () => void;
 }
 
-export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refetch, user, onNavigate }: DashboardProps) {
+export function Dashboard({ 
+  lancamentos, 
+  categorias, 
+  vehicles, 
+  manutencoes, 
+  refetch, 
+  user, 
+  onNavigate,
+  onNavigateToNewVehicle,
+  onNavigateToNewCategory
+}: DashboardProps) {
   const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
@@ -89,6 +101,35 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       setQuickVehicleId(mostUsedId);
     }
   }, [vehicles, lancamentos, quickEntryOpen]);
+
+  useEffect(() => {
+    if (quickEntryOpen && quickVehicleId) {
+      const vehicle = vehicles.find(v => v.id === quickVehicleId);
+      if (vehicle) {
+        if (vehicle.fuel_type && vehicle.fuel_type !== 'flex') {
+          setQuickFuelType(vehicle.fuel_type);
+        } else {
+          // If flex or undefined, look for the last refueling of this vehicle to pre-select
+          const lastRefueling = lancamentos
+            .filter(l => l.vehicle_id === quickVehicleId && l.fuel_type)
+            .sort((a,b) => {
+              const dateA = parseLocalDate(a.data).getTime();
+              const dateB = parseLocalDate(b.data).getTime();
+              if (dateA !== dateB) return dateB - dateA;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            })[0];
+          
+          if (lastRefueling) {
+            setQuickFuelType(lastRefueling.fuel_type as FuelType);
+          } else if (vehicle.fuel_type === 'flex') {
+            setQuickFuelType('gasolina'); // Default for flex if no history
+          } else {
+             setQuickFuelType(null);
+          }
+        }
+      }
+    }
+  }, [quickEntryOpen, quickVehicleId, vehicles, lancamentos]);
 
   useEffect(() => {
     // Set default based on screen size on initial load
@@ -621,6 +662,23 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
         </CardContent>
       </Card>
 
+      <div className="flex flex-col sm:flex-row gap-4 pt-4 sm:pt-6 pb-[20px]">
+        <Button 
+          onClick={onNavigateToNewVehicle}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-2xl transition-all"
+        >
+          <Car className="h-5 w-5" />
+          Cadastrar novo veículo
+        </Button>
+        <Button 
+          onClick={onNavigateToNewCategory}
+          className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-6 rounded-2xl transition-all"
+        >
+          <Tag className="h-5 w-5" />
+          Cadastrar nova categoria
+        </Button>
+      </div>
+
       <Modal
         isOpen={quickEntryOpen}
         onClose={() => {
@@ -666,7 +724,7 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
               />
             </div>
 
-            {preferences.modulo_abastecimento_detalhado && isPremium(user) && (
+            {preferences.modulo_abastecimento_detalhado && isPremium(user) && (!quickVehicleId || vehicles.find(v => v.id === quickVehicleId)?.fuel_type === 'flex' || !vehicles.find(v => v.id === quickVehicleId)?.fuel_type) && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
                 <CustomSelect

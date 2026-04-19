@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { PremiumModal } from '@/components/premium-modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium, parseLocalDate } from '@/lib/utils';
-import { Lancamento, Vehicle, Manutencao, User, WorkShift } from '@/types';
+import { Lancamento, Vehicle, Manutencao, User, WorkShift, FuelType } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock, X, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
@@ -24,15 +24,18 @@ interface VeiculosProps {
   user: User;
   onBackToConfig?: () => void;
   onBackToHome?: () => void;
+  isEmbedded?: boolean;
+  forceOpenAdd?: boolean;
 }
 
-export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user, onBackToConfig, onBackToHome }: VeiculosProps) {
+export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user, onBackToConfig, onBackToHome, isEmbedded = false, forceOpenAdd = false }: VeiculosProps) {
   const { preferences } = useFeatures();
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
   const [type, setType] = useState<'own' | 'rented'>('own');
   const [status, setStatus] = useState<'active' | 'sold' | 'deactivated'>('active');
   const [initialOdometer, setInitialOdometer] = useState('');
+  const [fuelType, setFuelType] = useState<FuelType>('gasolina');
   
   // Rented specific
   const [contractValueStr, setContractValueStr] = useState('');
@@ -49,7 +52,13 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const [loading, setLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(forceOpenAdd);
+
+  useEffect(() => {
+    if (forceOpenAdd) {
+      setIsFormOpen(true);
+    }
+  }, [forceOpenAdd]);
 
   // Renew Contract specific
   const [renewModalOpen, setRenewModalOpen] = useState(false);
@@ -61,17 +70,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const [renewContractKmLimit, setRenewContractKmLimit] = useState('');
   const [addRemainingKm, setAddRemainingKm] = useState(false);
   const [renewProfitGoalStr, setRenewProfitGoalStr] = useState('');
-  
-  // Maintenance Plan specific
-  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
-  const [maintenanceVehicle, setMaintenanceVehicle] = useState<Vehicle | null>(null);
-  const [maintenanceTipo, setMaintenanceTipo] = useState('');
-  const [maintenanceIntervaloKm, setMaintenanceIntervaloKm] = useState('');
-  const [maintenanceUltimoKm, setMaintenanceUltimoKm] = useState('');
-  const [maintenanceAvisoKm, setMaintenanceAvisoKm] = useState('');
-  const [editingMaintenanceId, setEditingMaintenanceId] = useState<string | null>(null);
-  const [deleteMaintenanceModalOpen, setDeleteMaintenanceModalOpen] = useState(false);
-  const [deletingMaintenanceId, setDeletingMaintenanceId] = useState<string | null>(null);
   
   const [expandedInfo, setExpandedInfo] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState('');
@@ -120,6 +118,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         type,
         status,
         initial_odometer: Number(initialOdometer),
+        fuel_type: fuelType,
       };
 
       if (type === 'rented') {
@@ -187,6 +186,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
     setType('own');
     setStatus('active');
     setInitialOdometer('');
+    setFuelType('gasolina');
     setContractValueStr('');
     setContractStartDate('');
     setContractEndDate('');
@@ -206,6 +206,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
     setType(vehicle.type);
     setStatus(vehicle.status || 'active');
     setInitialOdometer(vehicle.initial_odometer.toString());
+    setFuelType(vehicle.fuel_type || 'gasolina');
     
     if (vehicle.type === 'rented') {
       setContractValueStr(formatCurrency(vehicle.contract_value || 0));
@@ -311,78 +312,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       refetch();
     } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir veículo.');
-    }
-  };
-
-  const handleSaveMaintenance = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-    if (!maintenanceVehicle || !maintenanceTipo || !maintenanceIntervaloKm || !maintenanceUltimoKm || !maintenanceAvisoKm) {
-      setErrorMsg('Preencha todos os campos.');
-      return;
-    }
-
-    if (!isPremium(user)) {
-      setPremiumFeatureName('Plano de Manutenção');
-      setIsPremiumModalOpen(true);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const payload = {
-        user_id: user.id,
-        vehicle_id: maintenanceVehicle.id,
-        tipo: maintenanceTipo,
-        intervalo_km: Number(maintenanceIntervaloKm),
-        ultimo_km_realizado: Number(maintenanceUltimoKm),
-        aviso_km_antes: Number(maintenanceAvisoKm)
-      };
-
-      if (editingMaintenanceId) {
-        const { error } = await supabase.from('manutencoes').update(payload).eq('id', editingMaintenanceId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('manutencoes').insert([payload]);
-        if (error) throw error;
-      }
-
-      setMaintenanceTipo('');
-      setMaintenanceIntervaloKm('');
-      setMaintenanceUltimoKm('');
-      setMaintenanceAvisoKm('');
-      setEditingMaintenanceId(null);
-      refetch();
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao salvar manutenção.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditMaintenance = (m: Manutencao) => {
-    setEditingMaintenanceId(m.id);
-    setMaintenanceTipo(m.tipo);
-    setMaintenanceIntervaloKm(m.intervalo_km.toString());
-    setMaintenanceUltimoKm(m.ultimo_km_realizado.toString());
-    setMaintenanceAvisoKm(m.aviso_km_antes.toString());
-  };
-
-  const handleDeleteMaintenance = (id: string) => {
-    setDeletingMaintenanceId(id);
-    setDeleteMaintenanceModalOpen(true);
-  };
-
-  const confirmDeleteMaintenance = async () => {
-    if (!deletingMaintenanceId) return;
-    try {
-      const { error } = await supabase.from('manutencoes').delete().eq('id', deletingMaintenanceId);
-      if (error) throw error;
-      setDeleteMaintenanceModalOpen(false);
-      setDeletingMaintenanceId(null);
-      refetch();
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao excluir manutenção.');
     }
   };
 
@@ -604,25 +533,27 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between -mb-2 bg-white dark:bg-gray-900 p-2 rounded-xl shadow-sm sm:shadow-none sm:bg-transparent">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onBackToConfig}
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          <ArrowLeft className="h-6 w-6" />
-        </Button>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Meus Veículos</h2>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onBackToHome}
-          className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
-        >
-          <X className="h-6 w-6" />
-        </Button>
-      </div>
+      {!isEmbedded && (
+        <div className="flex items-center justify-between -mb-2 bg-white dark:bg-gray-900 p-2 rounded-xl shadow-sm sm:shadow-none sm:bg-transparent">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onBackToConfig}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Meus Veículos</h2>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onBackToHome}
+            className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
+          >
+            <X className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
 
       {vehicles.length === 0 && (
         <OnboardingGuide
@@ -757,6 +688,20 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                     value={initialOdometer}
                     onChange={(e) => setInitialOdometer(e.target.value)}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível *</label>
+                  <CustomSelect 
+                    value={fuelType} 
+                    onChange={(val) => setFuelType(val as FuelType)}
+                    options={[
+                      { value: 'gasolina', label: 'Gasolina' },
+                      { value: 'etanol', label: 'Álcool / Etanol' },
+                      { value: 'diesel', label: 'Diesel' },
+                      { value: 'flex', label: 'Flex (Gasolina/Álcool)' },
+                      { value: 'gnv', label: 'GNV' }
+                    ]}
                   />
                 </div>
               </div>
@@ -898,19 +843,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                 </div>
                 
                 <div className="flex items-center gap-2 self-end sm:self-auto" onClick={(e) => e.stopPropagation()}>
-                  {preferences.alerta_manutencao && (
-                    <Button variant="outline" size="icon" onClick={() => {
-                      if (!isPremium(user)) {
-                        setPremiumFeatureName('Plano de Manutenção');
-                        setIsPremiumModalOpen(true);
-                        return;
-                      }
-                      setMaintenanceVehicle(v);
-                      setMaintenanceModalOpen(true);
-                    }} className="text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-900/50 dark:hover:bg-blue-900/20" title="Plano de Manutenção">
-                      <Wrench className="h-4 w-4" />
-                    </Button>
-                  )}
                   {v.type === 'rented' && (
                     <Button variant="outline" size="icon" onClick={() => handleOpenRenew(v)} className="text-[#059568] border-[#059568]/20 hover:bg-[#059568]/10 dark:text-[#10B981] dark:border-[#10B981]/20 dark:hover:bg-[#10B981]/10" title="Renovar Contrato">
                       <RefreshCw className="h-4 w-4" />
@@ -1217,132 +1149,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
             </Button>
           </div>
         </form>
-      </Modal>
-
-      <Modal
-        isOpen={maintenanceModalOpen}
-        onClose={() => {
-          setMaintenanceModalOpen(false);
-          setErrorMsg('');
-        }}
-        title={`Plano de Manutenção - ${maintenanceVehicle?.name}`}
-        className="max-w-2xl"
-      >
-        <div className="space-y-6">
-          {errorMsg && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
-              {errorMsg}
-            </div>
-          )}
-          <form onSubmit={handleSaveMaintenance} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Tipo (ex: Óleo)</label>
-              <Input
-                type="text"
-                placeholder="Ex: Troca de Óleo"
-                value={maintenanceTipo}
-                onChange={(e) => setMaintenanceTipo(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Intervalo (KM)</label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="Ex: 10000"
-                value={maintenanceIntervaloKm}
-                onChange={(e) => setMaintenanceIntervaloKm(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Último KM Realizado</label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="Ex: 50000"
-                value={maintenanceUltimoKm}
-                onChange={(e) => setMaintenanceUltimoKm(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Avisar faltando (KM)</label>
-              <Input
-                type="number"
-                inputMode="numeric"
-                placeholder="Ex: 500"
-                value={maintenanceAvisoKm}
-                onChange={(e) => setMaintenanceAvisoKm(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex gap-2 w-full">
-              {editingMaintenanceId && (
-                <Button type="button" variant="outline" onClick={() => {
-                  setEditingMaintenanceId(null);
-                  setMaintenanceTipo('');
-                  setMaintenanceIntervaloKm('');
-                  setMaintenanceUltimoKm('');
-                  setMaintenanceAvisoKm('');
-                }} className="flex-1">
-                  Cancelar
-                </Button>
-              )}
-              <Button type="submit" disabled={loading} className={`flex-1 ${editingMaintenanceId ? 'bg-[#F59E0B] hover:bg-[#D97706]' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>
-                {loading ? 'Salvando...' : editingMaintenanceId ? 'Atualizar' : 'Adicionar'}
-              </Button>
-            </div>
-          </form>
-
-          <div className="space-y-3">
-            <h4 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Manutenções Programadas</h4>
-            {maintenanceVehicle && manutencoes.filter(m => m.vehicle_id === maintenanceVehicle.id).length > 0 ? (
-              <div className="grid grid-cols-1 gap-3">
-                {manutencoes.filter(m => m.vehicle_id === maintenanceVehicle.id).map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl">
-                    <div>
-                      <h5 className="font-bold text-gray-900 dark:text-gray-100">{m.tipo}</h5>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        A cada {m.intervalo_km.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km | Avisa faltando: {m.aviso_km_antes ? m.aviso_km_antes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '1.000,00'} km | Última: {m.ultimo_km_realizado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditMaintenance(m)} className="text-[#F59E0B] hover:text-[#D97706] hover:bg-[#F59E0B]/10 dark:hover:bg-[#F59E0B]/20">
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteMaintenance(m.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
-                Nenhuma manutenção programada para este veículo.
-              </p>
-            )}
-          </div>
-        </div>
-      </Modal>
-      <Modal
-        isOpen={deleteMaintenanceModalOpen}
-        onClose={() => setDeleteMaintenanceModalOpen(false)}
-        title="Confirmar Exclusão"
-      >
-        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-          Tem certeza que deseja excluir este plano de manutenção?
-        </p>
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteMaintenanceModalOpen(false)} className="w-full sm:w-auto">
-            Cancelar
-          </Button>
-          <Button variant="destructive" onClick={confirmDeleteMaintenance} className="w-full sm:w-auto">
-            Confirmar Exclusão
-          </Button>
-        </div>
       </Modal>
 
       <PremiumModal
