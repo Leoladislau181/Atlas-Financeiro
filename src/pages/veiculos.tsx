@@ -43,11 +43,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const [contractEndDate, setContractEndDate] = useState('');
   const [contractInitialKm, setContractInitialKm] = useState('');
   const [contractKmLimit, setContractKmLimit] = useState('');
-  const [profitGoalStr, setProfitGoalStr] = useState('');
   
-  // Own specific
-  const [maintenanceReserveStr, setMaintenanceReserveStr] = useState('');
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -69,7 +65,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const [renewInitialKm, setRenewInitialKm] = useState('');
   const [renewContractKmLimit, setRenewContractKmLimit] = useState('');
   const [addRemainingKm, setAddRemainingKm] = useState(false);
-  const [renewProfitGoalStr, setRenewProfitGoalStr] = useState('');
   
   const [expandedInfo, setExpandedInfo] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState('');
@@ -192,8 +187,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
     setContractEndDate('');
     setContractInitialKm('');
     setContractKmLimit('');
-    setProfitGoalStr('');
-    setMaintenanceReserveStr('');
     setEditingId(null);
     setIsFormOpen(false);
   };
@@ -214,11 +207,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       setContractEndDate(vehicle.contract_end_date || '');
       setContractInitialKm(vehicle.contract_initial_km?.toString() || '');
       setContractKmLimit(vehicle.contract_km_limit?.toString() || '');
-      setProfitGoalStr(formatCurrency(vehicle.profit_goal || 0));
-      setMaintenanceReserveStr('');
     } else {
-      setProfitGoalStr(formatCurrency(vehicle.profit_goal || 0));
-      setMaintenanceReserveStr(formatCurrency(vehicle.maintenance_reserve || 0));
       setContractValueStr('');
       setContractStartDate('');
       setContractEndDate('');
@@ -268,7 +257,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         contract_end_date: renewEndDate || null,
         contract_initial_km: renewInitialKm ? Number(renewInitialKm) : null,
         contract_km_limit: finalKmLimit,
-        profit_goal: parseCurrency(renewProfitGoalStr),
       };
 
       const { error } = await supabase.from('vehicles').update(payload).eq('id', renewingVehicle.id);
@@ -706,7 +694,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                 </div>
               </div>
 
-              {type === 'rented' ? (
+              {type === 'rented' && (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor do Contrato</label>
@@ -716,16 +704,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                       placeholder="R$ 0,00"
                       value={contractValueStr}
                       onChange={(e) => setContractValueStr(formatCurrencyInput(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta de Lucro</label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="R$ 0,00"
-                      value={profitGoalStr}
-                      onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -762,29 +740,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                       placeholder="Ex: 5000"
                       value={contractKmLimit}
                       onChange={(e) => setContractKmLimit(e.target.value)}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Reserva de Manutenção</label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="R$ 0,00"
-                      value={maintenanceReserveStr}
-                      onChange={(e) => setMaintenanceReserveStr(formatCurrencyInput(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Meta de Lucro</label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="R$ 0,00"
-                      value={profitGoalStr}
-                      onChange={(e) => setProfitGoalStr(formatCurrencyInput(e.target.value))}
                     />
                   </div>
                 </div>
@@ -1077,16 +1032,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                 placeholder="R$ 0,00"
                 value={renewContractValueStr}
                 onChange={(e) => setRenewContractValueStr(formatCurrencyInput(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nova Meta de Lucro</label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                value={renewProfitGoalStr}
-                onChange={(e) => setRenewProfitGoalStr(formatCurrencyInput(e.target.value))}
               />
             </div>
             <div className="space-y-2">

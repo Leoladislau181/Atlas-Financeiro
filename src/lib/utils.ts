@@ -90,8 +90,17 @@ export function formatCurrencyInput(value: string): string {
 
 export function parseLocalDate(dateString: string): Date {
   if (!dateString) return new Date();
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  
+  // Try YYYY-MM-DD specifically
+  const parts = dateString.split('-').map(Number);
+  if (parts.length === 3 && !parts.some(isNaN)) {
+    const [year, month, day] = parts;
+    return new Date(year, month - 1, day);
+  }
+  
+  // Fallback to Date constructor for other formats (ISO, etc.)
+  const d = new Date(dateString);
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 
 export function compressImage(file: File, maxWidth: number = 1024, maxHeight: number = 1024, quality: number = 0.8): Promise<string> {

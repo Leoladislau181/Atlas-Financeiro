@@ -92,7 +92,7 @@ export function Dashboard({
     expiryDate.setHours(0, 0, 0, 0);
     const diffTime = expiryDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return diffDays < 0 ? null : diffDays;
   }, [user.premium_until, user.premium_status]);
 
   useEffect(() => {
@@ -431,7 +431,7 @@ export function Dashboard({
 
   return (
     <div className="space-y-6">
-      {daysUntilPremiumExpires !== null && daysUntilPremiumExpires <= 3 && daysUntilPremiumExpires >= 0 && (
+      {daysUntilPremiumExpires !== null && daysUntilPremiumExpires <= 1 && daysUntilPremiumExpires >= 0 && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full shrink-0">
