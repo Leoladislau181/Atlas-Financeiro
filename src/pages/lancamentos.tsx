@@ -5,10 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
-import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, isPremiumFull, compressImage } from '@/lib/utils';
+import { cn, formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, isPremiumFull, compressImage, getMostUsedVehicleId } from '@/lib/utils';
 import { Categoria, Lancamento, TipoLancamento, Vehicle, User, FuelType, WorkShift } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Lock, Clock } from 'lucide-react';
+import { Edit2, Trash2, Car, Plus, ChevronUp, Filter, Search, ChevronLeft, ChevronRight, Calendar, Download, TrendingUp, TrendingDown, DollarSign, Lock, Clock, X } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
@@ -27,6 +27,7 @@ interface LancamentosProps {
   user: User;
   forceOpenForm?: boolean;
   onFormClose?: () => void;
+  onBack?: () => void;
 }
 
 interface LancamentoItem {
@@ -34,7 +35,7 @@ interface LancamentoItem {
   valorStr: string;
 }
 
-export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, refetch, user, forceOpenForm, onFormClose }: LancamentosProps) {
+export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, refetch, user, forceOpenForm, onFormClose, onBack }: LancamentosProps) {
   const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
@@ -74,10 +75,19 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       }
     }
   }, [data, vehicleId, tipo, workShifts, editingId, lancamentos]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const mostUsedVehicleId = useMemo(() => getMostUsedVehicleId(vehicles, lancamentos), [vehicles, lancamentos]);
+
+  // Handle auto-selection of vehicle
+  useEffect(() => {
+    if (isFormOpen && !editingId && vehicles.length > 0) {
+      setVehicleId(mostUsedVehicleId);
+    }
+  }, [isFormOpen, editingId, vehicles, mostUsedVehicleId]);
   const [filterMonth, setFilterMonth] = useState('');
   const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all');
   const [filterCategoriaId, setFilterCategoriaId] = useState('all');
@@ -882,7 +892,37 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const hasTransactions = lancamentos.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
+      {/* Page Navigation Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onBack}
+            className="h-10 w-10 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Lançamentos</h1>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onBack}
+          className="h-10 w-10 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl"
+        >
+          <X className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {errorMsg && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-600 dark:text-red-400 rounded-xl text-sm flex justify-between items-center">
+          <span>{errorMsg}</span>
+          <Button variant="ghost" size="sm" onClick={() => setErrorMsg('')}>OK</Button>
+        </div>
+      )}
+
       {!hasTransactions && (
         <OnboardingGuide
           step="transaction"
@@ -1147,16 +1187,18 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           {tipo === 'pessoal' ? (
             <div className="space-y-6 animate-in fade-in duration-300">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
-                  <CustomSelect
-                    value={vehicleId}
-                    onChange={setVehicleId}
-                    options={vehicles.map(v => ({ value: v.id, label: `${v.name} - ${v.plate}` }))}
-                    placeholder="Selecione o veículo..."
-                  />
-                </div>
-                <div className="space-y-2">
+                {vehicles.length > 1 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
+                    <CustomSelect
+                      value={vehicleId}
+                      onChange={setVehicleId}
+                      options={vehicles.map(v => ({ value: v.id, label: `${v.name} - ${v.plate}` }))}
+                      placeholder="Selecione o veículo..."
+                    />
+                  </div>
+                )}
+                <div className={cn("space-y-2", vehicles.length <= 1 && "md:col-span-2")}>
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Odômetro Final (KM)</label>
                   <Input
                     type="number"
@@ -1256,19 +1298,21 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           </div>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
-              <CustomSelect 
-                value={vehicleId} 
-                onChange={setVehicleId}
-                options={[
-                  { value: '', label: 'Nenhum veículo' },
-                  ...vehicles
-                    .filter(v => v.status === 'active' || v.id === vehicleId)
-                    .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
-                ]}
-              />
-            </div>
+            {vehicles.length > 1 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
+                <CustomSelect 
+                  value={vehicleId} 
+                  onChange={setVehicleId}
+                  options={[
+                    { value: '', label: 'Nenhum veículo' },
+                    ...vehicles
+                      .filter(v => v.status === 'active' || v.id === vehicleId)
+                      .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                  ]}
+                />
+              </div>
+            )}
 
             {useVehicle && tipo === 'receita' && (
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 space-y-2">

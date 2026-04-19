@@ -12,7 +12,7 @@ import { useTheme } from '@/components/theme-provider';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { Switch } from '@/components/ui/switch';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
-import { isPremium, parseLocalDate, formatCurrency, formatCurrencyInput, parseCurrency, cn } from '@/lib/utils';
+import { isPremium, parseLocalDate, formatCurrency, formatCurrencyInput, parseCurrency, cn, getMostUsedVehicleId } from '@/lib/utils';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { PremiumModal } from '@/components/premium-modal';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
@@ -30,6 +30,8 @@ interface ConfiguracoesProps {
   onNavigateToRelatorios?: () => void;
   onNavigateToPremium?: () => void;
   onNavigateToVeiculos?: () => void;
+  onNavigateToFuncionalidades?: () => void;
+  onNavigateToCategorias?: () => void;
   onNavigateToSuporte?: () => void;
   forceOpenProfile?: boolean;
   onProfileOpened?: () => void;
@@ -45,17 +47,13 @@ export function Configuracoes({
   onNavigateToRelatorios, 
   onNavigateToPremium, 
   onNavigateToVeiculos, 
+  onNavigateToFuncionalidades,
+  onNavigateToCategorias,
   onNavigateToSuporte,
   forceOpenProfile, 
   onProfileOpened 
 }: ConfiguracoesProps) {
-  const [nome, setNome] = useState('');
-  const [tipo, setTipo] = useState<TipoLancamento>('despesa');
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [newPassword, setNewPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,10 +70,6 @@ export function Configuracoes({
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [isModulesOpen, setIsModulesOpen] = useState(false);
   const [isSupportSectionOpen, setIsSupportSectionOpen] = useState(false);
-  const [isCategoriesSectionOpen, setIsCategoriesSectionOpen] = useState(false);
-  const [isFeaturesSectionOpen, setIsFeaturesSectionOpen] = useState(false);
-  const [isActivationsOpen, setIsActivationsOpen] = useState(false);
-  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [planLoading, setPlanLoading] = useState(false);
@@ -120,47 +114,21 @@ export function Configuracoes({
   const [shiftFilterStartDate, setShiftFilterStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [shiftFilterEndDate, setShiftFilterEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
-  const hasCategories = categorias.some(c => !c.is_system_default);
-  const { preferences, toggleFeature } = useFeatures();
+  const mostUsedVehicleId = useMemo(() => getMostUsedVehicleId(vehicles, lancamentos), [vehicles, lancamentos]);
 
-  const featuresList = [
-    {
-      id: 'financeiro',
-      title: 'Gestão Financeira',
-      icon: <Tag className="h-5 w-5 text-emerald-500" />,
-      description: 'Controle completo de receitas e despesas com categorias personalizadas e filtros por período. Visualize seu saldo líquido e acompanhe o fluxo de caixa em tempo real.'
-    },
-    {
-      id: 'veiculos',
-      title: 'Controle de Veículos',
-      icon: <Car className="h-5 w-5 text-blue-500" />,
-      description: 'Gerencie sua frota, acompanhe o desempenho individual de cada veículo e defina metas de lucro. Tenha o controle total de gastos por carro ou moto.'
-    },
-    {
-      id: 'turnos',
-      title: 'Gestão de Turnos',
-      icon: <Clock className="h-5 w-5 text-amber-500" />,
-      description: 'Registre sua jornada de trabalho, controle o odômetro e saiba exatamente quanto ganha por hora. Ideal para motoristas de aplicativo que buscam eficiência.'
-    },
-    {
-      id: 'manutencao',
-      title: 'Manutenção e Alertas',
-      icon: <Settings className="h-5 w-5 text-rose-500" />,
-      description: 'Receba avisos automáticos para troca de óleo e revisões baseados na quilometragem rodada. Evite quebras inesperadas e mantenha seu veículo sempre em dia.'
-    },
-    {
-      id: 'relatorios',
-      title: 'Dashboards e Relatórios',
-      icon: <BarChart2 className="h-5 w-5 text-purple-500" />,
-      description: 'Visualize sua evolução em gráficos interativos e exporte relatórios profissionais em PDF ou Excel para contabilidade ou análise pessoal.'
-    },
-    {
-      id: 'premium',
-      title: 'Plano Premium',
-      icon: <Star className="h-5 w-5 text-amber-500" />,
-      description: 'Desbloqueie lançamentos ilimitados, suporte prioritário e ferramentas avançadas de análise financeira para maximizar seus lucros.'
+  useEffect(() => {
+    if (isCalcOpen && !calcVehicleId && vehicles.length > 0) {
+      setCalcVehicleId(mostUsedVehicleId);
     }
-  ];
+  }, [isCalcOpen, vehicles, mostUsedVehicleId]);
+
+  useEffect(() => {
+    if (shiftModalOpen && !editingShiftId && !shiftVehicleId && vehicles.length > 0) {
+      setShiftVehicleId(mostUsedVehicleId);
+    }
+  }, [shiftModalOpen, vehicles, mostUsedVehicleId, editingShiftId]);
+
+  const { preferences, toggleFeature } = useFeatures();
 
   const filteredShifts = useMemo(() => {
     return workShifts.filter(shift => {
@@ -452,71 +420,7 @@ export function Configuracoes({
     }
   }, [forceOpenProfile, onProfileOpened]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nome) return;
 
-    if (!editingId && !isPremium(user)) {
-      const customCategoriesCount = categorias.filter(c => !c.is_system_default).length;
-      if (customCategoriesCount >= 5) {
-        setPremiumFeatureName('Categorias Personalizadas Ilimitadas');
-        setIsPremiumModalOpen(true);
-        return;
-      }
-    }
-
-    setLoading(true);
-    try {
-      if (editingId) {
-        const { error } = await supabase
-          .from('categorias')
-          .update({ nome, tipo })
-          .eq('id', editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('categorias')
-          .insert([{ user_id: user.id, nome, tipo }]);
-        if (error) throw error;
-      }
-
-      setNome('');
-      setTipo('despesa');
-      setEditingId(null);
-      setIsCategoryFormOpen(false);
-      refetch();
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao salvar categoria.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (cat: Categoria) => {
-    setEditingId(cat.id);
-    setNome(cat.nome);
-    setTipo(cat.tipo);
-    setIsCategoryFormOpen(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const confirmDelete = (id: string) => {
-    setDeletingId(id);
-    setDeleteModalOpen(true);
-  };
-
-  const handleDelete = async () => {
-    if (!deletingId) return;
-    try {
-      const { error } = await supabase.from('categorias').delete().eq('id', deletingId);
-      if (error) throw error;
-      setDeleteModalOpen(false);
-      setDeletingId(null);
-      refetch();
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao excluir categoria. Verifique se há lançamentos vinculados.');
-    }
-  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -684,10 +588,7 @@ export function Configuracoes({
     }
   };
 
-  const receitas = categorias.filter((c) => c.tipo === 'receita');
   const { theme, setTheme } = useTheme();
-
-  const despesas = categorias.filter((c) => c.tipo === 'despesa');
 
   return (
     <div className="space-y-6">
@@ -856,6 +757,26 @@ export function Configuracoes({
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-amber-500"
+            onClick={onNavigateToCategorias}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Tag className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Categorias</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie suas categorias de receitas e despesas</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              <ChevronDown className="h-5 w-5 -rotate-90" />
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
             onClick={() => setIsPlanOpen(!isPlanOpen)}
           >
@@ -998,27 +919,45 @@ export function Configuracoes({
           )}
         </Card>
 
-        {!isPremium(user) && (
-          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-              onClick={onNavigateToVeiculos}
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <Car className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100">Meus Veículos</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie seus veículos e manutenções</p>
-                </div>
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={onNavigateToVeiculos}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <Car className="h-5 w-5 text-blue-500 dark:text-blue-400" />
               </div>
-              <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-                <ChevronDown className="h-5 w-5 -rotate-90" />
-              </Button>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Meus Veículos</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie seus veículos e manutenções</p>
+              </div>
             </div>
-          </Card>
-        )}
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              <ChevronDown className="h-5 w-5 -rotate-90" />
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+          <div 
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            onClick={onNavigateToFuncionalidades}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <Settings className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Recursos e Funcionalidades</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Personalize sua experiência e conheça os recursos</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+              <ChevronDown className="h-5 w-5 -rotate-90" />
+            </Button>
+          </div>
+        </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
@@ -1137,6 +1076,7 @@ export function Configuracoes({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Inputs */}
                   <div className="space-y-4">
+                   {vehicles.length > 1 && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo para Análise</label>
                       <CustomSelect
@@ -1146,6 +1086,7 @@ export function Configuracoes({
                         options={vehicles.map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))}
                       />
                     </div>
+                  )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -1286,235 +1227,7 @@ export function Configuracoes({
           )}
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsFeaturesSectionOpen(!isFeaturesSectionOpen)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <Briefcase className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Funcionalidades</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Conheça todos os recursos do Atlas Financeiro</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isFeaturesSectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </Button>
-          </div>
 
-          {isFeaturesSectionOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="space-y-3">
-                {featuresList.map((feature) => (
-                  <div key={feature.id} className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedFeature(expandedFeature === feature.id ? null : feature.id)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                          {feature.icon}
-                        </div>
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">{feature.title}</span>
-                      </div>
-                      {expandedFeature === feature.id ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      )}
-                    </button>
-                    
-                    {expandedFeature === feature.id && (
-                      <div className="px-4 pb-4 pt-0 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <div className="pl-11 pr-4">
-                          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                            {feature.description}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
-        {/* Feature Activations Section */}
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-[#F59E0B]"
-            onClick={() => setIsActivationsOpen(!isActivationsOpen)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                <Settings className="h-5 w-5 text-[#F59E0B]" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Ativação de Funcionalidades</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Personalize sua experiência ativando ou desativando recursos</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isActivationsOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </Button>
-          </div>
-
-          {isActivationsOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                      <Car className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Uso Pessoal</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 uppercase tracking-wider">Livre</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Ativa campos de quilometragem para uso pessoal.</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={preferences.modulo_pessoal}
-                    onCheckedChange={() => toggleFeature('modulo_pessoal')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3 text-left">
-                      <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-lg">
-                        <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Controle de Turnos</h4>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Ativa o gerenciamento de horas e ganhos por turno.</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={preferences.modulo_turnos}
-                      onCheckedChange={() => {
-                        if (!isPremium(user)) {
-                          setPremiumFeatureName('Gestão de Turnos');
-                          setIsPremiumModalOpen(true);
-                          return;
-                        }
-                        toggleFeature('modulo_turnos');
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-3 text-left">
-                      <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
-                        <Fuel className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">Abastecimento Detalhado</h4>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Campos extras como tipo de combustível e preço por litro.</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={preferences.modulo_abastecimento_detalhado}
-                      onCheckedChange={() => {
-                        if (!isPremium(user)) {
-                          setPremiumFeatureName('Abastecimento Detalhado');
-                          setIsPremiumModalOpen(true);
-                          return;
-                        }
-                        toggleFeature('modulo_abastecimento_detalhado');
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-                      <Layers className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Múltiplas Categorias</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 uppercase tracking-wider">Livre</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Permite criar e gerenciar categorias personalizadas.</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={preferences.modulo_multiplas_categorias}
-                    onCheckedChange={() => toggleFeature('modulo_multiplas_categorias')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="p-2 bg-rose-50 dark:bg-rose-900/30 rounded-lg">
-                      <Bell className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Alertas de Manutenção</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Notificações de manutenção na tela principal.</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={preferences.alerta_manutencao}
-                    onCheckedChange={() => {
-                      if (!isPremium(user)) {
-                        setPremiumFeatureName('Alertas de Manutenção');
-                        setIsPremiumModalOpen(true);
-                        return;
-                      }
-                      toggleFeature('alerta_manutencao');
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-                      <Upload className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">Módulo de Importação</h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 uppercase tracking-wider">Premium</span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Ativa a funcionalidade de importar dados de arquivos externos.</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={preferences.modulo_importacao}
-                    onCheckedChange={() => {
-                      if (!isPremium(user)) {
-                        setPremiumFeatureName('Módulo de Importação');
-                        setIsPremiumModalOpen(true);
-                        return;
-                      }
-                      toggleFeature('modulo_importacao');
-                    }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          )}
-        </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
@@ -1791,230 +1504,7 @@ export function Configuracoes({
           </CardContent>
         )}
       </Card>
-
-        {!hasCategories && (
-          <OnboardingGuide
-            step="category"
-            title="Crie suas categorias"
-            description="Organize suas finanças! Crie categorias personalizadas como 'Alimentação' ou 'Impostos'."
-            onClick={() => setIsCategoryFormOpen(true)}
-            buttonText="Criar Categoria"
-          />
-        )}
-
-        <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-          <div 
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-            onClick={() => setIsCategoriesSectionOpen(!isCategoriesSectionOpen)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <Tag className="h-5 w-5 text-amber-500 dark:text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Categorias</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie suas categorias de receitas e despesas</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-              {isCategoriesSectionOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </Button>
-          </div>
-
-          {isCategoriesSectionOpen && (
-            <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200 space-y-6">
-              <Card className="border shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-                <div 
-                  className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                  onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                      {!isPremium(user) && categorias.filter(c => !c.is_system_default).length >= 5 ? (
-                        <Lock className="h-5 w-5 text-amber-500" />
-                      ) : (
-                        <Settings className="h-5 w-5 text-[#F59E0B]" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 dark:text-gray-100">{editingId ? 'Editar Categoria' : 'Nova Categoria'}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Cadastre ou edite categorias de lançamentos</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
-                    {isCategoryFormOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                  </Button>
-                </div>
-
-                {isCategoryFormOpen && (
-                  <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Categoria</label>
-                          <Input
-                            type="text"
-                            value={nome}
-                            onChange={(e) => setNome(e.target.value)}
-                            placeholder="Ex: Alimentação, Salário..."
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                          <CustomSelect 
-                            value={tipo} 
-                            onChange={(val) => setTipo(val as TipoLancamento)}
-                            options={[
-                              { value: 'despesa', label: 'Despesa' },
-                              { value: 'receita', label: 'Receita' }
-                            ]}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end space-x-2 pt-4">
-                        {editingId && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingId(null);
-                              setNome('');
-                              setTipo('despesa');
-                              setIsCategoryFormOpen(false);
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                        )}
-                        <Button type="submit" disabled={loading} className="w-full sm:w-auto bg-[#F59E0B] hover:bg-[#D97706]">
-                          {loading ? 'Salvando...' : editingId ? 'Atualizar' : 'Criar Categoria'}
-                        </Button>
-                      </div>
-                    </form>
-                  </CardContent>
-                )}
-              </Card>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card className="border shadow-sm bg-white dark:bg-gray-900">
-                  <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-red-50 dark:bg-[#EF4444]/20 rounded-lg">
-                        <Tag className="h-5 w-5 text-[#EF4444] dark:text-[#F87171]" />
-                      </div>
-                      <CardTitle className="text-[#EF4444] dark:text-[#F87171]">Categorias de Despesa</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <ul className="space-y-2">
-                      {despesas.length === 0 ? (
-                        <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
-                      ) : (
-                        despesas.map((cat) => (
-                          <li
-                            key={cat.id}
-                            className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
-                              {cat.is_system_default && (
-                                <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full">Padrão</span>
-                              )}
-                            </div>
-                            {!cat.is_system_default && (
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={() => handleEdit(cat)}
-                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => confirmDelete(cat.id)}
-                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            )}
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card className="border shadow-sm bg-white dark:bg-gray-900">
-                  <CardHeader className="pb-4 border-b border-gray-50 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-green-50 dark:bg-[#10B981]/20 rounded-lg">
-                        <Tag className="h-5 w-5 text-[#059568] dark:text-[#10B981]" />
-                      </div>
-                      <CardTitle className="text-[#059568] dark:text-[#10B981]">Categorias de Receita</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <ul className="space-y-2">
-                      {receitas.length === 0 ? (
-                        <li className="text-sm text-gray-500 dark:text-gray-400 text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed dark:border-gray-700">Nenhuma categoria cadastrada.</li>
-                      ) : (
-                        receitas.map((cat) => (
-                          <li
-                            key={cat.id}
-                            className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.nome}</span>
-                              {cat.is_system_default && (
-                                <span className="px-2 py-0.5 text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full">Padrão</span>
-                              )}
-                            </div>
-                            {!cat.is_system_default && (
-                              <div className="flex space-x-1">
-                                <button
-                                  onClick={() => handleEdit(cat)}
-                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#F59E0B] dark:hover:text-[#FBBF24] hover:bg-orange-50 dark:hover:bg-[#F59E0B]/10 rounded-md transition-colors"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => confirmDelete(cat.id)}
-                                  className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-[#EF4444] dark:hover:text-[#F87171] hover:bg-red-50 dark:hover:bg-[#EF4444]/10 rounded-md transition-colors"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            )}
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          )}
-        </Card>
       </div>
-
-      <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        title="Confirmar Exclusão"
-      >
-        <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-          Tem certeza que deseja excluir esta categoria? Não será possível excluir se houver lançamentos vinculados a ela.
-        </p>
-        <div className="flex flex-col sm:flex-row justify-end gap-2">
-          <Button variant="outline" onClick={() => setDeleteModalOpen(false)} className="w-full sm:w-auto">
-            Cancelar
-          </Button>
-          <Button variant="destructive" onClick={handleDelete} className="w-full sm:w-auto">
-            Confirmar Exclusão
-          </Button>
-        </div>
-      </Modal>
 
       <Modal
         isOpen={shiftModalOpen}
@@ -2053,17 +1543,19 @@ export function Configuracoes({
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo *</label>
-            <CustomSelect
-              value={shiftVehicleId}
-              onChange={setShiftVehicleId}
-              options={vehicles
-                .filter(v => v.status === 'active' || v.id === shiftVehicleId)
-                .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
-              }
-            />
-          </div>
+          {vehicles.length > 1 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo *</label>
+              <CustomSelect
+                value={shiftVehicleId}
+                onChange={setShiftVehicleId}
+                options={vehicles
+                  .filter(v => v.status === 'active' || v.id === shiftVehicleId)
+                  .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                }
+              />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Início *</label>

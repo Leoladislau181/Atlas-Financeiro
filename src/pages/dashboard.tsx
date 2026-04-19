@@ -1,14 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium } from '@/lib/utils';
+import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, getMostUsedVehicleId } from '@/lib/utils';
 import { Lancamento, Categoria, Vehicle, Manutencao, User, FuelType } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { startOfMonth, endOfMonth, isWithinInterval, format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 
-import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle, ChevronRight, X } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -84,11 +84,11 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
   }, [user.premium_until, user.premium_status]);
 
   useEffect(() => {
-    if (vehicles.length > 0) {
-      const activeVehicle = vehicles.find(v => v.status === 'active') || vehicles[0];
-      setQuickVehicleId(activeVehicle.id);
+    if (vehicles.length > 0 && quickEntryOpen) {
+      const mostUsedId = getMostUsedVehicleId(vehicles, lancamentos);
+      setQuickVehicleId(mostUsedId);
     }
-  }, [vehicles, quickEntryOpen]);
+  }, [vehicles, lancamentos, quickEntryOpen]);
 
   useEffect(() => {
     // Set default based on screen size on initial load
@@ -498,20 +498,38 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
-        <Card className="col-span-2 lg:col-span-1 border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-3 sm:py-4">
-          <CardHeader className="flex flex-row items-center justify-center gap-2 space-y-0 pb-1 sm:pb-2">
-            <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
-            <CardTitle className="text-xs sm:text-lg font-medium text-gray-500 dark:text-gray-400">SaldoTotal</CardTitle>
-          </CardHeader>
-          <CardContent className="px-1 sm:px-2">
-            <div
-              className={`text-xl sm:text-4xl font-bold break-words px-1 ${
-                stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
-              }`}
-            >
-              {formatCurrency(stats.lucroLiquido)}
+        <Card 
+          onClick={() => onNavigate && onNavigate('lancamentos')}
+          className="col-span-2 lg:col-span-1 border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 relative cursor-pointer active:scale-[0.98] group overflow-hidden"
+        >
+          <div className="flex items-center justify-center sm:block p-4 sm:p-0">
+            {/* Mobile-only larger arrow */}
+            <div className="sm:hidden pr-4">
+              <ChevronRight className="h-10 w-10 text-[#F59E0B]" />
             </div>
-          </CardContent>
+
+            <div className="flex-1 text-left sm:text-center">
+              <CardHeader className="flex flex-row items-center justify-start sm:justify-center gap-2 space-y-0 p-0 sm:pt-4 sm:pb-2">
+                <DollarSign className={`h-5 w-5 sm:h-6 sm:w-6 ${stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'}`} />
+                <CardTitle className="text-xs sm:text-lg font-medium text-gray-500 dark:text-gray-400">Saldo Total</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 sm:px-2 sm:pb-4">
+                <div
+                  className={`text-xl sm:text-4xl font-bold break-words ${
+                    stats.lucroLiquido >= 0 ? 'text-[#059568] dark:text-[#10B981]' : 'text-[#EF4444] dark:text-[#F87171]'
+                  }`}
+                >
+                  {formatCurrency(stats.lucroLiquido)}
+                </div>
+              </CardContent>
+            </div>
+          </div>
+
+          {/* Bottom Right Corner: Extrato + Arrow (Desktop) / Extrato only (Mobile) */}
+          <div className="absolute bottom-2 right-3 flex items-center gap-1 group-hover:scale-110 transition-transform origin-right">
+            <span className="text-[10px] text-[#F59E0B] font-bold uppercase underline decoration-2 underline-offset-4">Extrato</span>
+            <ChevronRight className="hidden sm:block h-4 w-4 text-[#F59E0B]" />
+          </div>
         </Card>
 
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 hover:shadow-md transition-all duration-200 text-center py-3 sm:py-4">
@@ -618,19 +636,21 @@ export function Dashboard({ lancamentos, categorias, vehicles, manutencoes, refe
               {errorMsg}
             </div>
           )}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
-            <CustomSelect 
-              value={quickVehicleId} 
-              onChange={setQuickVehicleId}
-              options={[
-                { value: '', label: 'Selecione um veículo' },
-                ...vehicles
-                  .filter(v => v.status === 'active')
-                  .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
-              ]}
-            />
-          </div>
+          {vehicles.length > 1 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
+              <CustomSelect 
+                value={quickVehicleId} 
+                onChange={setQuickVehicleId}
+                options={[
+                  { value: '', label: 'Selecione um veículo' },
+                  ...vehicles
+                    .filter(v => v.status === 'active')
+                    .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                ]}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">

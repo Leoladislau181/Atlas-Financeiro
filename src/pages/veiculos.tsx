@@ -8,7 +8,7 @@ import { PremiumModal } from '@/components/premium-modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium, parseLocalDate } from '@/lib/utils';
 import { Lancamento, Vehicle, Manutencao, User, WorkShift } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock, X } from 'lucide-react';
+import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock, X, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -22,9 +22,11 @@ interface VeiculosProps {
   workShifts: WorkShift[];
   refetch: () => void;
   user: User;
+  onBackToConfig?: () => void;
+  onBackToHome?: () => void;
 }
 
-export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user }: VeiculosProps) {
+export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user, onBackToConfig, onBackToHome }: VeiculosProps) {
   const { preferences } = useFeatures();
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
@@ -602,6 +604,26 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between -mb-2 bg-white dark:bg-gray-900 p-2 rounded-xl shadow-sm sm:shadow-none sm:bg-transparent">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onBackToConfig}
+          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <ArrowLeft className="h-6 w-6" />
+        </Button>
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Meus Veículos</h2>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onBackToHome}
+          className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
+        >
+          <X className="h-6 w-6" />
+        </Button>
+      </div>
+
       {vehicles.length === 0 && (
         <OnboardingGuide
           step="vehicle"

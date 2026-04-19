@@ -1,9 +1,54 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { User } from '@/types';
+import { User, Vehicle, Lancamento } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Retorna o ID do veículo mais utilizado pelo usuário baseado na quilometragem percorrida no sistema.
+ * Critério de desempate: veículo cadastrado por último.
+ */
+export function getMostUsedVehicleId(vehicles: Vehicle[], lancamentos: Lancamento[]): string {
+  if (vehicles.length === 0) return '';
+  if (vehicles.length === 1) return vehicles[0].id;
+
+  const usageByVehicle = vehicles.map(v => {
+    const vLancamentos = lancamentos.filter(l => l.vehicle_id === v.id);
+    
+    // Calcula a distância total percorrida (Max Odo - Min Odo)
+    const odos = vLancamentos
+      .map(l => l.odometer || l.odometro_receita || 0)
+      .filter(o => o > 0);
+    
+    let distance = 0;
+    if (odos.length > 0) {
+      const allReferenceOdos = [...odos, v.initial_odometer || 0];
+      const maxOdo = Math.max(...allReferenceOdos);
+      const minOdo = Math.min(...allReferenceOdos);
+      distance = maxOdo - minOdo;
+    }
+    
+    // Também considera km_rodados explícitos se houver
+    const explicitKm = vLancamentos.reduce((acc, l) => acc + (l.km_rodados || 0), 0);
+    
+    return {
+      id: v.id,
+      distance: Math.max(distance, explicitKm),
+      createdAt: new Date(v.created_at).getTime()
+    };
+  });
+
+  // Ordena por distância (desc) e depois por data de criação (desc - registrados por último)
+  usageByVehicle.sort((a, b) => {
+    if (b.distance !== a.distance) {
+      return b.distance - a.distance;
+    }
+    return b.createdAt - a.createdAt;
+  });
+
+  return usageByVehicle[0].id;
 }
 
 export function isPremium(user: User | null | undefined): boolean {

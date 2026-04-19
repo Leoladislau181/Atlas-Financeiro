@@ -13,6 +13,8 @@ const Lancamentos = React.lazy(() => import('@/pages/lancamentos').then(m => ({ 
 const Relatorios = React.lazy(() => import('@/pages/relatorios').then(m => ({ default: m.Relatorios })));
 const Configuracoes = React.lazy(() => import('@/pages/configuracoes').then(m => ({ default: m.Configuracoes })));
 const Veiculos = React.lazy(() => import('@/pages/veiculos').then(m => ({ default: m.Veiculos })));
+const Funcionalidades = React.lazy(() => import('@/pages/funcionalidades').then(m => ({ default: m.Funcionalidades })));
+const CategoriasPage = React.lazy(() => import('@/pages/categorias_page').then(m => ({ default: m.CategoriasPage })));
 const Premium = React.lazy(() => import('@/pages/premium').then(m => ({ default: m.Premium })));
 const Admin = React.lazy(() => import('@/pages/admin').then(m => ({ default: m.Admin })));
 const Suporte = React.lazy(() => import('@/pages/suporte').then(m => ({ default: m.Suporte })));
@@ -295,6 +297,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             user={user}
             forceOpenForm={isNewLancamentoOpen}
             onFormClose={() => setIsNewLancamentoOpen(false)}
+            onBack={() => setActiveTab('inicio')}
           />
         )}
         {activeTab === 'relatorios' && (
@@ -316,6 +319,26 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             workShifts={workShifts}
             refetch={refetch}
             user={user}
+            onBackToConfig={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
+          />
+        )}
+        {activeTab === 'funcionalidades' && (
+          <Funcionalidades
+            user={user}
+            onBackToConfig={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
+            onNavigateToPremium={() => setActiveTab('premium')}
+          />
+        )}
+        {activeTab === 'categorias' && (
+          <CategoriasPage
+            categorias={categorias}
+            user={user}
+            refetch={refetch}
+            onBackToConfig={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
+            onNavigateToPremium={() => setActiveTab('premium')}
           />
         )}
         {activeTab === 'premium' && (
@@ -338,6 +361,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onNavigateToRelatorios={() => setActiveTab('relatorios')}
             onNavigateToPremium={() => setActiveTab('premium')}
             onNavigateToVeiculos={() => setActiveTab('veiculos')}
+            onNavigateToFuncionalidades={() => setActiveTab('funcionalidades')}
+            onNavigateToCategorias={() => setActiveTab('categorias')}
             onNavigateToSuporte={() => setActiveTab('suporte')}
             forceOpenProfile={forceOpenProfile}
             onProfileOpened={() => setForceOpenProfile(false)}
