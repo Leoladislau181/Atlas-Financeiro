@@ -709,25 +709,32 @@ export function CalculadoraGanhos({
                 <Card key={goal.id} className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
                   <CardContent className="p-0">
                     {/* Header with Title and Delete */}
-                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
+                    <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap min-w-0">
+                        <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg shrink-0">
                           <Target className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                         </div>
-                        <div>
-                          <h4 className="text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest leading-none mb-1">
-                            {goal.mode === 'weekly' ? 'Meta Semanal' : 'Meta Mensal'} • {vehicle?.name}
-                          </h4>
-                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider leading-none">
-                            Vigência: {format(goalStart, "dd/MM")} até {format(goalEnd, "dd/MM/yyyy")}
-                          </p>
-                        </div>
+                        <span className="text-[10px] sm:text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest truncate">
+                          {vehicle?.name}
+                          <span className="hidden sm:inline text-gray-400 font-bold ml-1">
+                            • {vehicle?.plate}
+                          </span>
+                          <span className="text-indigo-500 mx-1.5 font-bold">
+                            • {goal.mode === 'weekly' ? 'Semanal' : 'Mensal'}
+                          </span>
+                          <span className="text-gray-500 font-bold">
+                            • {format(goalStart, "dd/MM", { locale: ptBR })}
+                            <span className="hidden sm:inline">
+                              {' '}até {format(goalEnd, "dd/MM", { locale: ptBR })}
+                            </span>
+                          </span>
+                        </span>
                       </div>
                       <Button 
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleDeleteGoal(goal.id)}
-                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-2"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

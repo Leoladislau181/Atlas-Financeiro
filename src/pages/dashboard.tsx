@@ -791,26 +791,37 @@ export function Dashboard({
                                  realRevKm >= metaRevKm && 
                                  realCost <= metaCost;
 
+              const goalStart = parseLocalDate(goal.start_date);
+              const goalEnd = parseLocalDate(goal.end_date);
+              const goalType = goal.mode === 'weekly' ? 'Semanal' : 'Mensal';
+
               return (
                 <Card key={goal.id} className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
                   <CardContent className="p-0">
                     {/* Header with Vehicle Info */}
                     <div 
-                      className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-800/40 transition-colors"
+                      className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-800/40 transition-colors gap-2"
                       onClick={() => toggleGoalCollapse(goal.id)}
                     >
-                      <div className="flex items-center gap-3">
-                        <Car className="h-4 w-4 text-gray-400" />
-                        <span className="text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest">
-                          {vehicle?.name} <span className="text-gray-400 ml-1 font-bold">{vehicle?.plate}</span>
+                      <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap min-w-0">
+                        <Car className="h-4 w-4 text-gray-400 shrink-0" />
+                        <span className="text-[10px] sm:text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest truncate">
+                          {vehicle?.name}
+                          <span className="hidden sm:inline text-gray-400 font-bold ml-1">
+                            • {vehicle?.plate}
+                          </span>
+                          <span className="text-indigo-500 mx-1.5 font-bold">
+                            • {goalType}
+                          </span>
+                          <span className="text-gray-500 font-bold">
+                            • {format(goalStart, "dd/MM", { locale: ptBR })}
+                            <span className="hidden sm:inline">
+                              {' '}até {format(goalEnd, "dd/MM", { locale: ptBR })}
+                            </span>
+                          </span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {!isCollapsed && (
-                          <span className="hidden sm:inline-block text-[10px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full uppercase">
-                            {goal.mode === 'weekly' ? 'Projeção Semanal' : 'Projeção Mensal'}
-                          </span>
-                        )}
+                      <div className="flex items-center gap-3 shrink-0 ml-2">
                         {isCollapsed ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronUp className="h-4 w-4 text-gray-400" />}
                       </div>
                     </div>
