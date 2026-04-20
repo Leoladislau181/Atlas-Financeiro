@@ -25,9 +25,10 @@ interface RelatoriosProps {
   user: User;
   refetch: () => void;
   onBack?: () => void;
+  onBackToHome?: () => void;
 }
 
-export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch, onBack }: RelatoriosProps) {
+export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch, onBack, onBackToHome }: RelatoriosProps) {
   const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
@@ -1099,18 +1100,30 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Relatórios Completos</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Análise detalhada do seu desempenho financeiro</p>
+      <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="h-10 w-10 p-0 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <ChevronLeft className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+            </Button>
+          )}
+          <div>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Relatórios Completos</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Análise detalhada do seu desempenho financeiro</p>
+          </div>
         </div>
-        {onBack && (
+        {onBackToHome && (
           <Button
             variant="ghost"
-            size="icon"
-            onClick={onBack}
-            className="rounded-full h-10 w-10 text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-            title="Sair dos Relatórios"
+            size="sm"
+            onClick={onBackToHome}
+            className="h-10 w-10 p-0 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
+            title="Sair para o Início"
           >
             <X className="h-6 w-6" />
           </Button>

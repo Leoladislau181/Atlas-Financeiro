@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
-import { MessageCircle, Plus, Clock, Send, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { MessageCircle, Plus, Clock, Send, CheckCircle2, AlertCircle, ArrowLeft, X, HelpCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { User, SupportTicket, SupportMessage } from '@/types';
 import { isPremium } from '@/lib/utils';
@@ -14,12 +14,14 @@ import { ptBR } from 'date-fns/locale';
 interface SuporteProps {
   user: User;
   onBack?: () => void;
+  onBackToHome?: () => void;
 }
 
-export function Suporte({ user, onBack }: SuporteProps) {
+export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFAQOpen, setIsFAQOpen] = useState(false);
   
   // New Ticket State
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
@@ -207,6 +209,33 @@ export function Suporte({ user, onBack }: SuporteProps) {
     }
   };
 
+  const faqs = [
+    {
+      question: "O que é o Atlas Financeiro?",
+      answer: "O Atlas Financeiro é uma ferramenta completa de gestão financeira desenvolvida especificamente para motoristas de aplicativo e profissionais da estrada. Com ele, você controla seus ganhos, despesas, turnos e a saúde do seu veículo em um só lugar."
+    },
+    {
+      question: "Como funciona o controle de combustível?",
+      answer: "O Atlas calcula sua média de consumo (KM/L) automaticamente. Para resultados precisos, sempre marque a opção 'Tanque Cheio' ao abastecer. O sistema calculará a distância percorrida entre dois abastecimentos completos."
+    },
+    {
+      question: "O que é o Lucro Líquido?",
+      answer: "O Lucro Líquido é o que sobra no seu bolso. É calculado subtraindo todas as suas despesas (combustível, aluguel, manutenção, refeições) do seu faturamento bruto (ganhos nas plataformas)."
+    },
+    {
+      question: "Como configurar alertas de manutenção?",
+      answer: "Vá em 'Veículos e Manutenção', clique no ícone de engrenagem/edição do seu veículo e defina os intervalos (em KM) para cada item de manutenção. O sistema avisará quando estiver próximo do vencimento com base nos seus lançamentos."
+    },
+    {
+      question: "É possível exportar meus dados?",
+      answer: "Sim! Na aba 'Relatórios Detalhados', você pode filtrar seus dados por período e veículo e exportá-los para Excel ou PDF, facilitando sua declaração de Imposto de Renda ou controle pessoal."
+    },
+    {
+      question: "Meus dados estão seguros?",
+      answer: "Sim. Seus dados são armazenados de forma segura e criptografada no Supabase. Somente você tem acesso aos seus lançamentos financeiros e informações pessoais."
+    }
+  ];
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
@@ -224,18 +253,32 @@ export function Suporte({ user, onBack }: SuporteProps) {
     return (
       <div className="max-w-3xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 h-[calc(100vh-120px)] flex flex-col">
         {/* Chat Header */}
-        <div className="flex items-center gap-4 bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => setActiveTicket(null)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">{activeTicket.subject}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              {getStatusBadge(activeTicket.status)}
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Criado em {format(new Date(activeTicket.created_at), "dd/MM/yyyy 'às' HH:mm")}
-              </span>
+        <div className="flex items-center justify-between bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm shrink-0">
+          <div className="flex items-center gap-4 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => setActiveTicket(null)} className="rounded-full">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">{activeTicket.subject}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                {getStatusBadge(activeTicket.status)}
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  #{activeTicket.id.substring(0, 8)}
+                </span>
+              </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {onBackToHome && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={onBackToHome}
+                className="h-10 w-10 p-0 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -304,28 +347,89 @@ export function Suporte({ user, onBack }: SuporteProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* Welcome Banner */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative">
-        {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} className="absolute top-4 left-4 sm:static sm:top-auto sm:left-auto text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/50">
-            <ArrowLeft className="h-5 w-5" />
+      {/* Page Header */}
+      <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onBack}
+              className="h-10 w-10 p-0 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              <ArrowLeft className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+            </Button>
+          )}
+          <div>
+            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">
+              Suporte
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Como podemos ajudar hoje?</p>
+          </div>
+        </div>
+        {onBackToHome && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onBackToHome}
+            className="h-10 w-10 p-0 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
+          >
+            <X className="h-6 w-6" />
           </Button>
         )}
-        <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center shrink-0 mx-auto sm:mx-0 mt-8 sm:mt-0">
+      </div>
+
+      {/* FAQ Section */}
+      <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
+        <div 
+          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          onClick={() => setIsFAQOpen(!isFAQOpen)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+              <HelpCircle className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-gray-100">Perguntas Frequentes</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Tire suas dúvidas rapidamente</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+            {isFAQOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </Button>
+        </div>
+
+        {isFAQOpen && (
+          <CardContent className="pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="space-y-4">
+              {faqs.map((faq, index) => (
+                <div key={index} className="space-y-2 border-b border-gray-50 dark:border-gray-800/50 pb-4 last:border-0 last:pb-0">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-gray-200">{faq.question}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{faq.answer}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Welcome Banner */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative">
+        <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center shrink-0 mx-auto sm:mx-0">
           <MessageCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-bold text-blue-900 dark:text-blue-300">Central de Suporte</h2>
+          <h2 className="text-lg font-bold text-blue-900 dark:text-blue-300">Central de Atendimento</h2>
           <p className="text-sm text-blue-700 dark:text-blue-400/80 mt-1">
             Precisa de ajuda? Abra um chamado e nossa equipe responderá em <strong>até 24 horas úteis</strong>.
           </p>
         </div>
         <Button 
           onClick={() => setIsNewTicketModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 w-full sm:w-auto"
+          className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 w-full sm:w-auto font-bold"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Novo Chamado
+          NOVO CHAMADO
         </Button>
       </div>
 

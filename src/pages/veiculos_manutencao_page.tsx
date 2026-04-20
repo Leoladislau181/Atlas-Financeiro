@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, Vehicle, Manutencao, Lancamento, WorkShift } from '@/types';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import { Veiculos } from './veiculos';
 import { ManutencaoPage } from './manutencao';
 
@@ -40,21 +40,31 @@ export function VeiculosManutencaoPage({
   return (
     <div className="space-y-6 pb-20">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onBack}
+            className="h-10 w-10 p-0 rounded-full hover:bg-white dark:hover:bg-gray-800"
+          >
+            <ChevronLeft className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+          </Button>
+          <div>
+            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">
+              Veículos e Manutenção
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie sua frota e agendamentos</p>
+          </div>
+        </div>
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={onBack}
-          className="h-10 w-10 p-0 rounded-full hover:bg-white dark:hover:bg-gray-800"
+          onClick={onBackToHome}
+          className="h-10 w-10 p-0 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 transition-colors"
         >
-          <ChevronLeft className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+          <X className="h-6 w-6" />
         </Button>
-        <div>
-          <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">
-            Veículos e Manutenção
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Gerencie sua frota e agendamentos</p>
-        </div>
       </div>
 
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden rounded-3xl">

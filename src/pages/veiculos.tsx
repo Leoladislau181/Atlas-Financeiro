@@ -122,11 +122,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         payload.contract_end_date = contractEndDate || null;
         payload.contract_initial_km = contractInitialKm ? Number(contractInitialKm) : null;
         payload.contract_km_limit = contractKmLimit ? Number(contractKmLimit) : null;
-        payload.profit_goal = parseCurrency(profitGoalStr);
-        payload.maintenance_reserve = null;
       } else {
-        payload.profit_goal = parseCurrency(profitGoalStr);
-        payload.maintenance_reserve = parseCurrency(maintenanceReserveStr);
         payload.contract_value = null;
         payload.contract_start_date = null;
         payload.contract_end_date = null;
@@ -229,7 +225,6 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
     
     setRenewContractKmLimit(vehicle.contract_km_limit?.toString() || '');
     setAddRemainingKm(false);
-    setRenewProfitGoalStr(formatCurrency(vehicle.profit_goal || 0));
     setRenewModalOpen(true);
   };
 

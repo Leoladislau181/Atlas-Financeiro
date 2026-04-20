@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured, handleAuthError } from '@/lib/supabase';
 import { User } from '@/types';
 import { isPremium, parseLocalDate } from '@/lib/utils';
 import { Auth } from '@/pages/auth';
@@ -20,6 +20,8 @@ const Admin = React.lazy(() => import('@/pages/admin').then(m => ({ default: m.A
 const Suporte = React.lazy(() => import('@/pages/suporte').then(m => ({ default: m.Suporte })));
 const PlanoIndicacoesPage = React.lazy(() => import('@/pages/plano_indicacoes').then(m => ({ default: m.PlanoIndicacoesPage })));
 const PerfilPage = React.lazy(() => import('@/pages/perfil_page').then(m => ({ default: m.PerfilPage })));
+const CalculadoraGanhos = React.lazy(() => import('@/pages/calculadora_ganhos').then(m => ({ default: m.CalculadoraGanhos })));
+const TurnosPage = React.lazy(() => import('@/pages/turnos_page').then(m => ({ default: m.TurnosPage })));
 import { PremiumModal } from '@/components/premium-modal';
 
 function SupabaseSetupScreen() {
@@ -89,14 +91,14 @@ export default function App() {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.warn("Erro ao recuperar sessão:", error.message);
-          // Se houver erro de refresh token, limpamos tudo localmente
-          if (error.message.includes('Refresh Token Not Found') || error.message.includes('invalid_grant')) {
-            localStorage.removeItem('atlas-financeiro-auth');
+          if (handleAuthError(error)) {
+            setSession(null);
+            setUser(null);
+          } else {
+            console.warn("Erro ao recuperar sessão:", error.message);
+            setSession(null);
+            setUser(null);
           }
-          await supabase.auth.signOut().catch(() => {});
-          setSession(null);
-          setUser(null);
           return;
         }
 
@@ -325,6 +327,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             user={user} 
             refetch={refetch}
             onBack={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
           />
         )}
         {activeTab === 'veiculos' && (
@@ -366,7 +369,11 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
           <Admin user={user} />
         )}
         {activeTab === 'suporte' && (
-          <Suporte user={user} onBack={() => setActiveTab('configuracoes')} />
+          <Suporte 
+            user={user} 
+            onBack={() => setActiveTab('configuracoes')} 
+            onBackToHome={() => setActiveTab('inicio')}
+          />
         )}
         {activeTab === 'plano_indicacoes' && (
           <PlanoIndicacoesPage
@@ -380,6 +387,26 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             user={user}
             refetch={refetch}
             onBackToConfig={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
+          />
+        )}
+        {activeTab === 'calculadora' && (
+          <CalculadoraGanhos
+            user={user}
+            vehicles={vehicles}
+            lancamentos={lancamentos}
+            onBack={() => setActiveTab('configuracoes')}
+            onBackToHome={() => setActiveTab('inicio')}
+          />
+        )}
+        {activeTab === 'turnos' && (
+          <TurnosPage
+            user={user}
+            workShifts={workShifts}
+            vehicles={vehicles}
+            lancamentos={lancamentos}
+            refetch={refetch}
+            onBack={() => setActiveTab('configuracoes')}
             onBackToHome={() => setActiveTab('inicio')}
           />
         )}
@@ -400,6 +427,8 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onNavigateToSuporte={() => setActiveTab('suporte')}
             onNavigateToPlanoIndicacoes={() => setActiveTab('plano_indicacoes')}
             onNavigateToPerfil={() => setActiveTab('perfil')}
+            onNavigateToCalculadora={() => setActiveTab('calculadora')}
+            onNavigateToTurnos={() => setActiveTab('turnos')}
             forceOpenProfile={forceOpenProfile}
             onProfileOpened={() => setForceOpenProfile(false)}
           />

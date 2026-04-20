@@ -134,3 +134,21 @@ export interface User {
   lancamentos_count?: number;
   total_movimentado?: number;
 }
+
+export interface CalculatorGoal {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  mode: 'weekly' | 'monthly';
+  days_per_week: number;
+  km_per_day: number;
+  profit_goal: number;
+  fuel_price: number;
+  consumption: number;
+  other_fixed: number;
+  min_price_per_km: number;
+  total_revenue_needed: number;
+  daily_gross_target: number;
+  created_at: string;
+  vehicles?: Vehicle;
+}

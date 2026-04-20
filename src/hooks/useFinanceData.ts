@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, handleAuthError } from '@/lib/supabase';
 import { Categoria, Lancamento, Vehicle, Manutencao, WorkShift } from '@/types';
 
 // Variáveis globais para evitar condições de corrida (race conditions) no React
@@ -101,7 +101,12 @@ export function useFinanceData() {
       setWorkShifts(shiftResult.data || []);
     } catch (error: any) {
       console.error('Error fetching data:', error);
-      setError(error.message || 'Erro ao carregar dados do banco de dados.');
+      if (handleAuthError(error)) {
+        // Redirecionamento visual (o App.tsx cuidará do estado de session/user via onAuthStateChange)
+        window.location.reload();
+      } else {
+        setError(error.message || 'Erro ao carregar dados do banco de dados.');
+      }
     } finally {
       setLoading(false);
     }

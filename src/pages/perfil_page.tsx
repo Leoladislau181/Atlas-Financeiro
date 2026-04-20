@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { User } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { supabase, handleAuthError } from '@/lib/supabase';
 import { Shield, ChevronLeft, X, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { ProfilePhotoUpload } from '@/components/profile-photo-upload';
 import { useTheme } from '@/components/theme-provider';
@@ -63,7 +63,9 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
       setSuccessMsg('Perfil atualizado com sucesso!');
       refetch();
     } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao atualizar perfil.');
+      if (!handleAuthError(error)) {
+        setErrorMsg(error.message || 'Erro ao atualizar perfil.');
+      }
     } finally {
       setProfileLoading(false);
     }
@@ -109,7 +111,9 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
       setConfirmPassword('');
       setIsPasswordFormOpen(false);
     } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao atualizar senha.');
+      if (!handleAuthError(error)) {
+        setErrorMsg(error.message || 'Erro ao atualizar senha.');
+      }
     } finally {
       setPasswordLoading(false);
     }

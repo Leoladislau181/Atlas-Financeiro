@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, SupportTicket } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { supabase, handleAuthError } from '@/lib/supabase';
 import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw, Search, MessageCircle, Clock } from 'lucide-react';
 import { UserDetailsModal } from '@/components/user-details-modal';
 import { Input } from '@/components/ui/input';
@@ -236,7 +236,9 @@ export function Admin({ user }: AdminProps) {
       });
     } catch (error: any) {
       console.error('Erro ao buscar dados administrativos:', error);
-      setErrorMsg(error.message || 'Erro ao carregar dados do painel administrativo.');
+      if (!handleAuthError(error)) {
+        setErrorMsg(error.message || 'Erro ao carregar dados do painel administrativo.');
+      }
     } finally {
       setLoading(false);
     }
@@ -283,7 +285,9 @@ export function Admin({ user }: AdminProps) {
       setSuccessMsg(`Status Premium do usuário atualizado!`);
       fetchAdminData();
     } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao atualizar status premium.');
+      if (!handleAuthError(error)) {
+        setErrorMsg(error.message || 'Erro ao atualizar status premium.');
+      }
     }
   };
 
@@ -315,7 +319,9 @@ export function Admin({ user }: AdminProps) {
       setSuccessMsg(`Status do usuário atualizado para ${newStatus}!`);
       fetchAdminData();
     } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao atualizar status do usuário.');
+      if (!handleAuthError(error)) {
+        setErrorMsg(error.message || 'Erro ao atualizar status do usuário.');
+      }
     }
   };
 
@@ -334,7 +340,9 @@ export function Admin({ user }: AdminProps) {
           setIsDetailsModalOpen(false);
           fetchAdminData();
         } catch (error: any) {
-          setErrorMsg(error.message || 'Erro ao excluir usuário.');
+          if (!handleAuthError(error)) {
+            setErrorMsg(error.message || 'Erro ao excluir usuário.');
+          }
         } finally {
           setConfirmModalOpen(false);
         }
@@ -370,7 +378,9 @@ export function Admin({ user }: AdminProps) {
       setIsDetailsModalOpen(false);
       fetchAdminData();
     } catch (error: any) {
-      setErrorMsg(error.message || 'Erro ao aprovar pagamento.');
+      if (!handleAuthError(error)) {
+        setErrorMsg(error.message || 'Erro ao aprovar pagamento.');
+      }
     }
   };
 
@@ -405,7 +415,9 @@ export function Admin({ user }: AdminProps) {
           setIsDetailsModalOpen(false);
           fetchAdminData();
         } catch (error: any) {
-          setErrorMsg(error.message || 'Erro ao rejeitar pagamento.');
+          if (!handleAuthError(error)) {
+            setErrorMsg(error.message || 'Erro ao rejeitar pagamento.');
+          }
         } finally {
           setConfirmModalOpen(false);
         }
