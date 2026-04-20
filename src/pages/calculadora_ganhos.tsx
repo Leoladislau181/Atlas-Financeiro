@@ -675,7 +675,29 @@ export function CalculadoraGanhos({
 
               // Progress based on Profit (or choose Gross as common)
               // User mentioned "barra de progresso com a porcentagem"
-              const profitProgress = Math.min(100, Math.max(0, ((realGross - realTotalCost) / (goal.profit_goal || 1)) * 100));
+              const realProfit = realGross - realTotalCost;
+              const profitProgressRaw = goal.profit_goal > 0 ? (realProfit / goal.profit_goal) * 100 : 0;
+              
+              let profitColorClass = "bg-indigo-500";
+              let profitTextClass = "text-indigo-600";
+              let profitProgressWidthRaw = 0;
+
+              if (realProfit < 0) {
+                profitColorClass = "bg-red-500";
+                profitTextClass = "text-red-500";
+                profitProgressWidthRaw = realTotalCost > 0 ? (Math.abs(realProfit) / realTotalCost) * 100 : 0;
+              } else if (realProfit >= goal.profit_goal) {
+                profitColorClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
+                profitTextClass = "text-emerald-500";
+                profitProgressWidthRaw = 100;
+              } else {
+                profitColorClass = "bg-amber-500";
+                profitTextClass = "text-amber-500";
+                profitProgressWidthRaw = goal.profit_goal > 0 ? (realProfit / goal.profit_goal) * 100 : 0;
+              }
+
+              const profitProgressWidth = Math.min(100, Math.max(2, profitProgressWidthRaw));
+
               const grossProgress = Math.min(100, (realGross / (metaGross || 1)) * 100);
 
               const allGoalsMet = realGross >= metaGross && 
@@ -718,24 +740,33 @@ export function CalculadoraGanhos({
                           <p className="text-[10px] font-black text-indigo-600 uppercase">Progresso Geral (Meta de Lucro)</p>
                           <span className={cn(
                             "text-base font-black",
-                            profitProgress >= 100 ? "text-emerald-500" : "text-indigo-600"
+                            profitTextClass
                           )}>
-                            {profitProgress.toFixed(1)}%
+                            {profitProgressRaw.toFixed(1)}%
                           </span>
                         </div>
                         <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                           <div 
                             className={cn(
                               "h-full transition-all duration-1000",
-                              profitProgress >= 100 ? "bg-emerald-500" : "bg-indigo-500"
+                              profitColorClass
                             )}
-                            style={{ width: `${profitProgress}%` }}
+                            style={{ width: `${profitProgressWidth}%` }}
                           />
                         </div>
                       </div>
 
                       {/* Comparison Columns - Unified Dashboard Style */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {/* Metric 5: Lucro Líquido */}
+                        <MetricComparison 
+                          label="Lucro Líquido Real" 
+                          metaValue={formatCurrency(goal.profit_goal)} 
+                          realValue={formatCurrency(realProfit)} 
+                          isMet={realProfit >= goal.profit_goal}
+                          isNegative={realProfit < 0}
+                        />
+
                         {/* Metric 1: Ganho Bruto */}
                         <MetricComparison 
                           label="Ganho Bruto Período" 
@@ -929,7 +960,7 @@ function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: Calculator
   );
 }
 
-function MetricComparison({ label, metaValue, realValue, isMet, isCost = false }: { label: string; metaValue: string; realValue: string; isMet: boolean; isCost?: boolean }) {
+function MetricComparison({ label, metaValue, realValue, isMet, isCost = false, isNegative = false }: { label: string; metaValue: string; realValue: string; isMet: boolean; isCost?: boolean; isNegative?: boolean }) {
   return (
     <div className="space-y-1.5">
       <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] text-center">{label}</p>
@@ -943,7 +974,7 @@ function MetricComparison({ label, metaValue, realValue, isMet, isCost = false }
           <span className="text-[8px] font-black text-gray-400 uppercase">Real</span>
           <span className={cn(
             "text-sm font-black",
-            isCost ? "text-red-500" : (isMet ? "text-emerald-500" : "text-amber-500")
+            isCost || isNegative ? "text-red-500" : (isMet ? "text-emerald-500" : "text-amber-500")
           )}>
             {realValue}
           </span>

@@ -166,10 +166,10 @@ export function Dashboard({
   }, [quickSuggestedOdometer]);
 
   const [activeGoals, setActiveGoals] = useState<CalculatorGoal[]>([]);
-  const [collapsedGoals, setCollapsedGoals] = useState<Set<string>>(new Set());
+  const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
 
   const toggleGoalCollapse = (id: string) => {
-    setCollapsedGoals(prev => {
+    setExpandedGoals(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -764,12 +764,32 @@ export function Dashboard({
 
               const realCost = realFuel + fixedDailyBase + realOtherExpenses;
 
-              const isCollapsed = collapsedGoals.has(goal.id);
+              const metaProfit = goal.profit_goal / daysInMode;
+              const realProfit = realGross - realCost;
+              const profitProgressRaw = metaProfit > 0 ? (realProfit / metaProfit) * 100 : 0;
+              
+              let profitColorClass = "bg-amber-500";
+              let profitProgressWidthRaw = 0;
+
+              if (realProfit < 0) {
+                profitColorClass = "bg-red-500";
+                profitProgressWidthRaw = realCost > 0 ? (Math.abs(realProfit) / realCost) * 100 : 0;
+              } else if (realProfit >= metaProfit) {
+                profitColorClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
+                profitProgressWidthRaw = 100;
+              } else {
+                profitColorClass = "bg-amber-500";
+                profitProgressWidthRaw = metaProfit > 0 ? (realProfit / metaProfit) * 100 : 0;
+              }
+
+              const profitProgress = Math.min(100, Math.max(2, profitProgressWidthRaw));
+
+              const isExpanded = expandedGoals.has(goal.id);
+              const isCollapsed = !isExpanded;
               const allGoalsMet = realGross >= metaGross && 
                                  realKM >= metaKM && 
                                  realRevKm >= metaRevKm && 
                                  realCost <= metaCost;
-              const overallProgress = Math.min(100, (realGross / (metaGross || 1)) * 100);
 
               return (
                 <Card key={goal.id} className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
@@ -802,17 +822,42 @@ export function Dashboard({
                           <div 
                             className={cn(
                               "h-full transition-all duration-1000",
-                              allGoalsMet ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-amber-500"
+                              profitColorClass
                             )}
-                            style={{ width: `${Math.max(5, overallProgress)}%` }}
+                            style={{ width: `${profitProgress}%` }}
                           />
                         </div>
                       </div>
                     ) : (
                       /* Comparison List (Expanded Only) */
                       <div className="p-5 space-y-6">
+                        {/* Metric 5: Lucro Líquido Real */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1 text-center">Lucro Líquido Real do Dia</p>
+                          <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-black text-blue-500/70 uppercase">Meta</span>
+                              <span className="text-lg font-black text-blue-600 dark:text-blue-400">
+                                {formatCurrency(metaProfit)}
+                              </span>
+                            </div>
+                            <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                            <div className="flex flex-col text-right">
+                              <span className="text-[9px] font-black text-gray-400 uppercase">Realizado</span>
+                              <span className={cn(
+                                "text-xl font-black",
+                                realProfit < 0 
+                                  ? "text-red-500" 
+                                  : (realProfit >= metaProfit ? "text-emerald-500" : "text-amber-500")
+                              )}>
+                                {formatCurrency(realProfit)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Metric 1: Ganho Bruto */}
-                      <div className="space-y-2">
+                        <div className="space-y-2">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1 text-center">Ganho Bruto Diário</p>
                         <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
                           <div className="flex flex-col">
