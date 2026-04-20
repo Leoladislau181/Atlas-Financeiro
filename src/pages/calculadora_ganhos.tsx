@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Vehicle, Lancamento, User, CalculatorGoal } from '@/types';
-import { Calculator, ChevronLeft, X, DollarSign, Target, TrendingUp, CheckCircle2, Trash2, Calendar as CalendarIcon, History, ArrowRight, Wallet, Fuel } from 'lucide-react';
+import { Calculator, ChevronLeft, X, DollarSign, Target, TrendingUp, CheckCircle2, Trash2, Calendar as CalendarIcon, History, ArrowRight, Wallet, Fuel, Car, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { formatCurrency, formatCurrencyInput, parseCurrency, getMostUsedVehicleId, cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfDay, endOfDay } from 'date-fns';
@@ -606,7 +606,7 @@ export function CalculadoraGanhos({
             </CardContent>
           </Card>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             {goals.filter(g => {
               if (!g.end_date) return true;
               const end = endOfDay(new Date(g.end_date + 'T23:59:59'));
@@ -617,6 +617,7 @@ export function CalculadoraGanhos({
 
               const goalStart = startOfDay(new Date(goal.start_date + 'T00:00:00'));
               const goalEnd = endOfDay(new Date(goal.end_date + 'T23:59:59'));
+              const vehicle = goal.vehicles;
 
               if (isNaN(goalStart.getTime()) || isNaN(goalEnd.getTime())) return null;
 
@@ -633,31 +634,69 @@ export function CalculadoraGanhos({
                 }
               });
 
-              const revenue = periodTransactions
+              // --- Realized values for the ENTIRE period ---
+              // 1. Ganho Bruto
+              const realGross = periodTransactions
                 .filter(l => l.tipo === 'receita')
                 .reduce((acc, l) => acc + Number(l.valor || 0), 0);
               
-              const expenses = periodTransactions
-                .filter(l => l.tipo === 'despesa')
-                .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+              // 2. Quilometragem
+              const realKM = periodTransactions
+                .reduce((acc, l) => acc + Number(l.km_rodados || 0), 0);
 
-              const actualProfit = revenue - expenses;
-              const profitGoal = goal.profit_goal || 1; // Prevent division by zero
-              const progressPercentage = Math.min(100, Math.max(0, (actualProfit / profitGoal) * 100));
+              // 3. Eficiência
+              const realRevKm = realKM > 0 ? realGross / realKM : 0;
+
+              // 4. Custos
+              const fuelCostPerKm = goal.consumption > 0 ? goal.fuel_price / goal.consumption : 0;
+              const realFuelCost = realKM * fuelCostPerKm;
+              
+              const isRented = vehicle?.type === 'rented';
+              const maintReservePerKm = isRented ? 0 : (vehicle?.maintenance_reserve || 0.15);
+              const realMaintCost = realKM * maintReservePerKm;
+
+              const monthlyFixed = (isRented ? (vehicle?.contract_value || 0) : 0) + (goal.other_fixed || 0);
+              const isMonthly = goal.mode === 'monthly';
+              const periodFixedCost = isMonthly ? monthlyFixed : (monthlyFixed / 30) * 7;
+
+              const realOtherExpenses = periodTransactions.filter(l => {
+                if (l.tipo !== 'despesa') return false;
+                const catName = l.categorias?.nome?.toLowerCase() || '';
+                return !(catName.includes('combust') || catName.includes('alug') || catName.includes('rent') || catName.includes('manuten') || catName.includes('oficina'));
+              }).reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+              const realTotalCost = realFuelCost + realMaintCost + periodFixedCost + realOtherExpenses;
+
+              // --- Meta values for the ENTIRE period ---
+              const metaGross = goal.total_revenue_needed;
+              const metaKM = goal.km_per_day * goal.days_per_week;
+              const metaRevKm = goal.min_price_per_km;
+              const metaCost = metaGross - goal.profit_goal;
+
+              // Progress based on Profit (or choose Gross as common)
+              // User mentioned "barra de progresso com a porcentagem"
+              const profitProgress = Math.min(100, Math.max(0, ((realGross - realTotalCost) / (goal.profit_goal || 1)) * 100));
+              const grossProgress = Math.min(100, (realGross / (metaGross || 1)) * 100);
+
+              const allGoalsMet = realGross >= metaGross && 
+                                 realKM >= metaKM && 
+                                 realRevKm >= metaRevKm && 
+                                 realTotalCost <= metaCost;
 
               return (
-                <Card key={goal.id} className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
-                  <CardContent className="p-5">
-                    <div className="flex justify-between items-start mb-4">
+                <Card key={goal.id} className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
+                  <CardContent className="p-0">
+                    {/* Header with Title and Delete */}
+                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
-                          <Target className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl">
+                          <Target className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-gray-900 dark:text-gray-100">
-                            Meta {goal.mode === 'weekly' ? 'Semanal' : 'Mensal'} • {goal.vehicles?.name || 'Veículo'}
+                          <h4 className="text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest leading-none mb-1">
+                            {goal.mode === 'weekly' ? 'Meta Semanal' : 'Meta Mensal'} • {vehicle?.name}
                           </h4>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider leading-none">
                             Vigência: {format(goalStart, "dd/MM")} até {format(goalEnd, "dd/MM/yyyy")}
                           </p>
                         </div>
@@ -666,74 +705,81 @@ export function CalculadoraGanhos({
                         variant="ghost" 
                         size="icon" 
                         onClick={() => handleDeleteGoal(goal.id)}
-                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
 
-                    {/* Progress Bar Section */}
-                    <div className="mb-6 space-y-2">
-                      <div className="flex justify-between items-end">
-                        <div>
-                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-0.5">Progresso do Lucro Líquido</p>
-                          <p className="text-sm font-black text-gray-900 dark:text-gray-100">
-                            {formatCurrency(actualProfit)} <span className="text-gray-400 font-medium tracking-normal">de {formatCurrency(goal.profit_goal)}</span>
-                          </p>
-                        </div>
-                        <div className="text-right">
+                    <div className="p-5 space-y-6">
+                      {/* Overall Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-end px-1">
+                          <p className="text-[10px] font-black text-indigo-600 uppercase">Progresso Geral (Meta de Lucro)</p>
                           <span className={cn(
-                            "text-lg font-black",
-                            progressPercentage >= 100 ? "text-emerald-500" : "text-indigo-600"
+                            "text-base font-black",
+                            profitProgress >= 100 ? "text-emerald-500" : "text-indigo-600"
                           )}>
-                            {progressPercentage.toFixed(1)}%
+                            {profitProgress.toFixed(1)}%
                           </span>
                         </div>
+                        <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full transition-all duration-1000",
+                              profitProgress >= 100 ? "bg-emerald-500" : "bg-indigo-500"
+                            )}
+                            style={{ width: `${profitProgress}%` }}
+                          />
+                        </div>
                       </div>
-                <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <div 
-                    style={{ width: `${progressPercentage}%`, transition: 'width 1s ease-out' }}
-                    className={cn(
-                      "h-full rounded-full transition-all duration-1000",
-                      progressPercentage >= 100 ? "bg-emerald-500" : "bg-indigo-500"
-                    )}
-                  />
-                </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div className="p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100/30">
-                        <p className="text-[9px] font-black text-emerald-600 uppercase mb-1">Mínimo por KM</p>
-                        <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">
-                          {formatCurrency(goal.min_price_per_km)}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100/30">
-                        <p className="text-[9px] font-black text-indigo-600 uppercase mb-1">Ganhos/Dia</p>
-                        <p className="text-xl font-black text-indigo-700 dark:text-indigo-300">
-                          {formatCurrency(goal.daily_gross_target)}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-gray-50/50 dark:bg-gray-800/50 rounded-2xl border border-gray-100/30">
-                        <p className="text-[9px] font-black text-gray-600 uppercase mb-1">Rec. Necessária</p>
-                        <p className="text-xl font-black text-gray-700 dark:text-gray-200">
-                          {formatCurrency(goal.total_revenue_needed)}
-                        </p>
-                      </div>
-                    </div>
+                      {/* Comparison Columns - Unified Dashboard Style */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {/* Metric 1: Ganho Bruto */}
+                        <MetricComparison 
+                          label="Ganho Bruto Período" 
+                          metaValue={formatCurrency(metaGross)} 
+                          realValue={formatCurrency(realGross)} 
+                          isMet={realGross >= metaGross}
+                        />
 
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-gray-500 dark:text-gray-400 pt-3 border-t border-dashed border-gray-200 dark:border-gray-800">
-                      <div className="flex gap-1.5">
-                        <span className="font-bold text-gray-400">ESCALA:</span>
-                        <span className="font-semibold text-gray-700 dark:text-gray-300">
-                          {goal.days_per_week} dias/sem • {goal.km_per_day} KM/dia
-                        </span>
+                        {/* Metric 2: Quilometragem */}
+                        <MetricComparison 
+                          label="Quilometragem Período" 
+                          metaValue={`${metaKM.toLocaleString()} KM`} 
+                          realValue={`${realKM.toLocaleString()} KM`} 
+                          isMet={realKM >= metaKM}
+                        />
+
+                        {/* Metric 3: Eficiência */}
+                        <MetricComparison 
+                          label="Eficiência (Rec/KM)" 
+                          metaValue={formatCurrency(metaRevKm)} 
+                          realValue={formatCurrency(realRevKm)} 
+                          isMet={realRevKm >= metaRevKm}
+                        />
+
+                        {/* Metric 4: Custo Total */}
+                        <MetricComparison 
+                          label="Custo Total Período" 
+                          metaValue={formatCurrency(metaCost)} 
+                          realValue={formatCurrency(realTotalCost)} 
+                          isMet={realTotalCost <= metaCost}
+                          isCost
+                        />
                       </div>
-                      <div className="flex gap-1.5">
-                        <span className="font-bold text-gray-400">ESTIMATIVA KM:</span>
-                        <span className="font-semibold text-gray-700 dark:text-gray-300">
-                          {(goal.km_per_day * goal.days_per_week * (goal.mode === 'weekly' ? 1 : 4)).toLocaleString()} KM total
-                        </span>
+
+                      {/* Detail Footer */}
+                      <div className="pt-2 flex flex-wrap gap-x-4 gap-y-2 text-[9px] text-gray-400 font-bold border-t border-dashed border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                          <span>Mínimo: {formatCurrency(goal.min_price_per_km)}/km</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-indigo-400" />
+                          <span>Escala: {goal.days_per_week} dias de trabalho no período</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -791,15 +837,15 @@ export function CalculadoraGanhos({
 }
 
 function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: CalculatorGoal; lancamentos: Lancamento[]; onDelete: (id: string) => void }) {
-  // Safety check for dates
+  // Same logic as Active Goals but for History display
   if (!goal.start_date || !goal.end_date) return null;
 
   const goalStart = startOfDay(new Date(goal.start_date + 'T00:00:00'));
   const goalEnd = endOfDay(new Date(goal.end_date + 'T23:59:59'));
+  const vehicle = goal.vehicles;
 
   if (isNaN(goalStart.getTime()) || isNaN(goalEnd.getTime())) return null;
 
-  // Filter transactions for this vehicle in the specific goal period
   const periodTransactions = lancamentos.filter(l => {
     if (!l.data) return false;
     try {
@@ -812,144 +858,97 @@ function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: Calculator
     }
   });
 
-  const revenue = periodTransactions
-    .filter(l => l.tipo === 'receita')
-    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const realGross = periodTransactions.filter(l => l.tipo === 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const realKM = periodTransactions.reduce((acc, l) => acc + Number(l.km_rodados || 0), 0);
+  const realRevKm = realKM > 0 ? realGross / realKM : 0;
   
-  const expenses = periodTransactions
-    .filter(l => l.tipo === 'despesa')
-    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const fuelCostPerKm = goal.consumption > 0 ? goal.fuel_price / goal.consumption : 0;
+  const isRented = vehicle?.type === 'rented';
+  const maintReservePerKm = isRented ? 0 : (vehicle?.maintenance_reserve || 0.15);
+  const monthlyFixed = (isRented ? (vehicle?.contract_value || 0) : 0) + (goal.other_fixed || 0);
+  const isMonthly = goal.mode === 'monthly';
+  const periodFixedCost = isMonthly ? monthlyFixed : (monthlyFixed / 30) * 7;
+  const realOtherExpenses = periodTransactions.filter(l => {
+    if (l.tipo !== 'despesa') return false;
+    const catName = l.categorias?.nome?.toLowerCase() || '';
+    return !(catName.includes('combust') || catName.includes('alug') || catName.includes('rent') || catName.includes('manuten') || catName.includes('oficina'));
+  }).reduce((acc, l) => acc + Number(l.valor || 0), 0);
 
-  const actualProfit = revenue - expenses;
-  const isGoalMet = actualProfit >= goal.profit_goal;
+  const realTotalCost = (realKM * fuelCostPerKm) + (realKM * maintReservePerKm) + periodFixedCost + realOtherExpenses;
   
+  const metaGross = goal.total_revenue_needed;
+  const metaKM = goal.km_per_day * goal.days_per_week;
+  const metaRevKm = goal.min_price_per_km;
+  const metaCost = metaGross - goal.profit_goal;
+
+  const profitProgress = Math.min(100, Math.max(0, ((realGross - realTotalCost) / (goal.profit_goal || 1)) * 100));
+
   return (
-    <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden rounded-3xl group relative">
+    <Card className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group opacity-90 grayscale-[0.2]">
       <CardContent className="p-0">
-        <div className="flex flex-col md:flex-row">
-          {/* Left Side: Target Information */}
-          <div className="flex-1 p-5 border-b md:border-b-0 md:border-r border-dashed border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[9px] font-black text-gray-500 rounded-full uppercase tracking-wider">Esperado</span>
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{format(goalStart, "dd/MM")} - {format(goalEnd, "dd/MM")}</span>
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History className="h-3 w-3 text-gray-400" />
+            <span className="text-[10px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest">
+              {vehicle?.name} • Finalizada
+            </span>
+          </div>
+          <Button 
+            variant="ghost" size="icon" onClick={() => onDelete(goal.id)}
+            className="h-6 w-6 text-gray-400 hover:text-red-500"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+        
+        <div className="p-4 space-y-4">
+          <div className="space-y-1">
+            <div className="flex justify-between items-end px-1">
+              <span className="text-[9px] font-black text-gray-400 uppercase">Resultado Final (Lucro)</span>
+              <span className={cn("text-xs font-black", profitProgress >= 100 ? "text-emerald-500" : "text-amber-500")}>
+                {profitProgress.toFixed(1)}%
+              </span>
             </div>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Meta de Lucro</p>
-                <p className="text-xl font-black text-gray-700 dark:text-gray-200">{formatCurrency(goal.profit_goal)}</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Wallet className="h-2.5 w-2.5" /> Receita Req.
-                  </p>
-                  <p className="text-sm font-bold text-gray-600 dark:text-gray-300">{formatCurrency(goal.total_revenue_needed)}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Target className="h-2.5 w-2.5" /> Ganhos/Dia
-                  </p>
-                  <p className="text-sm font-bold text-gray-600 dark:text-gray-300">{formatCurrency(goal.daily_gross_target)}</p>
-                </div>
-              </div>
-
-              <div className="text-[10px] text-gray-400 font-semibold italic">
-                {goal.mode === 'weekly' ? 'Projetado para 1 semana' : 'Projetado para 1 mês'} • {goal.vehicles?.name}
-              </div>
+            <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full", profitProgress >= 100 ? "bg-emerald-500" : "bg-amber-500")}
+                style={{ width: `${profitProgress}%` }}
+              />
             </div>
           </div>
 
-          {/* Center Arrow (Desktop Only) */}
-          <div className="hidden md:flex items-center justify-center -mx-4 z-10">
-            <div className="bg-white dark:bg-gray-900 p-2 rounded-full border border-gray-100 dark:border-gray-800 shadow-sm text-indigo-500">
-              <ArrowRight className="h-4 w-4" />
-            </div>
-          </div>
-
-          {/* Right Side: Actual Results */}
-          <div className={cn(
-            "flex-1 p-5 transition-colors",
-            isGoalMet ? "bg-emerald-50/20 dark:bg-emerald-900/10" : "bg-red-50/20 dark:bg-red-900/10"
-          )}>
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider",
-                  isGoalMet ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
-                )}>
-                  Alcançado
-                </span>
-                {isGoalMet ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                ) : (
-                  <div className="h-3.5 w-3.5 text-red-500 flex items-center justify-center font-black text-xs">!</div>
-                )}
-              </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => onDelete(goal.id)}
-                className="h-7 w-7 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <p className={cn(
-                  "text-[9px] font-black uppercase tracking-widest mb-1",
-                  isGoalMet ? "text-emerald-600/70" : "text-red-600/70"
-                )}>Lucro Líquido Real</p>
-                <p className={cn(
-                  "text-xl font-black",
-                  isGoalMet ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
-                )}>
-                  {formatCurrency(actualProfit)}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <TrendingUp className="h-2.5 w-2.5 text-emerald-500" /> Total Receita
-                  </p>
-                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{formatCurrency(revenue)}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                    <Fuel className="h-2.5 w-2.5 text-red-500" /> Total Despesas
-                  </p>
-                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{formatCurrency(expenses)}</p>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                  <div 
-                    className={cn(
-                      "h-full rounded-full transition-all duration-1000",
-                      isGoalMet ? "bg-emerald-500" : "bg-red-500"
-                    )}
-                    style={{ width: `${Math.min(100, (actualProfit / (goal.profit_goal || 1)) * 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-[8px] font-black text-gray-400">DESEMPENHO</span>
-                  <span className={cn(
-                    "text-[8px] font-black",
-                    isGoalMet ? "text-emerald-600" : "text-red-600"
-                  )}>
-                    {((actualProfit / (goal.profit_goal || 1)) * 100).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div className="grid grid-cols-2 gap-4">
+            <MetricComparison label="Ganho Bruto" metaValue={formatCurrency(metaGross)} realValue={formatCurrency(realGross)} isMet={realGross >= metaGross} />
+            <MetricComparison label="Total KM" metaValue={`${metaKM} KM`} realValue={`${realKM} KM`} isMet={realKM >= metaKM} />
+            <MetricComparison label="Eficiência" metaValue={formatCurrency(metaRevKm)} realValue={formatCurrency(realRevKm)} isMet={realRevKm >= metaRevKm} />
+            <MetricComparison label="Custo Total" metaValue={formatCurrency(metaCost)} realValue={formatCurrency(realTotalCost)} isMet={realTotalCost <= metaCost} isCost />
           </div>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function MetricComparison({ label, metaValue, realValue, isMet, isCost = false }: { label: string; metaValue: string; realValue: string; isMet: boolean; isCost?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] text-center">{label}</p>
+      <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800 leading-tight">
+        <div className="flex flex-col">
+          <span className="text-[8px] font-black text-blue-500/70 uppercase">Meta</span>
+          <span className="text-sm font-black text-blue-600 dark:text-blue-400">{metaValue}</span>
+        </div>
+        <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1.5" />
+        <div className="flex flex-col text-right">
+          <span className="text-[8px] font-black text-gray-400 uppercase">Real</span>
+          <span className={cn(
+            "text-sm font-black",
+            isCost ? "text-red-500" : (isMet ? "text-emerald-500" : "text-amber-500")
+          )}>
+            {realValue}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
