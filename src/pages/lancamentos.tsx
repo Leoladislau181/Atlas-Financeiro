@@ -131,13 +131,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
     // KM Inicial: buscar último odômetro absoluto (apenas Receita ou Pessoal)
     const editingGroupId = editingId ? lancamentos.find(l => l.id === editingId)?.group_id : null;
+    const targetDate = parseLocalDate(data).getTime();
 
     const allOdos = lancamentos
       .filter(l => 
         l.vehicle_id === vId && 
         (editingId ? (l.id !== editingId && (!editingGroupId || l.group_id !== editingGroupId)) : true) &&
         (l.odometer || l.odometro_receita) && 
-        (l.tipo === 'receita' || l.tipo === 'pessoal')
+        (l.tipo === 'receita' || l.tipo === 'pessoal') &&
+        parseLocalDate(l.data).getTime() <= targetDate
       )
       .sort((a, b) => {
         const dateA = parseLocalDate(a.data).getTime();
@@ -255,7 +257,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     valorStr: items[0]?.valorStr || '',
     pricePerLiterStr: fuelPricePerLiterStr,
     isOdometerManuallyEdited,
-    triggerDependency: items[0]?.categoriaId || ''
+    triggerDependency: items[0]?.categoriaId || '',
+    selectedDate: data
   });
 
   useEffect(() => {
@@ -277,13 +280,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
     // Se estiver editando, precisamos excluir todos os lançamentos que pertencem ao mesmo grupo
     const editingGroupId = editingId ? lancamentos.find(l => l.id === editingId)?.group_id : null;
+    const targetDate = parseLocalDate(data).getTime();
 
     const allOdos = lancamentos
       .filter(l => 
         l.vehicle_id === vehicleId && 
         (editingId ? (l.id !== editingId && (!editingGroupId || l.group_id !== editingGroupId)) : true) &&
         (l.odometer || l.odometro_receita) && 
-        (l.tipo === 'receita' || l.tipo === 'pessoal')
+        (l.tipo === 'receita' || l.tipo === 'pessoal') &&
+        parseLocalDate(l.data).getTime() <= targetDate
       )
       .sort((a, b) => {
         const dateA = parseLocalDate(a.data).getTime();
@@ -293,7 +298,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       });
 
     return allOdos.length > 0 ? (allOdos[0].odometro_receita || allOdos[0].odometer || 0) : vehicle.initial_odometer;
-  }, [vehicleId, lancamentos, vehicles, editingId]);
+  }, [vehicleId, lancamentos, vehicles, editingId, data]);
 
   const nextMonth = () => setSelectedDate(addMonths(selectedDate, 1));
   const prevMonth = () => setSelectedDate(subMonths(selectedDate, 1));
@@ -420,9 +425,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       const vehicle = vehicles.find(v => v.id === vehicleId);
       const newOdo = odometer ? Number(odometer) : Number(odometroReceita);
       
-      // Busca o maior odômetro absoluto já registrado para este veículo (apenas Receita ou Pessoal)
+      // Busca o maior odômetro absoluto registrado antes ou na mesma data deste lançamento para este veículo
+      const targetTime = parseLocalDate(data).getTime();
       const allOdos = lancamentos
-        .filter(l => l.vehicle_id === vehicleId && (l.odometer || l.odometro_receita) && (l.tipo === 'receita' || l.tipo === 'pessoal'))
+        .filter(l => 
+          l.vehicle_id === vehicleId && 
+          (l.odometer || l.odometro_receita) && 
+          (l.tipo === 'receita' || l.tipo === 'pessoal') &&
+          parseLocalDate(l.data).getTime() <= targetTime
+        )
         .map(l => l.odometro_receita || l.odometer || 0);
       
       const lastOdo = allOdos.length > 0 ? Math.max(...allOdos) : (vehicle?.initial_odometer || 0);
@@ -501,14 +512,17 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
           if (vehicle) {
             const editingGroupId = editingId ? lancamentos.find(l => l.id === editingId)?.group_id : null;
+            const targetTimeForShift = parseLocalDate(data).getTime();
 
-            // Busca o último odômetro absoluto registrado (Receita ou Pessoal) excluindo o registro atual ou o seu grupo se for edição
+            // Busca o último odômetro absoluto registrado (Receita ou Pessoal) excluindo o registro atual ou o seu grupo se for edição,
+            // e apenas pega lançamentos cronologicamente anteriores (ou do mesmo dia, mas criados antes)
             const odoEntries = lancamentos
               .filter(l => 
                 l.vehicle_id === vehicleId && 
                 (editingId ? (l.id !== editingId && (!editingGroupId || l.group_id !== editingGroupId)) : true) &&
                 (l.odometer || l.odometro_receita) && 
-                (l.tipo === 'receita' || l.tipo === 'pessoal')
+                (l.tipo === 'receita' || l.tipo === 'pessoal') &&
+                parseLocalDate(l.data).getTime() <= targetTimeForShift
               )
               .sort((a, b) => {
                 const dateA = parseLocalDate(a.data).getTime();
@@ -1208,7 +1222,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-blue-700 dark:text-blue-300">Distância Percorrida:</span>
-                    <span className="font-bold text-blue-900 dark:text-blue-100">{personalKmRodados} km</span>
+                    <span className="font-bold text-blue-900 dark:text-blue-100">{Math.round(personalKmRodados).toLocaleString('pt-BR')} km</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-blue-700 dark:text-blue-300">Custo Estimado:</span>
@@ -1616,7 +1630,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                                     <>
                                       <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
                                         <TrendingUp className="h-3.5 w-3.5" />
-                                        {l.km_rodados} KM rodados para este lançamento
+                                        {Math.round(l.km_rodados).toLocaleString('pt-BR')} KM rodados para este lançamento
                                       </div>
                                       {l.km_rodados > 0 && (
                                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -1755,7 +1769,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                           <div className="grid grid-cols-2 gap-2">
                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
                               <TrendingUp className="h-3 w-3" />
-                              {l.km_rodados} KM rodados
+                              {Math.round(l.km_rodados).toLocaleString('pt-BR')} KM rodados
                             </div>
                             {l.km_rodados > 0 && (
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg">

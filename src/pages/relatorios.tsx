@@ -1557,7 +1557,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Distância Percorrida</p>
                     <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                      {shiftStats.totalOdometer.toFixed(2)} km
+                      {Math.round(shiftStats.totalOdometer).toLocaleString('pt-BR')} km
                     </p>
                   </div>
                   <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50 text-center">
@@ -1603,7 +1603,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   <AlertCircle className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                   <div className="text-sm text-blue-800 dark:text-blue-300">
                     <p className="font-semibold mb-1">Estimativa de Custo de Combustível: {formatCurrency(shiftStats.estimatedFuelCost)}</p>
-                    <p className="opacity-80">Baseado na distância percorrida nos turnos ({shiftStats.totalOdometer.toFixed(2)} km) e na média de preço dos seus abastecimentos.</p>
+                    <p className="opacity-80">Baseado na distância percorrida nos turnos ({Math.round(shiftStats.totalOdometer).toLocaleString('pt-BR')} km) e na média de preço dos seus abastecimentos.</p>
                   </div>
                 </div>
               </CardContent>
@@ -1653,7 +1653,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
               <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Quilômetros ({format(parseLocalDate(personalMonthFilter + '-01'), 'MMMM', { locale: ptBR })})</p>
                 <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {personalSectionStats.totalKm.toFixed(1)} km
+                  {Math.round(personalSectionStats.totalKm).toLocaleString('pt-BR')} km
                 </p>
               </div>
               <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">

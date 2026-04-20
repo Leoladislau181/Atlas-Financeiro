@@ -12,6 +12,7 @@ interface UseFuelAutoFillProps {
   pricePerLiterStr: string;
   isOdometerManuallyEdited: boolean;
   triggerDependency?: string;
+  selectedDate?: string;
 }
 
 export function useFuelAutoFill({
@@ -23,7 +24,8 @@ export function useFuelAutoFill({
   valorStr,
   pricePerLiterStr,
   isOdometerManuallyEdited,
-  triggerDependency = ''
+  triggerDependency = '',
+  selectedDate
 }: UseFuelAutoFillProps) {
   const [lastAutoFillTrigger, setLastAutoFillTrigger] = useState('');
   const [lastFuelData, setLastFuelData] = useState<{
@@ -36,10 +38,16 @@ export function useFuelAutoFill({
   const [suggestedOdometer, setSuggestedOdometer] = useState<string | null>(null);
 
   useEffect(() => {
-    const triggerKey = `${vehicleId}-${fuelType}-${triggerDependency}`;
+    const triggerKey = `${vehicleId}-${fuelType}-${triggerDependency}-${selectedDate || ''}`;
 
     if (isActive && vehicleId) {
-      const vLancamentos = lancamentos.filter(l => l.vehicle_id === vehicleId);
+      const targetTime = selectedDate ? parseLocalDate(selectedDate).getTime() : new Date().getTime();
+
+      const vLancamentos = lancamentos.filter(l => {
+         if (l.vehicle_id !== vehicleId) return false;
+         if (selectedDate && parseLocalDate(l.data).getTime() > targetTime) return false;
+         return true;
+      });
       
       const fuelEntries = vLancamentos
         .filter(l => l.fuel_price_per_liter && l.fuel_liters && l.odometer && (!fuelType || l.fuel_type === fuelType))
@@ -97,7 +105,7 @@ export function useFuelAutoFill({
       setLastAutoFillTrigger(triggerKey);
       setSuggestedPricePerLiter(null);
     }
-  }, [vehicleId, fuelType, lancamentos, vehicles, isActive, lastAutoFillTrigger]);
+  }, [vehicleId, fuelType, lancamentos, vehicles, isActive, lastAutoFillTrigger, selectedDate]);
 
   useEffect(() => {
     if (isActive && vehicleId && !isOdometerManuallyEdited && lastFuelData) {

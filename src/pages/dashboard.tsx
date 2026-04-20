@@ -561,8 +561,8 @@ export function Dashboard({
                   <p className={`text-sm ${alert.status === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
                     {alert.manutencao.tipo} do veículo <strong>{alert.vehicle.name}</strong>. 
                     {alert.status === 'danger' 
-                      ? ` Passou ${Math.abs(alert.kmFaltante).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km do limite.` 
-                      : ` Faltam apenas ${alert.kmFaltante.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km.`}
+                      ? ` Passou ${Math.abs(alert.kmFaltante).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} km do limite.` 
+                      : ` Faltam apenas ${alert.kmFaltante.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} km.`}
                   </p>
                 </div>
               </div>
@@ -828,8 +828,18 @@ export function Dashboard({
 
                     {isCollapsed ? (
                       /* Collapsed State with Progress Bar */
-                      <div className="p-2 pt-0">
-                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                      <div className="px-5 pb-4 pt-1 flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Metas</span>
+                          <span className={cn(
+                            "font-black text-[11px]",
+                            profitColorClass.replace('bg-', 'text-').replace(' shadow-[0_0_8px_rgba(16,185,129,0.4)]', '')
+                          )}>
+                            <span className="sm:hidden">{profitProgressRaw.toFixed(0)}%</span>
+                            <span className="hidden sm:inline">{profitProgressRaw.toFixed(2).replace('.', ',')}%</span>
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-full">
                           <div 
                             className={cn(
                               "h-full transition-all duration-1000",

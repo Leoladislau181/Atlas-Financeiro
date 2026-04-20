@@ -433,7 +433,7 @@ export function CalculadoraGanhos({
                   <div className="space-y-3 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">KM Total / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
-                      <span className="font-semibold">{calculatorResults.totalKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KM</span>
+                      <span className="font-semibold">{Math.round(calculatorResults.totalKm).toLocaleString('pt-BR')} KM</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Custo Combustível / {calcMode === 'weekly' ? 'Semana' : 'Mês'}</span>
@@ -744,12 +744,13 @@ export function CalculadoraGanhos({
                       {/* Overall Progress Bar */}
                       <div className="space-y-2">
                         <div className="flex justify-between items-end px-1">
-                          <p className="text-[10px] font-black text-indigo-600 uppercase">Progresso Geral (Meta de Lucro)</p>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">Progresso Geral (Meta de Lucro)</p>
                           <span className={cn(
-                            "text-base font-black",
+                            "text-base font-black flex items-center",
                             profitTextClass
                           )}>
-                            {profitProgressRaw.toFixed(1)}%
+                            <span className="sm:hidden">{profitProgressRaw.toFixed(0)}%</span>
+                            <span className="hidden sm:inline">{profitProgressRaw.toFixed(2).replace('.', ',')}%</span>
                           </span>
                         </div>
                         <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -785,8 +786,8 @@ export function CalculadoraGanhos({
                         {/* Metric 2: Quilometragem */}
                         <MetricComparison 
                           label="Quilometragem Período" 
-                          metaValue={`${metaKM.toLocaleString()} KM`} 
-                          realValue={`${realKM.toLocaleString()} KM`} 
+                          metaValue={`${Math.round(metaKM).toLocaleString('pt-BR')} KM`} 
+                          realValue={`${Math.round(realKM).toLocaleString('pt-BR')} KM`} 
                           isMet={realKM >= metaKM}
                         />
 
@@ -957,7 +958,7 @@ function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: Calculator
 
           <div className="grid grid-cols-2 gap-4">
             <MetricComparison label="Ganho Bruto" metaValue={formatCurrency(metaGross)} realValue={formatCurrency(realGross)} isMet={realGross >= metaGross} />
-            <MetricComparison label="Total KM" metaValue={`${metaKM} KM`} realValue={`${realKM} KM`} isMet={realKM >= metaKM} />
+            <MetricComparison label="Total KM" metaValue={`${Math.round(metaKM).toLocaleString('pt-BR')} KM`} realValue={`${Math.round(realKM).toLocaleString('pt-BR')} KM`} isMet={realKM >= metaKM} />
             <MetricComparison label="Eficiência" metaValue={formatCurrency(metaRevKm)} realValue={formatCurrency(realRevKm)} isMet={realRevKm >= metaRevKm} />
             <MetricComparison label="Custo Total" metaValue={formatCurrency(metaCost)} realValue={formatCurrency(realTotalCost)} isMet={realTotalCost <= metaCost} isCost />
           </div>
