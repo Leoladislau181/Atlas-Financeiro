@@ -149,6 +149,8 @@ export interface CalculatorGoal {
   min_price_per_km: number;
   total_revenue_needed: number;
   daily_gross_target: number;
+  start_date: string;
+  end_date: string;
   created_at: string;
   vehicles?: Vehicle;
 }

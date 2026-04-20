@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { Vehicle, Lancamento, User, CalculatorGoal } from '@/types';
-import { Calculator, ChevronLeft, X, DollarSign, Target, TrendingUp, CheckCircle2, Trash2 } from 'lucide-react';
+import { Calculator, ChevronLeft, X, DollarSign, Target, TrendingUp, CheckCircle2, Trash2, Calendar as CalendarIcon, History, ArrowRight, Wallet, Fuel } from 'lucide-react';
 import { formatCurrency, formatCurrencyInput, parseCurrency, getMostUsedVehicleId, cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, addDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { motion } from 'motion/react';
+import { Modal } from '@/components/ui/modal';
 
 interface CalculadoraGanhosProps {
   user: User;
@@ -38,6 +38,8 @@ export function CalculadoraGanhos({
   const [goals, setGoals] = useState<CalculatorGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [isActivating, setIsActivating] = useState(false);
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+  const [selectedGoalDate, setSelectedGoalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -67,11 +69,24 @@ export function CalculadoraGanhos({
   const handleActivateGoal = async () => {
     if (!calculatorResults || !calcVehicleId) return;
 
-    setIsActivating(true);
     setErrorMsg('');
     setSuccessMsg('');
 
+    const startDate = new Date(selectedGoalDate + 'T00:00:00');
+    if (isNaN(startDate.getTime())) {
+      setErrorMsg('Data de início inválida.');
+      return;
+    }
+
+    setIsActivating(true);
+
     try {
+      const startDate = new Date(selectedGoalDate + 'T00:00:00');
+      // Weekly = 7 days total (start + 6 days)
+      // Monthly = 30 days total (start + 29 days)
+      const daysToAdd = calcMode === 'weekly' ? 6 : 29;
+      const endDate = addDays(startDate, daysToAdd);
+
       const { error } = await supabase
         .from('calculator_goals')
         .insert([{
@@ -86,12 +101,15 @@ export function CalculadoraGanhos({
           other_fixed: parseCurrency(calcOtherFixed) || 0,
           min_price_per_km: calculatorResults.minPricePerKm,
           total_revenue_needed: calculatorResults.totalRevenueNeeded,
-          daily_gross_target: calculatorResults.dailyGrossTarget
+          daily_gross_target: calculatorResults.dailyGrossTarget,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd')
         }]);
 
       if (error) throw error;
       
       setSuccessMsg('Meta ativada com sucesso!');
+      setIsDateModalOpen(false);
       fetchGoals();
       
       // Clear success message after 3s
@@ -457,21 +475,15 @@ export function CalculadoraGanhos({
                       </div>
                     )}
                     <Button 
-                      onClick={handleActivateGoal}
+                      onClick={() => {
+                        setSelectedGoalDate(format(new Date(), 'yyyy-MM-dd'));
+                        setIsDateModalOpen(true);
+                      }}
                       disabled={isActivating || !calcVehicleId}
                       className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-base shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
-                      {isActivating ? (
-                        <>
-                          <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Ativando...
-                        </>
-                      ) : (
-                        <>
-                          <Target className="h-6 w-6" />
-                          ATIVAR META
-                        </>
-                      )}
+                      <Target className="h-6 w-6" />
+                      ATIVAR META
                     </Button>
                   </div>
                 </div>
@@ -481,8 +493,96 @@ export function CalculadoraGanhos({
         </CardContent>
       </Card>
 
+      {/* Date Selection Modal */}
+      <Modal
+        isOpen={isDateModalOpen}
+        onClose={() => setIsDateModalOpen(false)}
+        title="Quando a meta começa?"
+      >
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Selecione o dia de início da sua meta {calcMode === 'weekly' ? 'semanal' : 'mensal'}. 
+              O sistema incluirá todos os lançamentos desse dia.
+            </p>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Data de Início</label>
+              <div 
+                className="relative cursor-pointer"
+                onClick={(e) => {
+                  try {
+                    const input = (e.currentTarget as HTMLElement).querySelector('input');
+                    if (input && 'showPicker' in input) {
+                      (input as any).showPicker();
+                    } else if (input) {
+                      input.focus();
+                    }
+                  } catch (err) {
+                    console.warn('Erro ao abrir seletor de data:', err);
+                  }
+                }}
+              >
+                <Input
+                  type="date"
+                  value={selectedGoalDate}
+                  onChange={(e) => setSelectedGoalDate(e.target.value)}
+                  className="pl-10 h-12 rounded-xl cursor-pointer"
+                />
+                <CalendarIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Início:</span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                  {(() => {
+                    const d = new Date(selectedGoalDate + 'T12:00:00');
+                    return isNaN(d.getTime()) ? 'Data inválida' : format(d, "dd/MM/yyyy (EEEE)", { locale: ptBR });
+                  })()}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Término:</span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 text-right">
+                  {(() => {
+                    const d = new Date(selectedGoalDate + 'T12:00:00');
+                    if (isNaN(d.getTime())) return 'Data inválida';
+                    const endDate = addDays(d, calcMode === 'weekly' ? 6 : 29);
+                    return format(endDate, "dd/MM/yyyy (EEEE)", { locale: ptBR });
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {errorMsg && (
+              <p className="text-xs font-bold text-red-500 text-center animate-in shake duration-300">
+                {errorMsg}
+              </p>
+            )}
+            <Button 
+              onClick={handleActivateGoal}
+              disabled={isActivating}
+              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold"
+            >
+              {isActivating ? 'Salvando...' : 'Confirmar e Ativar'}
+            </Button>
+            <Button 
+              variant="ghost"
+              onClick={() => setIsDateModalOpen(false)}
+              className="w-full h-12 rounded-xl text-gray-500"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Selected/Active Goals List */}
-      <div className="space-y-4">
+      <div className="space-y-4 mb-10">
         <div className="flex items-center gap-2 px-1">
           <TrendingUp className="h-5 w-5 text-indigo-500" />
           <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">Metas Ativas</h3>
@@ -494,7 +594,11 @@ export function CalculadoraGanhos({
               <div key={i} className="h-48 bg-gray-100 dark:bg-gray-800 rounded-3xl animate-pulse" />
             ))}
           </div>
-        ) : goals.length === 0 ? (
+        ) : goals.filter(g => {
+          if (!g.end_date) return true;
+          const end = endOfDay(new Date(g.end_date + 'T23:59:59'));
+          return end >= startOfDay(new Date());
+        }).length === 0 ? (
           <Card className="border-dashed border-2 border-gray-200 dark:border-gray-800 bg-transparent shadow-none rounded-3xl">
             <CardContent className="p-10 text-center">
               <Target className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
@@ -503,36 +607,43 @@ export function CalculadoraGanhos({
           </Card>
         ) : (
           <div className="flex flex-col gap-4">
-            {goals.map((goal) => {
-              // Calculate progress for this goal
-              const now = new Date();
-              let start: Date;
-              let end: Date;
+            {goals.filter(g => {
+              if (!g.end_date) return true;
+              const end = endOfDay(new Date(g.end_date + 'T23:59:59'));
+              return end >= startOfDay(new Date());
+            }).map((goal) => {
+              // Safety check for dates to prevent crashes
+              if (!goal.start_date || !goal.end_date) return null;
 
-              if (goal.mode === 'weekly') {
-                start = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-                end = endOfWeek(now, { weekStartsOn: 1 });
-              } else {
-                start = startOfMonth(now);
-                end = endOfMonth(now);
-              }
+              const goalStart = startOfDay(new Date(goal.start_date + 'T00:00:00'));
+              const goalEnd = endOfDay(new Date(goal.end_date + 'T23:59:59'));
 
-              // Filter transactions for this vehicle in the period
-              const periodTransactions = lancamentos.filter(l => 
-                l.vehicle_id === goal.vehicle_id && 
-                isWithinInterval(new Date(l.data), { start, end })
-              );
+              if (isNaN(goalStart.getTime()) || isNaN(goalEnd.getTime())) return null;
+
+              // Filter transactions for this vehicle in the specific goal period
+              const periodTransactions = lancamentos.filter(l => {
+                if (!l.data) return false;
+                try {
+                  const lDate = new Date(l.data + 'T12:00:00');
+                  return l.vehicle_id === goal.vehicle_id && 
+                    !isNaN(lDate.getTime()) &&
+                    isWithinInterval(lDate, { start: goalStart, end: goalEnd });
+                } catch (e) {
+                  return false;
+                }
+              });
 
               const revenue = periodTransactions
                 .filter(l => l.tipo === 'receita')
-                .reduce((acc, l) => acc + Number(l.valor), 0);
+                .reduce((acc, l) => acc + Number(l.valor || 0), 0);
               
               const expenses = periodTransactions
                 .filter(l => l.tipo === 'despesa')
-                .reduce((acc, l) => acc + Number(l.valor), 0);
+                .reduce((acc, l) => acc + Number(l.valor || 0), 0);
 
               const actualProfit = revenue - expenses;
-              const progressPercentage = Math.min(100, Math.max(0, (actualProfit / goal.profit_goal) * 100));
+              const profitGoal = goal.profit_goal || 1; // Prevent division by zero
+              const progressPercentage = Math.min(100, Math.max(0, (actualProfit / profitGoal) * 100));
 
               return (
                 <Card key={goal.id} className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
@@ -547,7 +658,7 @@ export function CalculadoraGanhos({
                             Meta {goal.mode === 'weekly' ? 'Semanal' : 'Mensal'} • {goal.vehicles?.name || 'Veículo'}
                           </h4>
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                            Ativada em {format(new Date(goal.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            Vigência: {format(goalStart, "dd/MM")} até {format(goalEnd, "dd/MM/yyyy")}
                           </p>
                         </div>
                       </div>
@@ -579,17 +690,15 @@ export function CalculadoraGanhos({
                           </span>
                         </div>
                       </div>
-                      <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progressPercentage}%` }}
-                          transition={{ duration: 1, ease: "easeOut" }}
-                          className={cn(
-                            "h-full rounded-full",
-                            progressPercentage >= 100 ? "bg-emerald-500" : "bg-indigo-500"
-                          )}
-                        />
-                      </div>
+                <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    style={{ width: `${progressPercentage}%`, transition: 'width 1s ease-out' }}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-1000",
+                      progressPercentage >= 100 ? "bg-emerald-500" : "bg-indigo-500"
+                    )}
+                  />
+                </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -634,6 +743,213 @@ export function CalculadoraGanhos({
           </div>
         )}
       </div>
+
+      {/* Goal History Section */}
+      <div className="space-y-6 pt-10 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-gray-400" />
+            <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">Histórico de Metas</h3>
+          </div>
+          <span className="text-[10px] font-black bg-gray-100 dark:bg-gray-800 text-gray-500 px-2 py-1 rounded-lg uppercase">Finalizadas</span>
+        </div>
+
+        {loadingGoals ? (
+          <div className="space-y-4">
+            {[1, 2].map(i => (
+              <div key={i} className="h-32 bg-gray-100 dark:bg-gray-800 rounded-3xl animate-pulse" />
+            ))}
+          </div>
+        ) : goals.filter(g => {
+          if (!g.end_date) return false;
+          const end = endOfDay(new Date(g.end_date + 'T23:59:59'));
+          return end < startOfDay(new Date());
+        }).length === 0 ? (
+          <div className="p-10 text-center bg-gray-50/50 dark:bg-gray-800/20 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
+            <History className="h-10 w-10 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-gray-400">Você ainda não possui metas finalizadas no histórico.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {goals.filter(g => {
+              if (!g.end_date) return false;
+              const end = endOfDay(new Date(g.end_date + 'T23:59:59'));
+              return end < startOfDay(new Date());
+            }).map((goal) => (
+              <GoalComparativeCard 
+                key={goal.id} 
+                goal={goal} 
+                lancamentos={lancamentos} 
+                onDelete={handleDeleteGoal} 
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: CalculatorGoal; lancamentos: Lancamento[]; onDelete: (id: string) => void }) {
+  // Safety check for dates
+  if (!goal.start_date || !goal.end_date) return null;
+
+  const goalStart = startOfDay(new Date(goal.start_date + 'T00:00:00'));
+  const goalEnd = endOfDay(new Date(goal.end_date + 'T23:59:59'));
+
+  if (isNaN(goalStart.getTime()) || isNaN(goalEnd.getTime())) return null;
+
+  // Filter transactions for this vehicle in the specific goal period
+  const periodTransactions = lancamentos.filter(l => {
+    if (!l.data) return false;
+    try {
+      const lDate = new Date(l.data + 'T12:00:00');
+      return l.vehicle_id === goal.vehicle_id && 
+        !isNaN(lDate.getTime()) &&
+        isWithinInterval(lDate, { start: goalStart, end: goalEnd });
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const revenue = periodTransactions
+    .filter(l => l.tipo === 'receita')
+    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  
+  const expenses = periodTransactions
+    .filter(l => l.tipo === 'despesa')
+    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+  const actualProfit = revenue - expenses;
+  const isGoalMet = actualProfit >= goal.profit_goal;
+  
+  return (
+    <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden rounded-3xl group relative">
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row">
+          {/* Left Side: Target Information */}
+          <div className="flex-1 p-5 border-b md:border-b-0 md:border-r border-dashed border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-[9px] font-black text-gray-500 rounded-full uppercase tracking-wider">Esperado</span>
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{format(goalStart, "dd/MM")} - {format(goalEnd, "dd/MM")}</span>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Meta de Lucro</p>
+                <p className="text-xl font-black text-gray-700 dark:text-gray-200">{formatCurrency(goal.profit_goal)}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Wallet className="h-2.5 w-2.5" /> Receita Req.
+                  </p>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-300">{formatCurrency(goal.total_revenue_needed)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Target className="h-2.5 w-2.5" /> Ganhos/Dia
+                  </p>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-300">{formatCurrency(goal.daily_gross_target)}</p>
+                </div>
+              </div>
+
+              <div className="text-[10px] text-gray-400 font-semibold italic">
+                {goal.mode === 'weekly' ? 'Projetado para 1 semana' : 'Projetado para 1 mês'} • {goal.vehicles?.name}
+              </div>
+            </div>
+          </div>
+
+          {/* Center Arrow (Desktop Only) */}
+          <div className="hidden md:flex items-center justify-center -mx-4 z-10">
+            <div className="bg-white dark:bg-gray-900 p-2 rounded-full border border-gray-100 dark:border-gray-800 shadow-sm text-indigo-500">
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </div>
+
+          {/* Right Side: Actual Results */}
+          <div className={cn(
+            "flex-1 p-5 transition-colors",
+            isGoalMet ? "bg-emerald-50/20 dark:bg-emerald-900/10" : "bg-red-50/20 dark:bg-red-900/10"
+          )}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider",
+                  isGoalMet ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
+                )}>
+                  Alcançado
+                </span>
+                {isGoalMet ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <div className="h-3.5 w-3.5 text-red-500 flex items-center justify-center font-black text-xs">!</div>
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => onDelete(goal.id)}
+                className="h-7 w-7 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className={cn(
+                  "text-[9px] font-black uppercase tracking-widest mb-1",
+                  isGoalMet ? "text-emerald-600/70" : "text-red-600/70"
+                )}>Lucro Líquido Real</p>
+                <p className={cn(
+                  "text-xl font-black",
+                  isGoalMet ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                )}>
+                  {formatCurrency(actualProfit)}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <TrendingUp className="h-2.5 w-2.5 text-emerald-500" /> Total Receita
+                  </p>
+                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{formatCurrency(revenue)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                    <Fuel className="h-2.5 w-2.5 text-red-500" /> Total Despesas
+                  </p>
+                  <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{formatCurrency(expenses)}</p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all duration-1000",
+                      isGoalMet ? "bg-emerald-500" : "bg-red-500"
+                    )}
+                    style={{ width: `${Math.min(100, (actualProfit / (goal.profit_goal || 1)) * 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[8px] font-black text-gray-400">DESEMPENHO</span>
+                  <span className={cn(
+                    "text-[8px] font-black",
+                    isGoalMet ? "text-emerald-600" : "text-red-600"
+                  )}>
+                    {((actualProfit / (goal.profit_goal || 1)) * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

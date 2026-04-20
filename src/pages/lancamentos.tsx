@@ -529,8 +529,18 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           }
         }
 
+        const totalValue = items.reduce((acc, item) => acc + parseCurrency(item.valorStr), 0);
+
         finalPayloads = items.map((item) => {
           const valorNum = parseCurrency(item.valorStr);
+          
+          // Distribute KM rodados proportionally among items to avoid duplication in sums
+          let itemKmRodados = null;
+          if (tipo === 'receita' && kmRodados !== null) {
+            const proportion = totalValue > 0 ? valorNum / totalValue : (1 / items.length);
+            itemKmRodados = kmRodados * proportion;
+          }
+
           const payload: any = {
             user_id: user.id,
             tipo,
@@ -541,7 +551,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             vehicle_id: useVehicle ? vehicleId : null,
             group_id: groupId,
             odometro_receita: tipo === 'receita' && odoReceitaNum ? odoReceitaNum : null,
-            km_rodados: tipo === 'receita' ? kmRodados : null,
+            km_rodados: itemKmRodados,
             odometer: useVehicle && tipo === 'despesa' && odometer ? Number(odometer) : null,
             fuel_price_per_liter: null,
             fuel_liters: null,

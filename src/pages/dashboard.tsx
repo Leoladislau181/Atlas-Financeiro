@@ -1,19 +1,19 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, getMostUsedVehicleId } from '@/lib/utils';
-import { Lancamento, Categoria, Vehicle, Manutencao, User, FuelType } from '@/types';
+import { formatCurrency, formatCurrencyInput, parseCurrency, parseLocalDate, isPremium, getMostUsedVehicleId, cn } from '@/lib/utils';
+import { Lancamento, Categoria, Vehicle, Manutencao, User, FuelType, CalculatorGoal } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { startOfMonth, endOfMonth, isWithinInterval, format, subMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format, subMonths, startOfDay, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useFuelAutoFill } from '@/hooks/useFuelAutoFill';
 
-import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle, ChevronRight, X, Car, Tag } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet, Filter, Zap, Fuel, AlertTriangle, CheckCircle, Camera, Clock, Briefcase, StopCircle, ChevronRight, ChevronDown, ChevronUp, X, Car, Tag, Target, TrendingUp } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CustomSelect } from '@/components/ui/custom-select';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { PremiumModal } from '@/components/premium-modal';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -164,6 +164,46 @@ export function Dashboard({
       setQuickKM(quickSuggestedOdometer);
     }
   }, [quickSuggestedOdometer]);
+
+  const [activeGoals, setActiveGoals] = useState<CalculatorGoal[]>([]);
+  const [collapsedGoals, setCollapsedGoals] = useState<Set<string>>(new Set());
+
+  const toggleGoalCollapse = (id: string) => {
+    setCollapsedGoals(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const fetchActiveGoals = async () => {
+      if (!user.id || !isSupabaseConfigured) return;
+      
+      try {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const { data, error } = await supabase
+          .from('calculator_goals')
+          .select('*, vehicles(*)')
+          .eq('user_id', user.id)
+          .lte('start_date', todayStr)
+          .gte('end_date', todayStr);
+        
+        if (error) throw error;
+        setActiveGoals(data || []);
+      } catch (err) {
+        console.error('Error fetching dashboard goals:', err);
+      }
+    };
+    
+    fetchActiveGoals();
+  }, [user.id]);
+
+  const isVisibleTime = useMemo(() => {
+    const hours = new Date().getHours();
+    return hours >= 16;
+  }, []);
 
   const stats = useMemo(() => {
     let receitasMes = 0;
@@ -661,6 +701,214 @@ export function Dashboard({
           </div>
         </CardContent>
       </Card>
+
+      {isVisibleTime && activeGoals.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-[#F59E0B]" />
+              <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">Análise de Meta Diária</h3>
+            </div>
+            <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Em Tempo Real</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {activeGoals.map(goal => {
+              const vehicle = goal.vehicles;
+              const daysInMode = goal.mode === 'weekly' ? 7 : 30;
+              const todayStr = format(new Date(), 'yyyy-MM-dd');
+              
+              // Filter data specifically for today and this vehicle
+              const vehicleLancamentosToday = lancamentos.filter(l => l.data?.startsWith(todayStr));
+
+              // 1. Ganho Bruto (Meta vs Real)
+              const metaGross = goal.daily_gross_target;
+              const realGross = vehicleLancamentosToday
+                .filter(l => l.tipo === 'receita' && (!l.vehicle_id || l.vehicle_id === goal.vehicle_id))
+                .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+              // 2. KM (Meta vs Real)
+              const metaKM = goal.km_per_day;
+              const realKM = vehicleLancamentosToday
+                .filter(l => l.vehicle_id === goal.vehicle_id)
+                .reduce((acc, l) => acc + Number(l.km_rodados || 0), 0);
+
+              // 3. Receita/KM (Meta vs Real)
+              const metaRevKm = goal.min_price_per_km;
+              const realRevKm = realKM > 0 ? realGross / realKM : 0;
+
+              // 4. Custo Estimado (Meta vs Real)
+              // Fixed: Pro-rata of Rent, Maint and Other Fixed from Goal
+              const dailyRent = (vehicle?.contract_value || 0) / 30;
+              const dailyMaint = (vehicle?.maintenance_reserve || 0) / 30;
+              const dailyOtherFixed = (goal.other_fixed || 0) / daysInMode;
+              const fixedDailyBase = dailyRent + dailyMaint + dailyOtherFixed;
+              
+              const fuelCostPerKm = goal.consumption > 0 ? goal.fuel_price / goal.consumption : 0;
+              
+              const metaFuel = metaKM * fuelCostPerKm;
+              const metaCost = metaFuel + fixedDailyBase;
+
+              const realFuel = realKM * fuelCostPerKm;
+              
+              // Real Other Expenses: Today's expenses not related to Fuel/Rent/Maint categories
+              const realOtherExpenses = vehicleLancamentosToday.filter(l => {
+                if (l.tipo !== 'despesa') return false;
+                if (l.vehicle_id && l.vehicle_id !== goal.vehicle_id) return false;
+                const catName = l.categorias?.nome?.toLowerCase() || '';
+                return !(catName.includes('combust') || catName.includes('alug') || catName.includes('rent') || catName.includes('manuten') || catName.includes('oficina'));
+              }).reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+              const realCost = realFuel + fixedDailyBase + realOtherExpenses;
+
+              const isCollapsed = collapsedGoals.has(goal.id);
+              const allGoalsMet = realGross >= metaGross && 
+                                 realKM >= metaKM && 
+                                 realRevKm >= metaRevKm && 
+                                 realCost <= metaCost;
+              const overallProgress = Math.min(100, (realGross / (metaGross || 1)) * 100);
+
+              return (
+                <Card key={goal.id} className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
+                  <CardContent className="p-0">
+                    {/* Header with Vehicle Info */}
+                    <div 
+                      className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-800/40 transition-colors"
+                      onClick={() => toggleGoalCollapse(goal.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Car className="h-4 w-4 text-gray-400" />
+                        <span className="text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest">
+                          {vehicle?.name} <span className="text-gray-400 ml-1 font-bold">{vehicle?.plate}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {!isCollapsed && (
+                          <span className="hidden sm:inline-block text-[10px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full uppercase">
+                            {goal.mode === 'weekly' ? 'Projeção Semanal' : 'Projeção Mensal'}
+                          </span>
+                        )}
+                        {isCollapsed ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronUp className="h-4 w-4 text-gray-400" />}
+                      </div>
+                    </div>
+
+                    {isCollapsed ? (
+                      /* Collapsed State with Progress Bar */
+                      <div className="p-2 pt-0">
+                        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full transition-all duration-1000",
+                              allGoalsMet ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-amber-500"
+                            )}
+                            style={{ width: `${Math.max(5, overallProgress)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      /* Comparison List (Expanded Only) */
+                      <div className="p-5 space-y-6">
+                        {/* Metric 1: Ganho Bruto */}
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1 text-center">Ganho Bruto Diário</p>
+                        <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-blue-500/70 uppercase">Meta</span>
+                            <span className="text-lg font-black text-blue-600 dark:text-blue-400">{formatCurrency(metaGross)}</span>
+                          </div>
+                          <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                          <div className="flex flex-col text-right">
+                            <span className="text-[9px] font-black text-gray-400 uppercase">Realizado</span>
+                            <span className={cn(
+                              "text-xl font-black",
+                              realGross >= metaGross ? "text-emerald-500" : "text-amber-500"
+                            )}>
+                              {formatCurrency(realGross)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Metric 2: Quilometragem */}
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1 text-center">Quilometragem do Dia</p>
+                        <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                          <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-blue-500/70 uppercase">Meta</span>
+                            <span className="text-lg font-black text-blue-600 dark:text-blue-400">{metaKM} KM</span>
+                          </div>
+                          <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                          <div className="flex flex-col text-right">
+                            <span className="text-[9px] font-black text-gray-400 uppercase">Realizado</span>
+                            <span className={cn(
+                              "text-xl font-black",
+                              realKM >= metaKM ? "text-emerald-500" : "text-amber-500"
+                            )}>
+                              {realKM} KM
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Metrics: Efficiency and Costs */}
+                      <div className="space-y-4">
+                        {/* Metric 3: Receita/KM */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1 text-center">Eficiência (Receita por KM)</p>
+                          <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-black text-blue-500/70 uppercase">Meta</span>
+                              <span className="text-lg font-black text-blue-600 dark:text-blue-400">{formatCurrency(metaRevKm)}</span>
+                            </div>
+                            <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                            <div className="flex flex-col text-right">
+                              <span className="text-[9px] font-black text-gray-400 uppercase">Realizado</span>
+                              <span className={cn(
+                                "text-xl font-black",
+                                realRevKm >= metaRevKm ? "text-emerald-500" : "text-amber-500"
+                              )}>
+                                {formatCurrency(realRevKm)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Metric 4: Custo Estimado */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1 text-center">Custo Estimado Diário</p>
+                          <div className="flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-black text-blue-500/70 uppercase">Meta</span>
+                              <span className="text-lg font-black text-blue-600 dark:text-blue-400">{formatCurrency(metaCost)}</span>
+                            </div>
+                            <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2" />
+                            <div className="flex flex-col text-right">
+                              <span className="text-[9px] font-black text-gray-400 uppercase">Realizado</span>
+                              <span className="text-xl font-black text-red-500">
+                                {formatCurrency(realCost)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Info Footer */}
+                      <div className="pt-2 flex justify-between items-center text-[10px] text-gray-400 font-medium italic border-t border-dashed border-gray-100 dark:border-gray-800">
+                        <span>Custo Real inclui KM rodada + Pro-rata Aluguel/Manut.</span>
+                        <span>{format(new Date(), "HH:mm", { locale: ptBR })}</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-4 pt-4 sm:pt-6 pb-[20px]">
         <Button 
