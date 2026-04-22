@@ -11,9 +11,10 @@ import { format } from 'date-fns';
 
 interface AdminProps {
   user: User;
+  onBack?: () => void;
 }
 
-export function Admin({ user }: AdminProps) {
+export function Admin({ user, onBack }: AdminProps) {
   const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [adminMetrics, setAdminMetrics] = useState<any>(null);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
@@ -445,6 +446,11 @@ export function Admin({ user }: AdminProps) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
+          {onBack && (
+            <Button variant="ghost" onClick={onBack} className="mb-4 text-gray-500 hover:text-gray-900 border border-gray-200">
+              Voltar ao Menu
+            </Button>
+          )}
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Shield className="h-6 w-6 text-blue-600" />
             Painel Administrativo

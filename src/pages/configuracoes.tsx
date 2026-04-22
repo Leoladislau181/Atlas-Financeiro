@@ -7,7 +7,7 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { Categoria, TipoLancamento, User, WorkShift, Vehicle, Lancamento } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign, Layout, Fuel, Layers, Bell, Upload, CheckCircle, Wrench, HelpCircle } from 'lucide-react';
+import { Edit2, Trash2, User as UserIcon, Settings, Shield, Tag, ChevronDown, ChevronUp, Moon, Sun, Camera, BarChart2, Gift, Copy, Car, Download, Users, Star, Database, RefreshCw, MessageCircle, Briefcase, Filter, Calendar, Clock, Lock, Calculator, DollarSign, Layout, Fuel, Layers, Bell, Upload, CheckCircle, Wrench, HelpCircle, LogOut } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { useFeatures } from '@/contexts/FeatureContext';
 import { Switch } from '@/components/ui/switch';
@@ -38,6 +38,7 @@ interface ConfiguracoesProps {
   onNavigateToPerfil?: () => void;
   onNavigateToCalculadora?: () => void;
   onNavigateToTurnos?: () => void;
+  onNavigateToAdmin?: () => void;
   onNavigateToNewVehicle?: () => void;
   onNavigateToNewCategory?: () => void;
   forceOpenProfile?: boolean;
@@ -62,6 +63,7 @@ export function Configuracoes({
   onNavigateToPerfil,
   onNavigateToCalculadora,
   onNavigateToTurnos,
+  onNavigateToAdmin,
   onNavigateToNewVehicle,
   onNavigateToNewCategory,
   forceOpenProfile, 
@@ -76,6 +78,11 @@ export function Configuracoes({
   const [planLoading, setPlanLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const mostUsedVehicleId = useMemo(() => getMostUsedVehicleId(vehicles, lancamentos), [vehicles, lancamentos]);
 
@@ -108,6 +115,28 @@ export function Configuracoes({
         </div>
       )}
       <div className="flex flex-col gap-4">
+        {user.role === 'admin' && (
+          <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden ring-2 ring-red-500/20">
+            <div 
+              className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-red-500"
+              onClick={onNavigateToAdmin}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <Shield className="h-5 w-5 text-red-500 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100">Painel Admin</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Gerenciamento completo da plataforma</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500">
+                <ChevronDown className="h-5 w-5 -rotate-90" />
+              </Button>
+            </div>
+          </Card>
+        )}
+
         <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
           <div 
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors border-l-4 border-blue-500"
@@ -291,6 +320,17 @@ export function Configuracoes({
             </Button>
           </div>
         </Card>
+
+        {/* Botão de Sair Grande e Vermelho  */}
+        <div className="pt-4">
+          <Button 
+            onClick={() => setIsLogoutModalOpen(true)}
+            className="w-full h-14 text-base font-bold bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg transition-all"
+          >
+            <LogOut className="mr-2 h-5 w-5" />
+            Sair do Aplicativo
+          </Button>
+        </div>
       </div>
 
       <PremiumModal
@@ -299,6 +339,46 @@ export function Configuracoes({
         featureName={premiumFeatureName}
         user={user}
       />
+
+      {/* Modal de Confirmação de Logout */}
+      <Modal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        title="Sair do Aplicativo"
+      >
+        <div className="space-y-6">
+          <div className="flex flex-col items-center justify-center p-6 text-center">
+            <div className="h-16 w-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+              <LogOut className="h-8 w-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Tem certeza que deseja sair?
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Você precisará fazer login novamente para acessar seus dados e lançamentos.
+            </p>
+          </div>
+          
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsLogoutModalOpen(false)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleLogout}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              Sim, quero sair
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }

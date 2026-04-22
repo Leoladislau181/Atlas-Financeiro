@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { LogOut, Home, List, BarChart2, Car, Settings, User as UserIcon, Plus, Star, Menu, Shield, MessageCircle } from 'lucide-react';
+import { LogOut, Home, List, BarChart2, Car, Settings, User as UserIcon, Plus, Star, Menu, Shield, MessageCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
@@ -26,7 +26,6 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
   ];
 
   const rightTabs = [
-    ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
     ...(!userIsPremium ? [{ id: 'premium', label: 'Premium', icon: Star }] : []),
     { id: 'configuracoes', label: 'Menu', icon: Menu },
   ];
@@ -40,10 +39,16 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
       <header className="sticky top-0 z-40 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActiveTab(activeTab === 'configuracoes' ? 'inicio' : 'configuracoes')}
+              className="sm:hidden -ml-2 p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              {activeTab === 'configuracoes' ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
             <img 
               src="/logo.svg" 
               alt="Atlas Logo" 
-              className="h-9 w-9 rounded-xl shadow-sm"
+              className="h-9 w-9 rounded-xl shadow-sm hidden sm:block"
               referrerPolicy="no-referrer"
             />
             <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -122,13 +127,6 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
                 </span>
               </button>
             )}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sair</span>
-            </button>
           </div>
         </div>
       </header>
@@ -151,70 +149,18 @@ export function Layout({ children, activeTab, setActiveTab, onNewLancamento, onP
         {children}
       </main>
 
-      {/* Floating Bottom Navigation for Mobile */}
+      {/* Floating Action Button for Mobile */}
       {activeTab !== 'lancamentos' && (
-        <nav className="fixed bottom-4 left-4 right-4 z-50 sm:hidden">
-          <div className="flex h-16 items-center justify-between rounded-2xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg shadow-lg border border-gray-100 dark:border-gray-800 px-2 lg:px-4">
-            <div className="flex flex-1 justify-around items-center h-full">
-              {leftTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      'relative flex flex-col items-center justify-center gap-1 w-14 h-full transition-all duration-200',
-                      isActive ? 'text-[#D97706] dark:text-[#FBBF24]' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-                    )}
-                  >
-                    {isActive && (
-                      <span className="absolute -top-3 w-1 h-1 rounded-full bg-[#D97706] dark:bg-[#FBBF24]" />
-                    )}
-                    <Icon className="h-5 w-5" />
-                    <span className={cn("text-[10px] font-medium transition-all duration-200", isActive ? "opacity-100" : "opacity-70")}>{"Início"}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Central Plus Button */}
-            <div className="relative -top-6 flex-shrink-0">
-              <button
-                onClick={onNewLancamento}
-                className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F59E0B] text-white shadow-lg shadow-orange-500/40 hover:bg-[#D97706] transition-all duration-200 active:scale-90"
-              >
-                <Plus className="h-7 w-7" />
-                <span className="sr-only">Novo Lançamento</span>
-                <div className="absolute inset-0 rounded-full bg-[#F59E0B] animate-ping opacity-20 -z-10" />
-              </button>
-            </div>
-
-            <div className="flex flex-1 justify-around items-center h-full">
-              {rightTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                // On mobile we only want to show the 'configuracoes' as Menu icon or Admin if exists
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      'relative flex flex-col items-center justify-center gap-1 w-14 h-full transition-all duration-200',
-                      isActive ? 'text-[#D97706] dark:text-[#FBBF24]' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-                    )}
-                  >
-                    {isActive && (
-                      <span className="absolute -top-3 w-1 h-1 rounded-full bg-[#D97706] dark:bg-[#FBBF24]" />
-                    )}
-                    <Icon className="h-5 w-5" />
-                    <span className={cn("text-[10px] font-medium transition-all duration-200", isActive ? "opacity-100" : "opacity-70")}>{tab.label === 'Menu' || tab.label === 'Mais' ? 'Menu' : tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </nav>
+        <div className="fixed bottom-6 right-6 z-50 sm:hidden">
+          <button
+            onClick={onNewLancamento}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F59E0B] text-white shadow-xl shadow-orange-500/40 hover:bg-[#D97706] transition-all duration-200 active:scale-90"
+          >
+            <Plus className="h-7 w-7" />
+            <span className="sr-only">Novo Lançamento</span>
+            <div className="absolute inset-0 rounded-full bg-[#F59E0B] animate-ping opacity-20 -z-10" />
+          </button>
+        </div>
       )}
     </div>
   );

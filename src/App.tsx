@@ -366,7 +366,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
           <Premium user={user} refetch={refetch} />
         )}
         {activeTab === 'admin' && (
-          <Admin user={user} />
+          <Admin user={user} onBack={() => setActiveTab('configuracoes')} />
         )}
         {activeTab === 'suporte' && (
           <Suporte 
@@ -429,6 +429,7 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
             onNavigateToPerfil={() => setActiveTab('perfil')}
             onNavigateToCalculadora={() => setActiveTab('calculadora')}
             onNavigateToTurnos={() => setActiveTab('turnos')}
+            onNavigateToAdmin={() => setActiveTab('admin')}
             forceOpenProfile={forceOpenProfile}
             onProfileOpened={() => setForceOpenProfile(false)}
           />
