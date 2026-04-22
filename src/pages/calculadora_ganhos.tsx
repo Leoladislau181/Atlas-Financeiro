@@ -28,12 +28,12 @@ export function CalculadoraGanhos({
 }: CalculadoraGanhosProps) {
   const [calcMode, setCalcMode] = useState<'weekly' | 'monthly'>('weekly');
   const [calcVehicleId, setCalcVehicleId] = useState('');
-  const [calcDaysPerWeek, setCalcDaysPerWeek] = useState('5');
-  const [calcKmPerDay, setCalcKmPerDay] = useState('150');
-  const [calcProfitGoal, setCalcProfitGoal] = useState(formatCurrency(1000));
-  const [calcFuelPrice, setCalcFuelPrice] = useState(formatCurrency(5.50));
-  const [calcConsumption, setCalcConsumption] = useState('10');
-  const [calcOtherFixed, setCalcOtherFixed] = useState(formatCurrency(0));
+  const [calcDaysPerWeek, setCalcDaysPerWeek] = useState('');
+  const [calcKmPerDay, setCalcKmPerDay] = useState('');
+  const [calcProfitGoal, setCalcProfitGoal] = useState('');
+  const [calcFuelPrice, setCalcFuelPrice] = useState('');
+  const [calcConsumption, setCalcConsumption] = useState('');
+  const [calcOtherFixed, setCalcOtherFixed] = useState('');
   
   const [goals, setGoals] = useState<CalculatorGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(true);
@@ -42,6 +42,15 @@ export function CalculadoraGanhos({
   const [selectedGoalDate, setSelectedGoalDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [expandedSection, setExpandedSection] = useState<string | null>('calculator');
+
+  const toggleCalculator = () => {
+    setExpandedSection(prev => prev === 'calculator' ? null : 'calculator');
+  };
+
+  const toggleGoalMinimized = (goalId: string) => {
+    setExpandedSection(prev => prev === goalId ? null : goalId);
+  };
 
   const mostUsedVehicleId = useMemo(() => getMostUsedVehicleId(vehicles, lancamentos), [vehicles, lancamentos]);
 
@@ -245,14 +254,30 @@ export function CalculadoraGanhos({
       }
     }
 
-    // Auto-set profit goal if vehicle has one
-    if (vehicle.profit_goal) {
-      const goal = calcMode === 'monthly' 
-        ? vehicle.profit_goal 
-        : (vehicle.profit_goal / 30) * 7;
-      setCalcProfitGoal(formatCurrency(goal));
+    // Auto-set fields from last active goal if exists for this vehicle
+    const activeGoals = goals.filter(g => {
+      if (!g.end_date || g.vehicle_id !== calcVehicleId) return false;
+      const end = endOfDay(new Date(g.end_date + 'T23:59:59'));
+      return end >= startOfDay(new Date());
+    });
+    
+    // Sort descending by creation to get the most recent active goal
+    const lastActiveGoal = activeGoals.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+    if (lastActiveGoal) {
+      setCalcMode(lastActiveGoal.mode);
+      setCalcDaysPerWeek(lastActiveGoal.days_per_week.toString().replace('.', ','));
+      setCalcKmPerDay(lastActiveGoal.km_per_day.toString().replace('.', ','));
+      setCalcProfitGoal(formatCurrency(lastActiveGoal.profit_goal));
+      setCalcOtherFixed(formatCurrency(lastActiveGoal.other_fixed || 0));
+    } else {
+      // Empty the fields if no active goal, except fuel and consumption which were populated above
+      setCalcDaysPerWeek('');
+      setCalcKmPerDay('');
+      setCalcProfitGoal('');
+      setCalcOtherFixed('');
     }
-  }, [calcVehicleId, vehicles, lancamentos, calcMode]);
+  }, [calcVehicleId, vehicles, lancamentos, goals]);
 
   return (
     <div className="space-y-6 pb-20">
@@ -269,7 +294,7 @@ export function CalculadoraGanhos({
           </Button>
           <div>
             <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight">
-              Calculadora de Ganhos
+              Calculadora de Ganhos e Metas
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">Planeje sua meta e custos</p>
           </div>
@@ -285,9 +310,25 @@ export function CalculadoraGanhos({
       </div>
 
       <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden rounded-3xl">
-        <CardContent className="p-4 sm:p-6">
-          {/* Mode Toggle */}
-          <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full max-w-xs mx-auto mb-8">
+        <div 
+          className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          onClick={toggleCalculator}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+              <Calculator className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+            </div>
+            <h3 className="font-bold text-gray-900 dark:text-white">Nova Simulação</h3>
+          </div>
+          <Button variant="ghost" size="sm" className="text-gray-400 dark:text-gray-500 hover:text-gray-900">
+            {expandedSection !== 'calculator' ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+          </Button>
+        </div>
+        
+        {expandedSection === 'calculator' && (
+          <CardContent className="p-4 sm:p-6 animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Mode Toggle */}
+            <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl w-full max-w-xs mx-auto mb-8">
             <button
               onClick={() => {
                 setCalcMode('weekly');
@@ -491,6 +532,7 @@ export function CalculadoraGanhos({
             </div>
           </div>
         </CardContent>
+        )}
       </Card>
 
       {/* Date Selection Modal */}
@@ -673,93 +715,121 @@ export function CalculadoraGanhos({
               const metaRevKm = goal.min_price_per_km;
               const metaCost = metaGross - goal.profit_goal;
 
-              // Progress based on Profit (or choose Gross as common)
-              // User mentioned "barra de progresso com a porcentagem"
-              const realProfit = realGross - realTotalCost;
-              const profitProgressRaw = goal.profit_goal > 0 ? (realProfit / goal.profit_goal) * 100 : 0;
+              // Progress logic explicitly requested:
+              // Start 100% red (costs). As revenue matches costs, red goes 0.
+              // Once profit starts, starts from 0 to 100% yellow/green.
               
-              let profitColorClass = "bg-indigo-500";
-              let profitTextClass = "text-indigo-600";
-              let profitProgressWidthRaw = 0;
+              let barColor = "bg-red-500";
+              let barWidth = 0;
+              let barLabelPercent = "0";
 
-              if (realProfit < 0) {
-                profitColorClass = "bg-red-500";
-                profitTextClass = "text-red-500";
-                profitProgressWidthRaw = realTotalCost > 0 ? (Math.abs(realProfit) / realTotalCost) * 100 : 0;
-              } else if (realProfit >= goal.profit_goal) {
-                profitColorClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
-                profitTextClass = "text-emerald-500";
-                profitProgressWidthRaw = 100;
+              if (realGross < realTotalCost) {
+                // Phase 1: Zone Red (Paying off costs)
+                // If revenue is 0, we still need to pay 100% of costs (bar is 100% red).
+                // If revenue == cost, bar is 0% red.
+                const remainingCost = realTotalCost > 0 ? ((realTotalCost - realGross) / realTotalCost) * 100 : 0;
+                barWidth = Math.min(100, Math.max(0, remainingCost));
+                barColor = "bg-red-500";
+                barLabelPercent = `-${barWidth.toFixed(0)}`;
               } else {
-                profitColorClass = "bg-amber-500";
-                profitTextClass = "text-amber-500";
-                profitProgressWidthRaw = goal.profit_goal > 0 ? (realProfit / goal.profit_goal) * 100 : 0;
+                // Phase 2: Zone Yellow/Green (Building profit)
+                const visibleProfit = realGross - realTotalCost; // same as realProfit
+                const profitProgressRaw = goal.profit_goal > 0 ? (visibleProfit / goal.profit_goal) * 100 : 0;
+                barWidth = Math.min(100, Math.max(0, profitProgressRaw));
+                barColor = visibleProfit >= goal.profit_goal ? "bg-emerald-500" : "bg-amber-500";
+                barLabelPercent = `${profitProgressRaw.toFixed(0)}`;
               }
+              
+              const realProfit = realGross - realTotalCost;
 
-              const profitProgressWidth = Math.min(100, Math.max(2, profitProgressWidthRaw));
-
-              const grossProgress = Math.min(100, (realGross / (metaGross || 1)) * 100);
-
-              const allGoalsMet = realGross >= metaGross && 
-                                 realKM >= metaKM && 
-                                 realRevKm >= metaRevKm && 
-                                 realTotalCost <= metaCost;
+              const isMinimized = expandedSection !== goal.id; // Minimized if not the currently expanded section
 
               return (
                 <Card key={goal.id} className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group">
                   <CardContent className="p-0">
                     {/* Header with Title and Delete */}
-                    <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap min-w-0">
-                        <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg shrink-0">
-                          <Target className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <span className="text-[10px] sm:text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest truncate">
-                          {vehicle?.name}
-                          <span className="hidden sm:inline text-gray-400 font-bold ml-1">
-                            • {vehicle?.plate}
-                          </span>
-                          <span className="text-indigo-500 mx-1.5 font-bold">
-                            • {goal.mode === 'weekly' ? 'Semanal' : 'Mensal'}
-                          </span>
-                          <span className="text-gray-500 font-bold">
-                            • {format(goalStart, "dd/MM", { locale: ptBR })}
-                            <span className="hidden sm:inline">
-                              {' '}até {format(goalEnd, "dd/MM", { locale: ptBR })}
+                    <div 
+                      className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      onClick={() => toggleGoalMinimized(goal.id)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap min-w-0">
+                          <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg shrink-0">
+                            <Target className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                          </div>
+                          <span className="text-[10px] sm:text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest truncate">
+                            {vehicle?.name}
+                            <span className="hidden sm:inline text-gray-400 font-bold ml-1">
+                              • {vehicle?.plate}
+                            </span>
+                            <span className="text-indigo-500 mx-1.5 font-bold">
+                              • {goal.mode === 'weekly' ? 'Semanal' : 'Mensal'}
+                            </span>
+                            <span className="text-gray-500 font-bold">
+                              • {format(goalStart, "dd/MM", { locale: ptBR })}
+                              <span className="hidden sm:inline">
+                                {' '}até {format(goalEnd, "dd/MM", { locale: ptBR })}
+                              </span>
                             </span>
                           </span>
-                        </span>
+                        </div>
+                        
+                        <div className="flex items-center shrink-0">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleGoalMinimized(goal.id);
+                            }}
+                            className="h-8 w-8 text-gray-400 hover:text-gray-900"
+                          >
+                            {isMinimized ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGoal(goal.id);
+                            }}
+                            className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-1"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => handleDeleteGoal(goal.id)}
-                        className="h-8 w-8 shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+
+                      {/* Header Progress Bar - Always visible when minimized or as an overview */}
+                      {isMinimized && (
+                        <div className="mt-3">
+                          <div className="flex justify-between items-end px-1 mb-1.5">
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Status Financeiro</span>
+                            <span className={cn("text-[10px] sm:text-xs font-black", barColor.replace('bg-', 'text-'))}>
+                              {barLabelPercent}%
+                            </span>
+                          </div>
+                          <div className="flex w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div className={cn("h-full transition-all duration-500", barColor)} style={{ width: `${barWidth}%` }} />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="p-5 space-y-6">
+                    {!isMinimized && (
+                    <div className="p-5 space-y-6 animate-in fade-in slide-in-from-top-2 duration-200">
                       {/* Overall Progress Bar */}
                       <div className="space-y-2">
                         <div className="flex justify-between items-end px-1">
-                          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">Progresso Geral (Meta de Lucro)</p>
-                          <span className={cn(
-                            "text-base font-black flex items-center",
-                            profitTextClass
-                          )}>
-                            <span className="sm:hidden">{profitProgressRaw.toFixed(0)}%</span>
-                            <span className="hidden sm:inline">{profitProgressRaw.toFixed(2).replace('.', ',')}%</span>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-wider">Status Financeiro (Meta de Lucro)</p>
+                          <span className={cn("text-base font-black flex items-center", barColor.replace('bg-', 'text-'))}>
+                            <span>{barLabelPercent}%</span>
                           </span>
                         </div>
                         <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                           <div 
-                            className={cn(
-                              "h-full transition-all duration-1000",
-                              profitColorClass
-                            )}
-                            style={{ width: `${profitProgressWidth}%` }}
+                            className={cn("h-full transition-all duration-1000", barColor)}
+                            style={{ width: `${barWidth}%` }}
                           />
                         </div>
                       </div>
@@ -821,6 +891,7 @@ export function CalculadoraGanhos({
                         </div>
                       </div>
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               );

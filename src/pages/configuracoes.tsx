@@ -289,7 +289,7 @@ export function Configuracoes({
                 <Calculator className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100">Calculadora de Ganhos</h3>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Calculadora de Ganhos e Metas</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Planeje sua semana e descubra seu valor mínimo por KM</p>
               </div>
             </div>

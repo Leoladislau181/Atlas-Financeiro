@@ -766,23 +766,28 @@ export function Dashboard({
 
               const metaProfit = goal.profit_goal / daysInMode;
               const realProfit = realGross - realCost;
-              const profitProgressRaw = metaProfit > 0 ? (realProfit / metaProfit) * 100 : 0;
-              
-              let profitColorClass = "bg-amber-500";
-              let profitProgressWidthRaw = 0;
 
-              if (realProfit < 0) {
-                profitColorClass = "bg-red-500";
-                profitProgressWidthRaw = realCost > 0 ? (Math.abs(realProfit) / realCost) * 100 : 0;
-              } else if (realProfit >= metaProfit) {
-                profitColorClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
-                profitProgressWidthRaw = 100;
+              // Progress based on costs vs revenue logic requested by user
+              let barColor = "bg-red-500";
+              let barWidth = 0;
+              let barLabelPercent = "0";
+
+              if (realGross < realCost) {
+                // Phase 1: Zone Red (Paying off costs)
+                // If revenue is 0, we still need to pay 100% of costs (bar is 100% red).
+                // If revenue == cost, bar is 0% red.
+                const remainingCost = realCost > 0 ? ((realCost - realGross) / realCost) * 100 : 0;
+                barWidth = Math.min(100, Math.max(0, remainingCost));
+                barColor = "bg-red-500";
+                barLabelPercent = `-${barWidth.toFixed(0)}`;
               } else {
-                profitColorClass = "bg-amber-500";
-                profitProgressWidthRaw = metaProfit > 0 ? (realProfit / metaProfit) * 100 : 0;
+                // Phase 2: Zone Yellow/Green (Building profit)
+                const visibleProfit = realGross - realCost; 
+                const profitProgressRaw = metaProfit > 0 ? (visibleProfit / metaProfit) * 100 : 0;
+                barWidth = Math.min(100, Math.max(0, profitProgressRaw));
+                barColor = visibleProfit >= metaProfit ? "bg-emerald-500" : "bg-amber-500";
+                barLabelPercent = `${profitProgressRaw.toFixed(0)}`;
               }
-
-              const profitProgress = Math.min(100, Math.max(2, profitProgressWidthRaw));
 
               const isExpanded = expandedGoals.has(goal.id);
               const isCollapsed = !isExpanded;
@@ -831,21 +836,14 @@ export function Dashboard({
                       <div className="px-5 pb-4 pt-1 flex flex-col gap-1.5">
                         <div className="flex justify-between items-center px-1">
                           <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Metas</span>
-                          <span className={cn(
-                            "font-black text-[11px]",
-                            profitColorClass.replace('bg-', 'text-').replace(' shadow-[0_0_8px_rgba(16,185,129,0.4)]', '')
-                          )}>
-                            <span className="sm:hidden">{profitProgressRaw.toFixed(0)}%</span>
-                            <span className="hidden sm:inline">{profitProgressRaw.toFixed(2).replace('.', ',')}%</span>
+                          <span className={cn("font-black text-[11px]", barColor.replace('bg-', 'text-'))}>
+                            <span>{barLabelPercent}%</span>
                           </span>
                         </div>
                         <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-full">
                           <div 
-                            className={cn(
-                              "h-full transition-all duration-1000",
-                              profitColorClass
-                            )}
-                            style={{ width: `${profitProgress}%` }}
+                            className={cn("h-full transition-all duration-1000", barColor)}
+                            style={{ width: `${barWidth}%` }}
                           />
                         </div>
                       </div>
