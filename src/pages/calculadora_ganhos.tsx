@@ -937,6 +937,8 @@ export function CalculadoraGanhos({
                 goal={goal} 
                 lancamentos={lancamentos} 
                 onDelete={handleDeleteGoal} 
+                isExpanded={expandedSection === goal.id}
+                onToggle={() => toggleGoalMinimized(goal.id)}
               />
             ))}
           </div>
@@ -946,7 +948,7 @@ export function CalculadoraGanhos({
   );
 }
 
-function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: CalculatorGoal; lancamentos: Lancamento[]; onDelete: (id: string) => void }) {
+function GoalComparativeCard({ goal, lancamentos, onDelete, isExpanded, onToggle }: { goal: CalculatorGoal; lancamentos: Lancamento[]; onDelete: (id: string) => void; isExpanded: boolean; onToggle: () => void }) {
   // Same logic as Active Goals but for History display
   if (!goal.start_date || !goal.end_date) return null;
 
@@ -993,47 +995,157 @@ function GoalComparativeCard({ goal, lancamentos, onDelete }: { goal: Calculator
 
   const profitProgress = Math.min(100, Math.max(0, ((realGross - realTotalCost) / (goal.profit_goal || 1)) * 100));
 
+  let barColor = "bg-red-500";
+  let barWidth = 0;
+  let barLabelPercent = "0";
+
+  if (realGross < realTotalCost) {
+    const remainingCost = realTotalCost > 0 ? ((realTotalCost - realGross) / realTotalCost) * 100 : 0;
+    barWidth = Math.min(100, Math.max(0, remainingCost));
+    barColor = "bg-red-500";
+    barLabelPercent = `-${barWidth.toFixed(0)}`;
+  } else {
+    const visibleProfit = realGross - realTotalCost; 
+    const profitProgressRaw = goal.profit_goal > 0 ? (visibleProfit / goal.profit_goal) * 100 : 0;
+    barWidth = Math.min(100, Math.max(0, profitProgressRaw));
+    barColor = visibleProfit >= goal.profit_goal ? "bg-emerald-500" : "bg-amber-500";
+    barLabelPercent = `${profitProgressRaw.toFixed(0)}`;
+  }
+
+  const realProfit = realGross - realTotalCost;
+  const isMinimized = !isExpanded; 
+
   return (
     <Card className="border-none shadow-md bg-white dark:bg-gray-900 overflow-hidden rounded-3xl relative group opacity-90 grayscale-[0.2]">
       <CardContent className="p-0">
-        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <History className="h-3 w-3 text-gray-400" />
-            <span className="text-[10px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest">
-              {vehicle?.name} • Finalizada
-            </span>
-          </div>
-          <Button 
-            variant="ghost" size="icon" onClick={() => onDelete(goal.id)}
-            className="h-6 w-6 text-gray-400 hover:text-red-500"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-        
-        <div className="p-4 space-y-4">
-          <div className="space-y-1">
-            <div className="flex justify-between items-end px-1">
-              <span className="text-[9px] font-black text-gray-400 uppercase">Resultado Final (Lucro)</span>
-              <span className={cn("text-xs font-black", profitProgress >= 100 ? "text-emerald-500" : "text-amber-500")}>
-                {profitProgress.toFixed(1)}%
+        <div 
+          className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/20 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          onClick={onToggle}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap min-w-0">
+              <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg shrink-0">
+                <History className="h-4 w-4 text-gray-500" />
+              </div>
+              <span className="text-[10px] sm:text-[11px] font-black text-gray-900 dark:text-gray-100 uppercase tracking-widest truncate">
+                {vehicle?.name}
+                <span className="hidden sm:inline text-gray-400 font-bold ml-1">
+                  • Finalizada
+                </span>
+                <span className="text-gray-500 font-bold ml-1.5">
+                  • {format(goalStart, "dd/MM", { locale: ptBR })}
+                  <span className="hidden sm:inline">
+                    {' '}até {format(goalEnd, "dd/MM", { locale: ptBR })}
+                  </span>
+                </span>
               </span>
             </div>
-            <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+            
+            <div className="flex items-center shrink-0">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle();
+                }}
+                className="h-8 w-8 text-gray-400 hover:text-gray-900"
+              >
+                {isMinimized ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(goal.id);
+                }}
+                className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors ml-1"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {isMinimized && (
+            <div className="mt-3">
+              <div className="flex justify-between items-end px-1 mb-1.5">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Resultado Final</span>
+                <span className={cn("text-[10px] sm:text-xs font-black", barColor.replace('bg-', 'text-'))}>
+                  {barLabelPercent}%
+                </span>
+              </div>
+              <div className="flex w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                <div className={cn("h-full transition-all duration-500", barColor)} style={{ width: `${barWidth}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!isMinimized && (
+        <div className="p-5 space-y-6 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="space-y-2">
+            <div className="flex justify-between items-end px-1">
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Resultado Final (Meta de Lucro)</p>
+              <span className={cn("text-base font-black flex items-center", barColor.replace('bg-', 'text-'))}>
+                <span>{barLabelPercent}%</span>
+              </span>
+            </div>
+            <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               <div 
-                className={cn("h-full", profitProgress >= 100 ? "bg-emerald-500" : "bg-amber-500")}
-                style={{ width: `${profitProgress}%` }}
+                className={cn("h-full transition-all duration-1000", barColor)}
+                style={{ width: `${barWidth}%` }}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <MetricComparison label="Ganho Bruto" metaValue={formatCurrency(metaGross)} realValue={formatCurrency(realGross)} isMet={realGross >= metaGross} />
-            <MetricComparison label="Total KM" metaValue={`${Math.round(metaKM).toLocaleString('pt-BR')} KM`} realValue={`${Math.round(realKM).toLocaleString('pt-BR')} KM`} isMet={realKM >= metaKM} />
-            <MetricComparison label="Eficiência" metaValue={formatCurrency(metaRevKm)} realValue={formatCurrency(realRevKm)} isMet={realRevKm >= metaRevKm} />
-            <MetricComparison label="Custo Total" metaValue={formatCurrency(metaCost)} realValue={formatCurrency(realTotalCost)} isMet={realTotalCost <= metaCost} isCost />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <MetricComparison 
+              label="Lucro Líquido Real" 
+              metaValue={formatCurrency(goal.profit_goal)} 
+              realValue={formatCurrency(realProfit)} 
+              isMet={realProfit >= goal.profit_goal}
+              isNegative={realProfit < 0}
+            />
+            <MetricComparison 
+              label="Ganho Bruto Período" 
+              metaValue={formatCurrency(metaGross)} 
+              realValue={formatCurrency(realGross)} 
+              isMet={realGross >= metaGross}
+            />
+            <MetricComparison 
+              label="Quilometragem Período" 
+              metaValue={`${Math.round(metaKM).toLocaleString('pt-BR')} KM`} 
+              realValue={`${Math.round(realKM).toLocaleString('pt-BR')} KM`} 
+              isMet={realKM >= metaKM}
+            />
+            <MetricComparison 
+              label="Eficiência (Rec/KM)" 
+              metaValue={formatCurrency(metaRevKm)} 
+              realValue={formatCurrency(realRevKm)} 
+              isMet={realRevKm >= metaRevKm}
+            />
+            <MetricComparison 
+              label="Custo Total Período" 
+              metaValue={formatCurrency(metaCost)} 
+              realValue={formatCurrency(realTotalCost)} 
+              isMet={realTotalCost <= metaCost}
+              isCost
+            />
+          </div>
+
+          <div className="pt-2 flex flex-wrap gap-x-4 gap-y-2 text-[9px] text-gray-400 font-bold border-t border-dashed border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+              <span>Mínimo: {formatCurrency(goal.min_price_per_km)}/km</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3 text-gray-400" />
+              <span>Escala: {goal.days_per_week} dias de trabalho no período</span>
+            </div>
           </div>
         </div>
+        )}
       </CardContent>
     </Card>
   );
