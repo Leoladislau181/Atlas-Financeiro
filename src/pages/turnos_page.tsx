@@ -167,22 +167,47 @@ export function TurnosPage({
     });
 
     Object.keys(groups).forEach(date => {
+      const vehicleStats: Record<string, { manualKM: number; minStartOdo: number; maxEndOdo: number; vehicleName: string }> = {};
+
       groups[date].shifts.forEach(shift => {
         if (shift.vehicle_id) {
           const vehicle = vehicles.find(v => v.id === shift.vehicle_id);
           if (vehicle) {
-            const km = Math.max(0, (shift.end_odometer || 0) - (shift.start_odometer || 0));
-            // In the original code, it was calculating km rodados in turn based on some logic. 
-            // Here it uses shift.odometer which is preferred if available.
-            const shiftKm = shift.odometer || km;
-            
-            if (!groups[date].vehicleKM[shift.vehicle_id]) {
-              groups[date].vehicleKM[shift.vehicle_id] = { km: shiftKm, vehicleName: vehicle.name };
+            if (!vehicleStats[shift.vehicle_id]) {
+              vehicleStats[shift.vehicle_id] = { 
+                manualKM: 0, 
+                minStartOdo: Infinity, 
+                maxEndOdo: 0, 
+                vehicleName: vehicle.name 
+              };
+            }
+
+            if (shift.odometer && shift.odometer > 0) {
+              vehicleStats[shift.vehicle_id].manualKM += shift.odometer;
             } else {
-              groups[date].vehicleKM[shift.vehicle_id].km += shiftKm;
+              const start = shift.start_odometer || 0;
+              const end = shift.end_odometer || 0;
+              if (start > 0 && start < vehicleStats[shift.vehicle_id].minStartOdo) {
+                vehicleStats[shift.vehicle_id].minStartOdo = start;
+              }
+              if (end > vehicleStats[shift.vehicle_id].maxEndOdo) {
+                vehicleStats[shift.vehicle_id].maxEndOdo = end;
+              }
             }
           }
         }
+      });
+
+      // Calculate final KM for each vehicle on this date
+      Object.entries(vehicleStats).forEach(([vId, stats]) => {
+        let autoKM = 0;
+        if (stats.maxEndOdo > 0 && stats.minStartOdo !== Infinity) {
+          autoKM = Math.max(0, stats.maxEndOdo - stats.minStartOdo);
+        }
+        groups[date].vehicleKM[vId] = { 
+          km: stats.manualKM + autoKM, 
+          vehicleName: stats.vehicleName 
+        };
       });
     });
 
