@@ -520,7 +520,7 @@ export function Dashboard({
           step="vehicle"
           title="Cadastre seu primeiro veículo"
           description="Para começar a controlar seus gastos, adicione o carro ou moto que você utiliza."
-          onClick={() => onNavigate && onNavigate('veiculos')}
+          onClick={() => onNavigateToNewVehicle ? onNavigateToNewVehicle() : (onNavigate && onNavigate('veiculos'))}
           buttonText="Adicionar Veículo"
         />
       ) : !hasCategories ? (
@@ -528,7 +528,7 @@ export function Dashboard({
           step="category"
           title="Crie suas categorias"
           description="Organize suas finanças! Crie categorias personalizadas como 'Alimentação' ou 'Impostos'."
-          onClick={() => onNavigate && onNavigate('configuracoes')}
+          onClick={() => onNavigateToNewCategory ? onNavigateToNewCategory() : (onNavigate && onNavigate('categorias'))}
           buttonText="Criar Categoria"
         />
       ) : !hasTransactions ? (

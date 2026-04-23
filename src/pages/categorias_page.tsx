@@ -70,7 +70,11 @@ export function CategoriasPage({
       setNome('');
       setTipo('');
       setIsAddModalOpen(false);
-      refetch();
+      
+      // Pequeno delay para garantir que o refetch aconteça com o modal já fechado visualmente
+      setTimeout(() => {
+        refetch();
+      }, 100);
     } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao criar categoria.');
     } finally {

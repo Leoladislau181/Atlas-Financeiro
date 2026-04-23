@@ -93,7 +93,7 @@ export function Auth() {
       }
     } catch (err: any) {
       if (err.message === 'Failed to fetch') {
-        setError('Erro de conexão. Verifique se as chaves do Supabase estão corretas nas configurações.');
+        setError('Erro de conexão. Verifique sua internet ou tente novamente mais tarde.');
       } else {
         setError(err.message || 'Ocorreu um erro.');
       }
@@ -239,7 +239,7 @@ export function Auth() {
                 <div className="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
                   <div className="mt-0.5">⚠️</div>
                   <div>
-                    <strong className="block mb-1">Configuração Necessária:</strong> Conecte seu Supabase para habilitar o acesso ao sistema.
+                    <strong className="block mb-1">Configuração Necessária:</strong> Conecte seu banco de dados para habilitar o acesso ao sistema.
                   </div>
                 </div>
               )}
@@ -323,11 +323,6 @@ export function Auth() {
                     {isSignUp ? 'Fazer login' : 'Criar conta gratuita'}
                   </button>
                 </p>
-              </div>
-
-              <div className="mt-8 flex items-center justify-center gap-6 opacity-50 grayscale">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_Cloud_Logo.svg/2560px-Google_Cloud_Logo.svg.png" alt="Google Cloud" className="h-4" />
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Logo_of_Supabase.svg/1200px-Logo_of_Supabase.svg.png" alt="Supabase" className="h-4" />
               </div>
             </CardContent>
           </Card>

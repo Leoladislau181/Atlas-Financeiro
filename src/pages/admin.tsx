@@ -3,11 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, SupportTicket } from '@/types';
 import { supabase, handleAuthError } from '@/lib/supabase';
-import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw, Search, MessageCircle, Clock } from 'lucide-react';
+import { Shield, User as UserIcon, BarChart2, Users, Star, Database, RefreshCw, Search, MessageCircle, Clock, Filter } from 'lucide-react';
 import { UserDetailsModal } from '@/components/user-details-modal';
 import { Input } from '@/components/ui/input';
+import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface AdminProps {
   user: User;
@@ -24,6 +26,9 @@ export function Admin({ user, onBack }: AdminProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<'all' | 'month' | '90days' | '7days'>('all');
+  const [planFilter, setPlanFilter] = useState<'all' | 'free' | 'premium' | 'expiringSoon'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
   const [confirmTitle, setConfirmTitle] = useState('');
@@ -284,6 +289,7 @@ export function Admin({ user, onBack }: AdminProps) {
       }
       
       setSuccessMsg(`Status Premium do usuário atualizado!`);
+      setIsDetailsModalOpen(false); // Fecha o modal após a ação
       fetchAdminData();
     } catch (error: any) {
       if (!handleAuthError(error)) {
@@ -318,6 +324,7 @@ export function Admin({ user, onBack }: AdminProps) {
       }
       
       setSuccessMsg(`Status do usuário atualizado para ${newStatus}!`);
+      setIsDetailsModalOpen(false); // Fecha o modal após a ação
       fetchAdminData();
     } catch (error: any) {
       if (!handleAuthError(error)) {
@@ -427,6 +434,45 @@ export function Admin({ user, onBack }: AdminProps) {
   };
 
   const [activeAdminTab, setActiveAdminTab] = useState<'users' | 'tickets'>('users');
+
+  const filteredUsers = adminUsers.filter((u) => {
+    // Search Filter
+    const matchesSearch = u.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         (u.nome && u.nome.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (!matchesSearch) return false;
+
+    // Date Filter
+    const createdAt = new Date(u.created_at);
+    const now = new Date();
+    
+    if (dateFilter === 'month') {
+      if (createdAt.getMonth() !== now.getMonth() || createdAt.getFullYear() !== now.getFullYear()) return false;
+    } else if (dateFilter === '90days') {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(now.getDate() - 90);
+      if (createdAt < ninetyDaysAgo) return false;
+    } else if (dateFilter === '7days') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      if (createdAt < sevenDaysAgo) return false;
+    }
+
+    // Plan Filter
+    const isPremiumStatus = u.premium_until && new Date(u.premium_until) > now;
+    if (planFilter === 'free') {
+      if (isPremiumStatus) return false;
+    } else if (planFilter === 'premium') {
+      if (!isPremiumStatus) return false;
+    } else if (planFilter === 'expiringSoon') {
+      if (!isPremiumStatus) return false;
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(now.getDate() + 7);
+      const premiumDate = new Date(u.premium_until!);
+      if (premiumDate > sevenDaysFromNow) return false;
+    }
+
+    return true;
+  });
 
   if (user.role !== 'admin') {
     return (
@@ -560,8 +606,66 @@ export function Admin({ user, onBack }: AdminProps) {
 
           {/* Users List */}
           <Card className="border-none shadow-sm bg-white dark:bg-gray-900 overflow-hidden">
-            <CardHeader className="border-b border-gray-50 dark:border-gray-800">
-              <CardTitle className="text-lg font-bold">Gerenciar Usuários</CardTitle>
+            <CardHeader className="border-b border-gray-50 dark:border-gray-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold">Gerenciar Usuários</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex items-center gap-2 rounded-xl transition-all ${showFilters ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'text-gray-500'}`}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">{showFilters ? 'Ocultar Filtros' : 'Filtros'}</span>
+                  {(dateFilter !== 'all' || planFilter !== 'all') && !showFilters && (
+                    <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  )}
+                </Button>
+              </div>
+              
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-visible" // Crucial: allow dropdown to escape
+                  >
+                    <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 pb-32 -mb-32">
+                      {/* Date Filter Selection */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 ml-1">Data de Criação</label>
+                        <CustomSelect 
+                          value={dateFilter}
+                          onChange={(val) => setDateFilter(val as any)}
+                          options={[
+                            { value: 'all', label: 'Todos os períodos' },
+                            { value: '7days', label: 'Últimos 7 dias' },
+                            { value: 'month', label: 'Este mês' },
+                            { value: '90days', label: 'Últimos 90 dias' }
+                          ]}
+                        />
+                      </div>
+
+                      {/* Plan Filter Selection */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 ml-1">Plano e Status</label>
+                        <CustomSelect 
+                          value={planFilter}
+                          onChange={(val) => setPlanFilter(val as any)}
+                          options={[
+                            { value: 'all', label: 'Todos os planos' },
+                            { value: 'free', label: 'Plano Grátis' },
+                            { value: 'premium', label: 'Plano Premium' },
+                            { value: 'expiringSoon', label: 'Vencendo em breve' }
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -576,8 +680,7 @@ export function Admin({ user, onBack }: AdminProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                    {adminUsers
-                      .filter((u) => u.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                    {filteredUsers
                       .map((u) => {
                       const isUserPremium = u.premium_until && new Date(u.premium_until) > new Date();
                       const isBlocked = u.status === 'blocked';

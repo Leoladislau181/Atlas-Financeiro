@@ -23,6 +23,7 @@ const PerfilPage = React.lazy(() => import('@/pages/perfil_page').then(m => ({ d
 const CalculadoraGanhos = React.lazy(() => import('@/pages/calculadora_ganhos').then(m => ({ default: m.CalculadoraGanhos })));
 const TurnosPage = React.lazy(() => import('@/pages/turnos_page').then(m => ({ default: m.TurnosPage })));
 import { PremiumModal } from '@/components/premium-modal';
+import { WelcomeWizard } from '@/components/welcome-wizard';
 
 function SupabaseSetupScreen() {
   return (
@@ -211,13 +212,13 @@ export default function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="atlas-theme">
       <FeatureProvider user={user}>
-        <MainApp user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <MainApp user={user} setUser={setUser} activeTab={activeTab} setActiveTab={setActiveTab} />
       </FeatureProvider>
     </ThemeProvider>
   );
 }
 
-function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: string; setActiveTab: (tab: string) => void }) {
+function MainApp({ user, setUser, activeTab, setActiveTab }: { user: User; setUser: (u: User) => void; activeTab: string; setActiveTab: (tab: string) => void }) {
   const { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, refetch } = useFinanceData();
   const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
   const [forceOpenProfile, setForceOpenProfile] = useState(false);
@@ -225,6 +226,34 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
   const [forceOpenCategory, setForceOpenCategory] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      const needsName = !user.nome || user.nome === '';
+      const needsVehicle = vehicles.length === 0;
+      const needsCategory = categorias.length === 0;
+      
+      const wizardDismissed = localStorage.getItem(`atlas_wizard_completed_${user.id}`);
+
+      if ((needsName || needsVehicle || needsCategory) && !wizardDismissed) {
+        setIsWizardOpen(true);
+      } else if (isWizardOpen) {
+        // If everything is done or dismissed, close it
+        setIsWizardOpen(false);
+      }
+    }
+  }, [loading, user?.nome, vehicles.length, categorias.length, user?.id]);
+
+  const handleWizardComplete = () => {
+    localStorage.setItem(`atlas_wizard_completed_${user.id}`, 'true');
+    setIsWizardOpen(false);
+    refetch();
+  };
+
+  const handleUserUpdate = (updatedUser: Partial<User>) => {
+    setUser({ ...user, ...updatedUser });
+  };
 
   if (loading) {
     return (
@@ -441,6 +470,16 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
         user={user}
+      />
+      
+      <WelcomeWizard 
+        user={user}
+        vehicles={vehicles}
+        categorias={categorias}
+        refetch={refetch}
+        onUserUpdate={handleUserUpdate}
+        isOpen={isWizardOpen}
+        onComplete={handleWizardComplete}
       />
     </Layout>
   );
