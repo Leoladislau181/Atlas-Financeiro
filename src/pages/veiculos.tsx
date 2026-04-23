@@ -26,9 +26,10 @@ interface VeiculosProps {
   onBackToHome?: () => void;
   isEmbedded?: boolean;
   forceOpenAdd?: boolean;
+  onForceOpenReset?: () => void;
 }
 
-export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user, onBackToConfig, onBackToHome, isEmbedded = false, forceOpenAdd = false }: VeiculosProps) {
+export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user, onBackToConfig, onBackToHome, isEmbedded = false, forceOpenAdd = false, onForceOpenReset }: VeiculosProps) {
   const { preferences } = useFeatures();
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
@@ -53,8 +54,9 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   useEffect(() => {
     if (forceOpenAdd) {
       setIsFormOpen(true);
+      if (onForceOpenReset) onForceOpenReset();
     }
-  }, [forceOpenAdd]);
+  }, [forceOpenAdd, onForceOpenReset]);
 
   // Renew Contract specific
   const [renewModalOpen, setRenewModalOpen] = useState(false);

@@ -17,6 +17,7 @@ interface CategoriasPageProps {
   onBackToHome: () => void;
   onNavigateToPremium?: () => void;
   forceOpenAdd?: boolean;
+  onForceOpenReset?: () => void;
 }
 
 export function CategoriasPage({ 
@@ -26,7 +27,8 @@ export function CategoriasPage({
   onBackToConfig, 
   onBackToHome,
   onNavigateToPremium,
-  forceOpenAdd = false
+  forceOpenAdd = false,
+  onForceOpenReset
 }: CategoriasPageProps) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<TipoLancamento | ''>('');
@@ -41,8 +43,9 @@ export function CategoriasPage({
   useEffect(() => {
     if (forceOpenAdd) {
       setIsAddModalOpen(true);
+      if (onForceOpenReset) onForceOpenReset();
     }
-  }, [forceOpenAdd]);
+  }, [forceOpenAdd, onForceOpenReset]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

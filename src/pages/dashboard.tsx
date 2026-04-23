@@ -974,22 +974,24 @@ export function Dashboard({
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4 pt-4 sm:pt-6 pb-[20px]">
-        <Button 
-          onClick={onNavigateToNewVehicle}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-2xl transition-all"
-        >
-          <Car className="h-5 w-5" />
-          Cadastrar novo veículo
-        </Button>
-        <Button 
-          onClick={onNavigateToNewCategory}
-          className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-6 rounded-2xl transition-all"
-        >
-          <Tag className="h-5 w-5" />
-          Cadastrar nova categoria
-        </Button>
-      </div>
+      {(isPremium(user) || !hasVehicles) && (
+        <div className="flex flex-col sm:flex-row gap-4 pt-4 sm:pt-6 pb-[20px]">
+          <Button 
+            onClick={onNavigateToNewVehicle}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-2xl transition-all"
+          >
+            <Car className="h-5 w-5" />
+            Cadastrar novo veículo
+          </Button>
+          <Button 
+            onClick={onNavigateToNewCategory}
+            className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-6 rounded-2xl transition-all"
+          >
+            <Tag className="h-5 w-5" />
+            Cadastrar nova categoria
+          </Button>
+        </div>
+      )}
 
       <Modal
         isOpen={quickEntryOpen}

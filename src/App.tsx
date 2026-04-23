@@ -82,7 +82,6 @@ function SupabaseSetupScreen() {
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState('inicio');
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -210,15 +209,16 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider defaultTheme="system" storageKey="atlas-theme">
+    <ThemeProvider defaultTheme="light" storageKey="atlas-theme">
       <FeatureProvider user={user}>
-        <MainApp user={user} setUser={setUser} activeTab={activeTab} setActiveTab={setActiveTab} />
+        <MainApp user={user} setUser={setUser} />
       </FeatureProvider>
     </ThemeProvider>
   );
 }
 
-function MainApp({ user, setUser, activeTab, setActiveTab }: { user: User; setUser: (u: User) => void; activeTab: string; setActiveTab: (tab: string) => void }) {
+function MainApp({ user, setUser }: { user: User; setUser: (u: User) => void }) {
+  const [activeTab, setActiveTab] = useState('inicio');
   const { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, refetch } = useFinanceData();
   const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
   const [forceOpenProfile, setForceOpenProfile] = useState(false);
@@ -370,6 +370,7 @@ function MainApp({ user, setUser, activeTab, setActiveTab }: { user: User; setUs
             onBack={() => setActiveTab('configuracoes')}
             onBackToHome={() => setActiveTab('inicio')}
             forceOpenAdd={forceOpenVehicle}
+            onForceOpenReset={() => setForceOpenVehicle(false)}
           />
         )}
         {activeTab === 'funcionalidades' && (
@@ -389,6 +390,7 @@ function MainApp({ user, setUser, activeTab, setActiveTab }: { user: User; setUs
             onBackToHome={() => setActiveTab('inicio')}
             onNavigateToPremium={() => setActiveTab('premium')}
             forceOpenAdd={forceOpenCategory}
+            onForceOpenReset={() => setForceOpenCategory(false)}
           />
         )}
         {activeTab === 'premium' && (

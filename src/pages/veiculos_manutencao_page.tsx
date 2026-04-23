@@ -16,6 +16,7 @@ interface VeiculosManutencaoPageProps {
   onBack: () => void;
   onBackToHome: () => void;
   forceOpenAdd?: boolean;
+  onForceOpenReset?: () => void;
 }
 
 export function VeiculosManutencaoPage({ 
@@ -27,7 +28,8 @@ export function VeiculosManutencaoPage({
   refetch, 
   onBack,
   onBackToHome,
-  forceOpenAdd = false
+  forceOpenAdd = false,
+  onForceOpenReset
 }: VeiculosManutencaoPageProps) {
   const [activeSubTab, setActiveSubTab] = useState<'veiculos' | 'manutencao'>('veiculos');
 
@@ -104,6 +106,7 @@ export function VeiculosManutencaoPage({
                 refetch={refetch}
                 isEmbedded={true}
                 forceOpenAdd={forceOpenAdd}
+                onForceOpenReset={onForceOpenReset}
               />
             ) : (
               <ManutencaoPage 
