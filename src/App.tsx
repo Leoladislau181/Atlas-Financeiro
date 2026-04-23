@@ -23,6 +23,7 @@ const PerfilPage = React.lazy(() => import('@/pages/perfil_page').then(m => ({ d
 const CalculadoraGanhos = React.lazy(() => import('@/pages/calculadora_ganhos').then(m => ({ default: m.CalculadoraGanhos })));
 const TurnosPage = React.lazy(() => import('@/pages/turnos_page').then(m => ({ default: m.TurnosPage })));
 import { PremiumModal } from '@/components/premium-modal';
+import { WelcomeWizard } from '@/components/welcome-wizard';
 
 function SupabaseSetupScreen() {
   return (
@@ -225,6 +226,27 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
   const [forceOpenCategory, setForceOpenCategory] = useState(false);
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      const needsName = !user.nome || user.nome === '';
+      const needsVehicle = vehicles.length === 0;
+      const needsCategory = categorias.length === 0;
+      
+      const wizardDismissed = localStorage.getItem(`atlas_wizard_completed_${user.id}`);
+
+      if ((needsName || needsVehicle || needsCategory) && !wizardDismissed) {
+        setIsWizardOpen(true);
+      }
+    }
+  }, [loading, user.nome, vehicles.length, categorias.length, user.id]);
+
+  const handleWizardComplete = () => {
+    localStorage.setItem(`atlas_wizard_completed_${user.id}`, 'true');
+    setIsWizardOpen(false);
+    refetch();
+  };
 
   if (loading) {
     return (
@@ -441,6 +463,15 @@ function MainApp({ user, activeTab, setActiveTab }: { user: User; activeTab: str
         onClose={() => setIsPremiumModalOpen(false)}
         featureName={premiumFeatureName}
         user={user}
+      />
+      
+      <WelcomeWizard 
+        user={user}
+        vehicles={vehicles}
+        categorias={categorias}
+        refetch={refetch}
+        isOpen={isWizardOpen}
+        onComplete={handleWizardComplete}
       />
     </Layout>
   );
