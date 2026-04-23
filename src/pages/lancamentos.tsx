@@ -855,9 +855,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           }
         });
 
+        const totalKmRodados = group.reduce((acc, curr) => acc + (Number(curr.km_rodados) || 0), 0);
+
         result.push({
           ...mainItem,
           valor: total,
+          km_rodados: totalKmRodados > 0 ? totalKmRodados : mainItem.km_rodados,
           categoria_id: 'multiple',
           total_minutes: totalMinutes > 0 ? totalMinutes : null,
           earning_per_hour: (totalMinutes > 0 && total > 0) ? (total / (totalMinutes / 60)) : null
