@@ -56,9 +56,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const [isFullTank, setIsFullTank] = useState(true);
   const [isOdometerManuallyEdited, setIsOdometerManuallyEdited] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [shifts, setShifts] = useState<{startTime: string; endTime: string; id?: string}[]>([
-    { startTime: '', endTime: format(new Date(), 'HH:mm') }
-  ]);
+  const [shifts, setShifts] = useState<{startTime: string; endTime: string; id?: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const lastProcessedVehicleRef = useRef<string | null>(null);
 
@@ -77,7 +75,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       if (matchingShifts.length > 0) {
         setShifts(matchingShifts.map(s => ({ startTime: s.start_time.substring(0, 5), endTime: s.end_time?.substring(0, 5) || format(new Date(), 'HH:mm'), id: s.id })));
       } else {
-        setShifts([{ startTime: '', endTime: format(new Date(), 'HH:mm') }]);
+        setShifts([]);
       }
     }
   }, [data, vehicleId, tipo, workShifts, editingId, lancamentos]);
@@ -716,32 +714,34 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         const startOdo = lastGlobalOdos?.[0] ? (lastGlobalOdos[0].odometro_receita || lastGlobalOdos[0].odometer || 0) : vehicles.find(v => v.id === vId)?.initial_odometer || 0;
         const endOdo = lastRev.odometro_receita || 0;
 
-        if (currentContext && shifts.length > 0) {
-           const shiftPayloads = shifts.map(s => ({
-             user_id: user.id, vehicle_id: vId, type: 'work', date: d,
-             start_time: s.startTime || firstRev.created_at.substring(11, 16),
-             end_time: s.endTime || format(new Date(), 'HH:mm'),
-             start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
-           }));
-           await supabase.from('work_shifts').insert(shiftPayloads);
-        } else {
-           if (existingS && existingS.length > 0) {
-             const shiftPayloads = existingS.map(s => ({
-               user_id: user.id, vehicle_id: vId, type: 'work', date: d,
-               start_time: s.start_time,
-               end_time: s.end_time || lastRev.created_at.substring(11, 16),
-               start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
-             }));
-             await supabase.from('work_shifts').insert(shiftPayloads);
-           } else {
-             await supabase.from('work_shifts').insert([{
-               user_id: user.id, vehicle_id: vId, type: 'work', date: d,
-               start_time: firstRev.created_at.substring(11, 16),
-               end_time: lastRev.created_at.substring(11, 16),
-               start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
-             }]);
-           }
+        if (currentContext) {
+        if (shifts.length > 0) {
+          const shiftPayloads = shifts.map(s => ({
+            user_id: user.id, vehicle_id: vId, type: 'work', date: d,
+            start_time: s.startTime || firstRev.created_at.substring(11, 16),
+            end_time: s.endTime || format(new Date(), 'HH:mm'),
+            start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
+          }));
+          await supabase.from('work_shifts').insert(shiftPayloads);
         }
+      } else {
+        if (existingS && existingS.length > 0) {
+          const shiftPayloads = existingS.map(s => ({
+            user_id: user.id, vehicle_id: vId, type: 'work', date: d,
+            start_time: s.start_time,
+            end_time: s.end_time || lastRev.created_at.substring(11, 16),
+            start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
+          }));
+          await supabase.from('work_shifts').insert(shiftPayloads);
+        } else {
+          await supabase.from('work_shifts').insert([{
+            user_id: user.id, vehicle_id: vId, type: 'work', date: d,
+            start_time: firstRev.created_at.substring(11, 16),
+            end_time: lastRev.created_at.substring(11, 16),
+            start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
+          }]);
+        }
+      }
       };
 
       // If editing, and date/vehicle/group changed, or was a revenue but isn't anymore
@@ -768,7 +768,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       setVehicleId('');
       setOdometer('');
       setOdometroReceita('');
-      setShifts([{ startTime: '', endTime: format(new Date(), 'HH:mm') }]);
+      setShifts([]);
       setFuelPricePerLiterStr('');
       setFuelType(null);
       setIsFullTank(true);
@@ -817,7 +817,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       if (existingShifts.length > 0) {
         setShifts(existingShifts.map(s => ({ id: s.id, startTime: s.start_time.substring(0, 5), endTime: s.end_time?.substring(0, 5) || '' })));
       } else {
-        setShifts([{ startTime: '', endTime: '' }]);
+        setShifts([]);
       }
     } else {
       setOdometer('');
@@ -1469,27 +1469,47 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                     user={user}
                     onUnlock={() => { setPremiumFeatureName('Gestão de Turnos'); setIsPremiumModalOpen(true); }}
                   >
-                    <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm transition-all duration-300">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 dark:shadow-none">
-                            <Clock className="h-4 w-4 text-white" />
+                          <div className={cn(
+                            "p-2 rounded-lg shadow-sm transition-colors duration-300",
+                            shifts.length > 0 ? "bg-indigo-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                          )}>
+                            <Clock className="h-4 w-4" />
                           </div>
-                          <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
+                          <div>
+                            <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
+                            {shifts.length === 0 && (
+                              <p className="text-[10px] text-gray-500 font-medium">Opcional para cálculo de ganhos/hora</p>
+                            )}
+                          </div>
                         </div>
                         {durationValue && (
-                          <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800">
+                          <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800 animate-in fade-in zoom-in duration-300">
                             <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase italic">
                               Duração: {durationValue.h}h {durationValue.m.toString().padStart(2, '0')}m
                             </span>
                           </div>
                         )}
+                        {shifts.length === 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShifts([{ startTime: '', endTime: format(new Date(), 'HH:mm') }])}
+                            className="h-8 text-[10px] font-black uppercase tracking-wider border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
+                          >
+                            <Plus className="h-4 w-4 mr-1.5" />
+                            Adicionar
+                          </Button>
+                        )}
                       </div>
                       
-                      <div className="space-y-4">
-                        {shifts.map((shift, idx) => (
-                          <div key={idx} className="relative p-4 bg-white dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                            {shifts.length > 1 && (
+                      {shifts.length > 0 && (
+                        <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                          {shifts.map((shift, idx) => (
+                            <div key={idx} className="relative p-4 bg-white dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm group">
                               <Button 
                                 type="button" 
                                 variant="ghost" 
@@ -1503,46 +1523,46 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                               >
                                 <X className="h-3 w-3" />
                               </Button>
-                            )}
-                            <div className="grid grid-cols-2 gap-4">
-                              <ShiftTimePicker
-                                label={`Início ${shifts.length > 1 ? idx + 1 : ''}`}
-                                value={shift.startTime}
-                                onChange={(v) => {
-                                  const newShifts = [...shifts];
-                                  newShifts[idx].startTime = v;
-                                  setShifts(newShifts);
-                                }}
-                              />
-                              <ShiftTimePicker
-                                label={`Fim ${shifts.length > 1 ? idx + 1 : ''}`}
-                                value={shift.endTime}
-                                onChange={(v) => {
-                                  const newShifts = [...shifts];
-                                  newShifts[idx].endTime = v;
-                                  setShifts(newShifts);
-                                }}
-                              />
+                              <div className="grid grid-cols-2 gap-4">
+                                <ShiftTimePicker
+                                  label={`Início ${shifts.length > 1 ? idx + 1 : ''}`}
+                                  value={shift.startTime}
+                                  onChange={(v) => {
+                                    const newShifts = [...shifts];
+                                    newShifts[idx].startTime = v;
+                                    setShifts(newShifts);
+                                  }}
+                                />
+                                <ShiftTimePicker
+                                  label={`Fim ${shifts.length > 1 ? idx + 1 : ''}`}
+                                  value={shift.endTime}
+                                  onChange={(v) => {
+                                    const newShifts = [...shifts];
+                                    newShifts[idx].endTime = v;
+                                    setShifts(newShifts);
+                                  }}
+                                />
+                              </div>
                             </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShifts([...shifts, { startTime: '', endTime: format(new Date(), 'HH:mm') }])}
+                            className="w-full text-[10px] font-black uppercase tracking-wider border-dashed border-indigo-200 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                          >
+                            <Plus className="h-4 w-4 mr-1.5" />
+                            Adicionar Mais um Turno
+                          </Button>
+
+                          <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50 mt-4">
+                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
+                              <span className="font-black uppercase mr-1">Nota:</span>
+                              O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
+                            </p>
                           </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShifts([...shifts, { startTime: '', endTime: format(new Date(), 'HH:mm') }])}
-                          className="w-full text-[10px] font-black uppercase tracking-wider border-dashed border-indigo-200 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                        >
-                          <Plus className="h-4 w-4 mr-1.5" />
-                          Adicionar Mais um Turno
-                        </Button>
-                      </div>
-                      
-                      <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50">
-                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
-                          <span className="font-black uppercase mr-1">Nota:</span>
-                          O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
-                        </p>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </PremiumLockedOverlay>
                 )}
