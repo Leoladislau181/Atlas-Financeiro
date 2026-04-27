@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Fragment } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +43,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [personalCalculatedValue, setPersonalCalculatedValue] = useState<number>(0);
   const [personalKmRodados, setPersonalKmRodados] = useState<number>(0);
-  const [tipo, setTipo] = useState<TipoLancamento>('despesa');
+  const [tipo, setTipo] = useState<TipoLancamento>('receita');
   const [items, setItems] = useState<LancamentoItem[]>([{ categoriaId: '', valorStr: '' }]);
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [observacao, setObservacao] = useState('');
@@ -60,6 +60,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     { startTime: '', endTime: format(new Date(), 'HH:mm') }
   ]);
   const [loading, setLoading] = useState(false);
+  const lastProcessedVehicleRef = useRef<string | null>(null);
 
   // Load existing shift data reactively when date or vehicle changes
   useEffect(() => {
@@ -336,7 +337,30 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
   const addItem = () => {
     if (filteredCategorias.length > 0) {
-      setItems([...items, { categoriaId: filteredCategorias[0].id, valorStr: '' }]);
+      // Find the most used category to avoid suggesting it as a second item
+      const categoryCounts: Record<string, number> = {};
+      lancamentos.forEach(l => {
+        categoryCounts[l.categoria_id] = (categoryCounts[l.categoria_id] || 0) + 1;
+      });
+      const sortedCats = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+      const mostUsedCatId = sortedCats[0]?.[0];
+      
+      const currentSelectedIds = items.map(i => i.categoriaId);
+      
+      // Try to find a category that is not most used AND not already selected
+      let suggestedCat = filteredCategorias.find(c => c.id !== mostUsedCatId && !currentSelectedIds.includes(c.id));
+      
+      // Fallback if no category meets all criteria
+      if (!suggestedCat) {
+        suggestedCat = filteredCategorias.find(c => !currentSelectedIds.includes(c.id));
+      }
+      
+      // Secondary fallback
+      if (!suggestedCat) {
+        suggestedCat = filteredCategorias[0];
+      }
+
+      setItems([...items, { categoriaId: suggestedCat.id, valorStr: '' }]);
     }
   };
 
@@ -357,6 +381,41 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     }
     setItems(newItems);
   };
+
+  // Pre-fill last category used for the selected vehicle
+  useEffect(() => {
+    if (isFormOpen && !editingId && vehicleId && tipo !== 'pessoal' && lastProcessedVehicleRef.current !== vehicleId) {
+      const lastEntryWithVehicle = lancamentos
+        .filter(l => l.vehicle_id === vehicleId && (tipo === 'receita' ? l.tipo === 'receita' : l.tipo === 'despesa'))
+        .sort((a, b) => {
+          const dateA = parseLocalDate(a.data).getTime();
+          const dateB = parseLocalDate(b.data).getTime();
+          if (dateA !== dateB) return dateB - dateA;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        })[0];
+      
+      if (lastEntryWithVehicle && lastEntryWithVehicle.categoria_id) {
+        const catExists = filteredCategorias.find(c => c.id === lastEntryWithVehicle.categoria_id);
+        if (catExists) {
+          setItems(prev => {
+            const newItems = [...prev];
+            if (newItems.length > 0) {
+              newItems[0].categoriaId = catExists.id;
+            }
+            return newItems;
+          });
+        }
+      }
+      lastProcessedVehicleRef.current = vehicleId;
+    }
+  }, [vehicleId, isFormOpen, editingId, tipo, lancamentos, filteredCategorias]);
+
+  // Reset ref when modal closes or type changes
+  useEffect(() => {
+    if (!isFormOpen) {
+      lastProcessedVehicleRef.current = null;
+    }
+  }, [isFormOpen, tipo]);
 
   const totalValor = items.reduce((acc, item) => acc + parseCurrency(item.valorStr), 0);
 
@@ -1224,265 +1283,270 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           ) : (
             <React.Fragment>
               <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Itens do Lançamento</label>
-              <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-8 gap-1 text-xs">
-                <Plus className="h-3 w-3" /> Adicionar Item
-              </Button>
-            </div>
-            
-            {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-1 gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 relative group">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Categoria</label>
-                  <CustomSelect 
-                    value={item.categoriaId} 
-                    onChange={(val) => updateItem(index, 'categoriaId', val)}
-                    options={filteredCategorias.map(c => ({ value: c.id, label: c.nome }))}
-                    placeholder="Selecione..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Valor</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="R$ 0,00"
-                    value={item.valorStr}
-                    onChange={(e) => updateItem(index, 'valorStr', e.target.value)}
-                    required
-                  />
-                </div>
-                {items.length > 1 && (
-                  <div className="sm:col-span-1 flex items-end justify-center pb-1">
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => removeItem(index)}
-                      className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {items.length > 1 && (
-              <div className="flex justify-between items-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800/50">
-                <span className="text-sm font-bold text-amber-900 dark:text-amber-100">Total do Lançamento</span>
-                <span className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency(totalValor)}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {vehicles.length > 1 && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
-                <CustomSelect 
-                  value={vehicleId} 
-                  onChange={setVehicleId}
-                  options={[
-                    { value: '', label: 'Nenhum veículo' },
-                    ...vehicles
-                      .filter(v => v.status === 'active' || v.id === vehicleId)
-                      .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
-                  ]}
-                />
-              </div>
-            )}
-
-            {useVehicle && tipo === 'receita' && (
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 space-y-2">
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-sm font-medium text-blue-900 dark:text-blue-100">Odômetro Final (KM) - Opcional</label>
-                  {lastReferenceOdometer > 0 && (
-                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                      Anterior: {lastReferenceOdometer} km
-                    </span>
-                  )}
-                </div>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="Ex: 50100"
-                  value={odometroReceita}
-                  onChange={(e) => setOdometroReceita(e.target.value)}
-                  className="bg-white dark:bg-gray-900"
-                />
-                <p className="text-[10px] text-blue-600 dark:text-blue-400">Usado para calcular a quilometragem rodada desde o último registro.</p>
-              </div>
-            )}
-
-            {useVehicle && tipo === 'despesa' && (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                {/* 2. Vehicles */}
+                {vehicles.length > 0 && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Odômetro Atual (KM) {isOdometerRequired() ? '*' : '(Opcional)'}
-                    </label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="Ex: 50100"
-                      value={odometer}
-                      onChange={(e) => {
-                        setOdometer(e.target.value);
-                        setIsOdometerManuallyEdited(true);
-                      }}
-                      required={useVehicle && tipo === 'despesa' && isOdometerRequired()}
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
+                    <CustomSelect 
+                      value={vehicleId} 
+                      onChange={setVehicleId}
+                      options={[
+                        { value: '', label: 'Nenhum veículo' },
+                        ...vehicles
+                          .filter(v => v.status === 'active' || v.id === vehicleId)
+                          .map(v => ({ value: v.id, label: `${v.name} (${v.plate})` }))
+                      ]}
                     />
                   </div>
+                )}
 
-                  {isCombustivel() && preferences.modulo_abastecimento_detalhado && (
-                    <PremiumLockedOverlay
-                      user={user}
-                      onUnlock={() => { setPremiumFeatureName('Abastecimento Detalhado'); setIsPremiumModalOpen(true); }}
-                      className="md:col-span-2"
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                        {(!vehicleId || vehicles.find(v => v.id === vehicleId)?.fuel_type === 'flex' || !vehicles.find(v => v.id === vehicleId)?.fuel_type) && (
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
-                            <CustomSelect
-                              value={fuelType || ''}
-                              onChange={(val) => setFuelType(val as FuelType)}
-                              options={[
-                                { value: 'gasolina', label: 'Gasolina' },
-                                { value: 'etanol', label: 'Álcool / Etanol' },
-                                { value: 'diesel', label: 'Diesel' },
-                                { value: 'gnv', label: 'GNV' },
-                              ]}
-                              placeholder="Selecione o combustível"
-                            />
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
-                          <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="R$ 0,00"
-                            value={fuelPricePerLiterStr}
-                            onChange={(e) => setFuelPricePerLiterStr(formatCurrencyInput(e.target.value))}
-                            required={useVehicle && tipo === 'despesa' && isCombustivel() && isPremium(user)}
-                          />
+                {/* 3. Odometer */}
+                {useVehicle && (
+                  <div className="space-y-4">
+                    {tipo === 'receita' ? (
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50 space-y-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-sm font-medium text-blue-900 dark:text-blue-100">Odômetro Final (KM) - Opcional</label>
+                          {lastReferenceOdometer > 0 && (
+                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                              Anterior: {lastReferenceOdometer} km
+                            </span>
+                          )}
                         </div>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder="Ex: 50100"
+                          value={odometroReceita}
+                          onChange={(e) => setOdometroReceita(e.target.value)}
+                          className="bg-white dark:bg-gray-900"
+                        />
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400">Usado para calcular a quilometragem rodada desde o último registro.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-100 dark:border-gray-800">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Litros (Calculado)</label>
-                          <Input
-                            type="text"
-                            value={
-                              parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(items[0]?.valorStr || '') > 0
-                                ? (parseCurrency(items[0]?.valorStr || '') / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
-                                : '0.00 L'
-                            }
-                            disabled
-                            className="bg-gray-100 dark:bg-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-2 flex items-center pt-2">
-                          <input
-                            type="checkbox"
-                            id="isFullTank"
-                            checked={isFullTank}
-                            onChange={(e) => setIsFullTank(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
-                          />
-                          <label htmlFor="isFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                            Tanque Cheio?
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Odômetro Atual (KM) {isOdometerRequired() ? '*' : '(Opcional)'}
                           </label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="Ex: 50100"
+                            value={odometer}
+                            onChange={(e) => {
+                              setOdometer(e.target.value);
+                              setIsOdometerManuallyEdited(true);
+                            }}
+                            required={useVehicle && tipo === 'despesa' && isOdometerRequired()}
+                          />
                         </div>
-                      </div>
-                    </PremiumLockedOverlay>
-                  )}
-                </div>
-              )}
-            </div>
 
-            {useVehicle && tipo === 'receita' && preferences.modulo_turnos && (
-              <PremiumLockedOverlay
-                user={user}
-                onUnlock={() => { setPremiumFeatureName('Gestão de Turnos'); setIsPremiumModalOpen(true); }}
-              >
-                <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 dark:shadow-none">
-                        <Clock className="h-4 w-4 text-white" />
-                      </div>
-                      <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
-                    </div>
-                    {durationValue && (
-                      <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800">
-                        <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase italic">
-                          Duração: {durationValue.h}h {durationValue.m.toString().padStart(2, '0')}m
-                        </span>
+                        {isCombustivel() && preferences.modulo_abastecimento_detalhado && (
+                          <PremiumLockedOverlay
+                            user={user}
+                            onUnlock={() => { setPremiumFeatureName('Abastecimento Detalhado'); setIsPremiumModalOpen(true); }}
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                              {(!vehicleId || vehicles.find(v => v.id === vehicleId)?.fuel_type === 'flex' || !vehicles.find(v => v.id === vehicleId)?.fuel_type) && (
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Combustível</label>
+                                  <CustomSelect
+                                    value={fuelType || ''}
+                                    onChange={(val) => setFuelType(val as FuelType)}
+                                    options={[
+                                      { value: 'gasolina', label: 'Gasolina' },
+                                      { value: 'etanol', label: 'Álcool / Etanol' },
+                                      { value: 'diesel', label: 'Diesel' },
+                                      { value: 'gnv', label: 'GNV' },
+                                    ]}
+                                    placeholder="Selecione o combustível"
+                                  />
+                                </div>
+                              )}
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Valor por Litro</label>
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="R$ 0,00"
+                                  value={fuelPricePerLiterStr}
+                                  onChange={(e) => setFuelPricePerLiterStr(formatCurrencyInput(e.target.value))}
+                                  required={useVehicle && tipo === 'despesa' && isCombustivel() && isPremium(user)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Litros (Calculado)</label>
+                                <Input
+                                  type="text"
+                                  value={
+                                    parseCurrency(fuelPricePerLiterStr) > 0 && parseCurrency(items[0]?.valorStr || '') > 0
+                                      ? (parseCurrency(items[0]?.valorStr || '') / parseCurrency(fuelPricePerLiterStr)).toFixed(2) + ' L'
+                                      : '0.00 L'
+                                  }
+                                  disabled
+                                  className="bg-gray-100 dark:bg-gray-800"
+                                />
+                              </div>
+                              <div className="space-y-2 flex items-center pt-2">
+                                <input
+                                  type="checkbox"
+                                  id="isFullTank"
+                                  checked={isFullTank}
+                                  onChange={(e) => setIsFullTank(e.target.checked)}
+                                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600 cursor-pointer"
+                                />
+                                <label htmlFor="isFullTank" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                                  Tanque Cheio?
+                                </label>
+                              </div>
+                            </div>
+                          </PremiumLockedOverlay>
+                        )}
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* 4. Categories and Values */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Categorias com seus valores</label>
+                    <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-8 gap-1 text-xs">
+                      <Plus className="h-3 w-3" /> Adicionar Item
+                    </Button>
+                  </div>
                   
-                  <div className="space-y-4">
-                    {shifts.map((shift, idx) => (
-                      <div key={idx} className="relative p-4 bg-white dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                        {shifts.length > 1 && (
+                  {items.map((item, index) => (
+                    <div key={index} className="grid grid-cols-1 gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 relative group">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Categoria</label>
+                        <CustomSelect 
+                          value={item.categoriaId} 
+                          onChange={(val) => updateItem(index, 'categoriaId', val)}
+                          options={filteredCategorias.map(c => ({ value: c.id, label: c.nome }))}
+                          placeholder="Selecione..."
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500">Valor</label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="R$ 0,00"
+                          value={item.valorStr}
+                          onChange={(e) => updateItem(index, 'valorStr', e.target.value)}
+                          required
+                        />
+                      </div>
+                      {items.length > 1 && (
+                        <div className="sm:col-span-1 flex items-end justify-center pb-1">
                           <Button 
                             type="button" 
                             variant="ghost" 
                             size="icon" 
-                            className="absolute -top-3 -right-3 h-7 w-7 bg-white dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-red-500 shadow-sm"
-                            onClick={() => {
-                              const newShifts = [...shifts];
-                              newShifts.splice(idx, 1);
-                              setShifts(newShifts);
-                            }}
+                            onClick={() => removeItem(index)}
+                            className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                           >
-                            <X className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
-                        <div className="grid grid-cols-2 gap-4">
-                          <ShiftTimePicker
-                            label={`Início ${shifts.length > 1 ? idx + 1 : ''}`}
-                            value={shift.startTime}
-                            onChange={(v) => {
-                              const newShifts = [...shifts];
-                              newShifts[idx].startTime = v;
-                              setShifts(newShifts);
-                            }}
-                          />
-                          <ShiftTimePicker
-                            label={`Fim ${shifts.length > 1 ? idx + 1 : ''}`}
-                            value={shift.endTime}
-                            onChange={(v) => {
-                              const newShifts = [...shifts];
-                              newShifts[idx].endTime = v;
-                              setShifts(newShifts);
-                            }}
-                          />
                         </div>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShifts([...shifts, { startTime: '', endTime: format(new Date(), 'HH:mm') }])}
-                      className="w-full text-[10px] font-black uppercase tracking-wider border-dashed border-indigo-200 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                    >
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      Adicionar Mais um Turno
-                    </Button>
-                  </div>
-                  
-                  <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50">
-                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
-                      <span className="font-black uppercase mr-1">Nota:</span>
-                      O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
-                    </p>
-                  </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {items.length > 1 && (
+                    <div className="flex justify-between items-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800/50">
+                      <span className="text-sm font-bold text-amber-900 dark:text-amber-100">Total do Lançamento</span>
+                      <span className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency(totalValor)}</span>
+                    </div>
+                  )}
                 </div>
-              </PremiumLockedOverlay>
-            )}
+
+                {/* 5. Work Shift */}
+                {useVehicle && tipo === 'receita' && preferences.modulo_turnos && (
+                  <PremiumLockedOverlay
+                    user={user}
+                    onUnlock={() => { setPremiumFeatureName('Gestão de Turnos'); setIsPremiumModalOpen(true); }}
+                  >
+                    <div className="space-y-4 p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-900 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-200 dark:shadow-none">
+                            <Clock className="h-4 w-4 text-white" />
+                          </div>
+                          <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">Turno de Trabalho</h4>
+                        </div>
+                        {durationValue && (
+                          <div className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 rounded-full border border-indigo-200 dark:border-indigo-800">
+                            <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 uppercase italic">
+                              Duração: {durationValue.h}h {durationValue.m.toString().padStart(2, '0')}m
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {shifts.map((shift, idx) => (
+                          <div key={idx} className="relative p-4 bg-white dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                            {shifts.length > 1 && (
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon" 
+                                className="absolute -top-3 -right-3 h-7 w-7 bg-white dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 text-gray-400 hover:text-red-500 shadow-sm"
+                                onClick={() => {
+                                  const newShifts = [...shifts];
+                                  newShifts.splice(idx, 1);
+                                  setShifts(newShifts);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <div className="grid grid-cols-2 gap-4">
+                              <ShiftTimePicker
+                                label={`Início ${shifts.length > 1 ? idx + 1 : ''}`}
+                                value={shift.startTime}
+                                onChange={(v) => {
+                                  const newShifts = [...shifts];
+                                  newShifts[idx].startTime = v;
+                                  setShifts(newShifts);
+                                }}
+                              />
+                              <ShiftTimePicker
+                                label={`Fim ${shifts.length > 1 ? idx + 1 : ''}`}
+                                value={shift.endTime}
+                                onChange={(v) => {
+                                  const newShifts = [...shifts];
+                                  newShifts[idx].endTime = v;
+                                  setShifts(newShifts);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShifts([...shifts, { startTime: '', endTime: format(new Date(), 'HH:mm') }])}
+                          className="w-full text-[10px] font-black uppercase tracking-wider border-dashed border-indigo-200 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Adicionar Mais um Turno
+                        </Button>
+                      </div>
+                      
+                      <div className="flex gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800/50">
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium leading-relaxed">
+                          <span className="font-black uppercase mr-1">Nota:</span>
+                          O odômetro inicial é carregado automaticamente do seu último registro. O odômetro final será o valor informado neste lançamento.
+                        </p>
+                      </div>
+                    </div>
+                  </PremiumLockedOverlay>
+                )}
+              </div>
             </React.Fragment>
           )}
 
