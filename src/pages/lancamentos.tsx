@@ -443,9 +443,15 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       return;
     }
 
-    if (tipo === 'receita' && preferences.modulo_turnos && shifts.some(s => !s.startTime || !s.endTime)) {
-      setErrorMsg('Informe o horário de início e fim da jornada de trabalho para todos os turnos.');
-      return;
+    if (tipo === 'receita' && preferences.modulo_turnos) {
+      if (shifts.some(s => !s.startTime || !s.endTime)) {
+        setErrorMsg('Informe o horário de início e fim da jornada de trabalho para todos os turnos.');
+        return;
+      }
+      if (shifts.some(s => s.startTime === s.endTime)) {
+        setErrorMsg('O horário de início e fim do turno não podem ser iguais. Por favor, ajuste os horários.');
+        return;
+      }
     }
 
     if (useVehicle && !vehicleId) {
@@ -1497,7 +1503,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setShifts([{ startTime: '', endTime: format(new Date(), 'HH:mm') }])}
+                            onClick={() => setShifts([{ startTime: format(new Date(), 'HH:mm'), endTime: format(new Date(), 'HH:mm') }])}
                             className="h-8 text-[10px] font-black uppercase tracking-wider border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-900/20"
                           >
                             <Plus className="h-4 w-4 mr-1.5" />
@@ -1548,7 +1554,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setShifts([...shifts, { startTime: '', endTime: format(new Date(), 'HH:mm') }])}
+                            onClick={() => setShifts([...shifts, { startTime: format(new Date(), 'HH:mm'), endTime: format(new Date(), 'HH:mm') }])}
                             className="w-full text-[10px] font-black uppercase tracking-wider border-dashed border-indigo-200 dark:border-indigo-800/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                           >
                             <Plus className="h-4 w-4 mr-1.5" />
