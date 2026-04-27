@@ -15,6 +15,7 @@ export interface Vehicle {
   name: string;
   plate: string;
   type: 'own' | 'rented';
+  vehicle_category?: 'car' | 'motorcycle' | 'truck' | 'other';
   status: 'active' | 'sold' | 'deactivated';
   initial_odometer: number;
   fuel_type?: FuelType;

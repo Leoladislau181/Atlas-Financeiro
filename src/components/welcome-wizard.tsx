@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { User, Vehicle, Categoria } from '@/types';
+import { User, Vehicle, Categoria, FuelType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CustomSelect } from '@/components/ui/custom-select';
 import { Modal } from '@/components/ui/modal';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
-import { Car, Tag, User as UserIcon, ChevronRight, Plus, CheckCircle2, Info, ArrowRight } from 'lucide-react';
+import { Car, Bike, Truck, Tag, User as UserIcon, ChevronRight, Plus, CheckCircle2, Info, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WelcomeWizardProps {
@@ -34,6 +35,9 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
   const [vehicleName, setVehicleName] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [initialOdometer, setInitialOdometer] = useState('');
+  const [vehicleCategory, setVehicleCategory] = useState<'car' | 'motorcycle' | 'truck' | 'other'>('car');
+  const [ownershipType, setOwnershipType] = useState<'own' | 'rented'>('own');
+  const [fuelType, setFuelType] = useState<FuelType>('gasolina');
 
   // Sync step if user data changes externally (e.g. from refetch)
   // but only if we are moving forward to avoid "jumping back"
@@ -88,7 +92,9 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
         plate: vehiclePlate || 'NÃO INF.',
         initial_odometer: Number(initialOdometer) || 0,
         status: 'active',
-        type: 'own'
+        type: ownershipType,
+        vehicle_category: vehicleCategory,
+        fuel_type: fuelType
       }]);
       
       if (vehError) throw vehError;
@@ -183,13 +189,26 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
 
           {step === 2 && (
             <div className="space-y-6 animate-in slide-in-from-right-4 duration-500 text-left">
-              <div className="space-y-2 text-center sm:text-left">
-                <h2 className="text-3xl font-black text-gray-900 dark:text-white leading-tight">
-                  Seu Veículo 🚗
-                </h2>
-                <p className="text-gray-500 dark:text-gray-400 font-medium">
-                  Para calcularmos seu lucro real, precisamos saber qual veículo você utiliza.
-                </p>
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    {vehicleCategory === 'motorcycle' ? (
+                      <Bike className="h-10 w-10" />
+                    ) : vehicleCategory === 'truck' ? (
+                      <Truck className="h-10 w-10" />
+                    ) : (
+                      <Car className="h-10 w-10" />
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2 text-center sm:text-left">
+                  <h2 className="text-3xl font-black text-gray-900 dark:text-white leading-tight">
+                    Seu Veículo 🚗
+                  </h2>
+                  <p className="text-gray-500 dark:text-gray-400 font-medium text-center">
+                    Para calcularmos seu lucro real, precisamos saber qual veículo você utiliza.
+                  </p>
+                </div>
               </div>
 
               <form onSubmit={handleSaveVehicle} className="space-y-4">
@@ -205,6 +224,48 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
                         error && "border-red-500 ring-2 ring-red-500/10"
                       )}
                       required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 ml-1">Tipo de Veículo</label>
+                      <CustomSelect 
+                        value={vehicleCategory}
+                        onChange={(val) => setVehicleCategory(val as any)}
+                        options={[
+                          { value: 'car', label: 'Carro' },
+                          { value: 'motorcycle', label: 'Moto' },
+                          { value: 'truck', label: 'Caminhão' },
+                          { value: 'other', label: 'Outro' }
+                        ]}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 ml-1">Posse</label>
+                      <CustomSelect 
+                        value={ownershipType}
+                        onChange={(val) => setOwnershipType(val as any)}
+                        options={[
+                          { value: 'own', label: 'Próprio' },
+                          { value: 'rented', label: 'Alugado' }
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 ml-1">Tipo de Combustível</label>
+                    <CustomSelect 
+                      value={fuelType}
+                      onChange={(val) => setFuelType(val as FuelType)}
+                      options={[
+                        { value: 'gasolina', label: 'Gasolina' },
+                        { value: 'etanol', label: 'Álcool / Etanol' },
+                        { value: 'diesel', label: 'Diesel' },
+                        { value: 'flex', label: 'Flex (Gasolina/Álcool)' },
+                        { value: 'gnv', label: 'GNV' }
+                      ]}
                     />
                   </div>
                   

@@ -8,7 +8,7 @@ import { PremiumModal } from '@/components/premium-modal';
 import { formatCurrency, formatCurrencyInput, parseCurrency, isPremium, parseLocalDate } from '@/lib/utils';
 import { Lancamento, Vehicle, Manutencao, User, WorkShift, FuelType } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Edit2, Trash2, Car, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock, X, ArrowLeft } from 'lucide-react';
+import { Edit2, Trash2, Car, Bike, Truck, RefreshCw, Plus, ChevronDown, ChevronUp, Wrench, Lock, X, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { OnboardingGuide } from '@/components/onboarding-guide';
 import { useFeatures } from '@/contexts/FeatureContext';
@@ -33,6 +33,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const { preferences } = useFeatures();
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
+  const [vehicleCategory, setVehicleCategory] = useState<'car' | 'motorcycle' | 'truck' | 'other'>('car');
   const [type, setType] = useState<'own' | 'rented'>('own');
   const [status, setStatus] = useState<'active' | 'sold' | 'deactivated'>('active');
   const [initialOdometer, setInitialOdometer] = useState('');
@@ -113,6 +114,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         name,
         plate,
         type,
+        vehicle_category: vehicleCategory,
         status,
         initial_odometer: Number(initialOdometer),
         fuel_type: fuelType,
@@ -176,6 +178,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const resetForm = () => {
     setName('');
     setPlate('');
+    setVehicleCategory('car');
     setType('own');
     setStatus('active');
     setInitialOdometer('');
@@ -194,6 +197,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
     setIsFormOpen(true);
     setName(vehicle.name);
     setPlate(vehicle.plate);
+    setVehicleCategory(vehicle.vehicle_category || 'car');
     setType(vehicle.type);
     setStatus(vehicle.status || 'active');
     setInitialOdometer(vehicle.initial_odometer.toString());
@@ -611,6 +615,17 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         className="max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex justify-center -mt-2 mb-2">
+            <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-800/30">
+              {vehicleCategory === 'motorcycle' ? (
+                <Bike className="h-9 w-9" />
+              ) : vehicleCategory === 'truck' ? (
+                <Truck className="h-9 w-9" />
+              ) : (
+                <Car className="h-9 w-9" />
+              )}
+            </div>
+          </div>
           {errorMsg && (
             <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-100 dark:border-red-800/50">
               {errorMsg}
@@ -638,7 +653,20 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo *</label>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Veículo *</label>
+                  <CustomSelect 
+                    value={vehicleCategory} 
+                    onChange={(val) => setVehicleCategory(val as any)}
+                    options={[
+                      { value: 'car', label: 'Carro' },
+                      { value: 'motorcycle', label: 'Moto' },
+                      { value: 'truck', label: 'Caminhão' },
+                      { value: 'other', label: 'Outro' }
+                    ]}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tipo (Posse) *</label>
                   <CustomSelect 
                     value={type} 
                     onChange={(val) => {
@@ -772,7 +800,13 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
               >
                 <div className="flex items-center gap-3 sm:gap-4">
                   <div className={`p-2 sm:p-3 rounded-xl shadow-sm border ${v.status === 'sold' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : v.status === 'deactivated' ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-[#F59E0B]/10 border-[#F59E0B]/20'}`}>
-                    <Car className={`h-5 w-5 sm:h-6 sm:w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
+                    {v.vehicle_category === 'motorcycle' ? (
+                      <Bike className={`h-5 w-5 sm:h-6 sm:w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
+                    ) : v.vehicle_category === 'truck' ? (
+                      <Truck className={`h-5 w-5 sm:h-6 sm:w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
+                    ) : (
+                      <Car className={`h-5 w-5 sm:h-6 sm:w-6 ${v.status === 'sold' ? 'text-red-500 dark:text-red-400' : v.status === 'deactivated' ? 'text-gray-500 dark:text-gray-400' : 'text-[#F59E0B]'}`} />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
@@ -785,6 +819,9 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
                       <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md uppercase tracking-wider">{v.plate}</span>
+                      <span className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-2 py-1 rounded-md uppercase tracking-wider">
+                        {v.vehicle_category === 'motorcycle' ? 'Moto' : v.vehicle_category === 'truck' ? 'Caminhão' : v.vehicle_category === 'other' ? 'Outro' : 'Carro'}
+                      </span>
                       <span className={`px-2 py-1 rounded-md uppercase tracking-wider ${v.type === 'own' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'}`}>
                         {v.type === 'own' ? 'Próprio' : 'Alugado'}
                       </span>

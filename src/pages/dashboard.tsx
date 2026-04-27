@@ -166,15 +166,10 @@ export function Dashboard({
   }, [quickSuggestedOdometer]);
 
   const [activeGoals, setActiveGoals] = useState<CalculatorGoal[]>([]);
-  const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
 
   const toggleGoalCollapse = (id: string) => {
-    setExpandedGoals(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setExpandedGoalId(prev => prev === id ? null : id);
   };
 
   useEffect(() => {
@@ -202,7 +197,7 @@ export function Dashboard({
 
   const isVisibleTime = useMemo(() => {
     const hours = new Date().getHours();
-    return hours >= 16;
+    return hours >= 12;
   }, []);
 
   const stats = useMemo(() => {
@@ -789,7 +784,7 @@ export function Dashboard({
                 barLabelPercent = `${profitProgressRaw.toFixed(0)}`;
               }
 
-              const isExpanded = expandedGoals.has(goal.id);
+              const isExpanded = expandedGoalId === goal.id;
               const isCollapsed = !isExpanded;
               const allGoalsMet = realGross >= metaGross && 
                                  realKM >= metaKM && 
