@@ -69,13 +69,13 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const [renewContractKmLimit, setRenewContractKmLimit] = useState('');
   const [addRemainingKm, setAddRemainingKm] = useState(false);
   
-  const [expandedInfo, setExpandedInfo] = useState<Record<string, boolean>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
 
   const toggleInfo = (id: string) => {
-    setExpandedInfo(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpandedId(prev => prev === id ? null : id);
   };
 
   const getDaysRemaining = (endDate?: string) => {
@@ -463,8 +463,12 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         if (minutes < 0) minutes += 24 * 60;
         vMinutes += minutes;
       }
-      if (s.odometer) {
+      
+      // Calculate distance from shift odometer fields
+      if (s.odometer && s.odometer > 0) {
         vOdometer += Number(s.odometer);
+      } else if (s.end_odometer && s.start_odometer && s.end_odometer > s.start_odometer) {
+        vOdometer += (Number(s.end_odometer) - Number(s.start_odometer));
       }
     });
 
@@ -472,6 +476,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
     let vDespesasTurno = 0;
     let totalLiters = 0;
     let totalFuelCost = 0;
+    let vKmLancamentos = 0;
 
     vLancamentos.forEach(l => {
       const lDateFormatted = format(parseLocalDate(l.data), 'yyyy-MM-dd');
@@ -481,11 +486,21 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         if (l.tipo === 'despesa') vDespesasTurno += Number(l.valor);
       }
 
+      // Sum up work KM from revenues
+      if (l.tipo === 'receita' && l.km_rodados) {
+        vKmLancamentos += Number(l.km_rodados);
+      }
+
       if (l.tipo === 'despesa' && l.fuel_liters && l.valor) {
         totalLiters += Number(l.fuel_liters);
         totalFuelCost += Number(l.valor);
       }
     });
+
+    // If shift odometer from workShifts is zero or much less than lancamento KM, use the lancamento KM
+    if (vOdometer < vKmLancamentos) {
+      vOdometer = vKmLancamentos;
+    }
 
     const vHours = vMinutes / 60;
     const vGanhoHora = vHours > 0 ? vReceitasTurno / vHours : 0;
@@ -811,7 +826,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
                       <h3 className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100 truncate">{v.name}</h3>
-                      {expandedInfo[v.id] ? (
+                      {expandedId === v.id ? (
                         <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 shrink-0" />
                       ) : (
                         <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 shrink-0" />
@@ -846,7 +861,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
                 </div>
               </div>
               
-              {expandedInfo[v.id] && (
+              {expandedId === v.id && (
                 <CardContent className="p-6 animate-in fade-in slide-in-from-top-2 duration-200 bg-gray-50/50 dark:bg-gray-800/20 border-t border-gray-100 dark:border-gray-800">
                   {/* Section: Financeiro */}
                   <div className="mb-8">
