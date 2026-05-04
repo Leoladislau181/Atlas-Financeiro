@@ -686,7 +686,15 @@ export function Dashboard({
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
                   cursor={{ fill: 'currentColor', opacity: 0.1 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: 'var(--tw-colors-white)' }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', 
+                    backgroundColor: '#FFFFFF',
+                    color: '#000000'
+                  }}
+                  itemStyle={{ color: '#000000' }}
+                  labelStyle={{ color: '#000000', fontWeight: 'bold' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />

@@ -1835,8 +1835,18 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                       return (
                         <div 
                           key={`desktop-${dIndex}`}
+                          onClick={() => {
+                            if (isCurrentMonth && (day.revenue > 0 || day.expenses > 0)) {
+                              setSelectedHeatmapDay({
+                                date: day.date,
+                                profit: day.profit,
+                                revenue: day.revenue,
+                                expenses: day.expenses
+                              });
+                            }
+                          }}
                           className={cn(
-                            "hidden md:flex h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-help flex-col items-center justify-center relative border border-transparent",
+                            "hidden md:flex h-12 rounded-lg transition-all hover:scale-105 hover:shadow-md hover:z-10 cursor-pointer flex-col items-center justify-center relative border border-transparent",
                             isCurrentMonth ? 'hover:border-emerald-400/50' : '',
                             bgColor
                           )}
@@ -2130,9 +2140,15 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                 <Tooltip
                   formatter={(value: number) => formatCurrency(value)}
                   cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
-                  itemStyle={{ color: '#111827' }}
-                  labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', 
+                    backgroundColor: '#ffffff',
+                    color: '#000000'
+                  }}
+                  itemStyle={{ color: '#000000' }}
+                  labelStyle={{ color: '#000000', fontWeight: 'bold', marginBottom: '8px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="Receitas" fill="#059568" radius={[6, 6, 0, 0]} maxBarSize={50} />
@@ -2167,9 +2183,15 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                   <Tooltip
                     formatter={(value: number) => [`${value} horas`, 'Tempo']}
                     cursor={{ fill: '#f3f4f6', opacity: 0.4 }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', backgroundColor: '#ffffff' }}
-                    itemStyle={{ color: '#111827' }}
-                    labelStyle={{ color: '#6b7280', marginBottom: '8px' }}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', 
+                      backgroundColor: '#ffffff',
+                      color: '#000000'
+                    }}
+                    itemStyle={{ color: '#000000' }}
+                    labelStyle={{ color: '#000000', fontWeight: 'bold', marginBottom: '8px' }}
                   />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                   <Bar dataKey="Horas" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={50} />
