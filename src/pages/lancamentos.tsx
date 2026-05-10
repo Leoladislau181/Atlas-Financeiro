@@ -866,6 +866,36 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     return `${hours}h ${mins}min`;
   };
 
+  const getConsumptionForEntry = (l: Lancamento) => {
+    if (!l.is_full_tank || !l.odometer || !l.vehicle_id) return null;
+
+    const vehicleRefuelings = lancamentos
+      .filter(entry => entry.vehicle_id === l.vehicle_id && entry.odometer != null && entry.tipo === 'despesa')
+      .sort((a, b) => a.odometer! - b.odometer!); // Sort ascending by odometer
+
+    const currentIndex = vehicleRefuelings.findIndex(entry => entry.id === l.id);
+    if (currentIndex === -1) return null;
+
+    // Find the previous full tank entry
+    const previousFullTank = [...vehicleRefuelings.slice(0, currentIndex)].reverse().find(entry => entry.is_full_tank);
+    if (!previousFullTank) return null;
+
+    const distance = l.odometer - previousFullTank.odometer!;
+    if (distance <= 0) return null;
+
+    // Liters to consider: all liters from all entries (partial or full) that occurred AFTER the previous full tank
+    // up to and including the current entry.
+    const entriesInInterval = vehicleRefuelings.filter(entry => 
+      entry.odometer! > previousFullTank.odometer! && entry.odometer! <= l.odometer!
+    );
+
+    const totalLiters = entriesInInterval.reduce((acc, entry) => acc + (entry.fuel_liters || 0), 0);
+
+    if (totalLiters <= 0) return null;
+
+    return distance / totalLiters;
+  };
+
   const filteredLancamentos = lancamentos.filter((l) => {
     const dataLancamento = parseLocalDate(l.data);
     const monthStart = startOfMonth(selectedDate);
@@ -1737,7 +1767,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                                         <TrendingUp className="h-3.5 w-3.5" />
                                         {Math.round(l.km_rodados).toLocaleString('pt-BR')} KM rodados para este lançamento
                                       </div>
-                                      {l.km_rodados > 0 && (
+                                      {l.km_rodados > 0 && l.tipo !== 'pessoal' && (
                                         <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                                           <DollarSign className="h-3.5 w-3.5" />
                                           {isPremium(user) ? (
@@ -1750,6 +1780,12 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                                         </div>
                                       )}
                                     </>
+                                  )}
+                                  {l.is_full_tank && getConsumptionForEntry(l) !== null && (
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                      <TrendingUp className="h-3.5 w-3.5" />
+                                      Eficiência: {getConsumptionForEntry(l)!.toFixed(2).replace('.', ',')} km/L
+                                    </div>
                                   )}
                                   {(l as any).total_minutes != null && (
                                     <>
@@ -1876,12 +1912,19 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
                               <TrendingUp className="h-3 w-3" />
                               {Math.round(l.km_rodados).toLocaleString('pt-BR')} KM rodados
                             </div>
-                            {l.km_rodados > 0 && (
+                            {l.km_rodados > 0 && l.tipo !== 'pessoal' && (
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg">
                                 <DollarSign className="h-3 w-3" />
                                 {formatCurrency(Number(l.valor) / l.km_rodados)}/km
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {l.is_full_tank && getConsumptionForEntry(l) !== null && (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg">
+                            <TrendingUp className="h-3 w-3" />
+                            Eficiência: {getConsumptionForEntry(l)!.toFixed(2).replace('.', ',')} km/L
                           </div>
                         )}
 
