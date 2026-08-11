@@ -10,7 +10,8 @@ export function cn(...inputs: ClassValue[]) {
  * Retorna o ID do veículo mais utilizado pelo usuário baseado na quilometragem percorrida no sistema.
  * Critério de desempate: veículo cadastrado por último.
  */
-export function getMostUsedVehicleId(vehicles: Vehicle[], lancamentos: Lancamento[]): string {
+export function getMostUsedVehicleId(allVehicles: Vehicle[], lancamentos: Lancamento[]): string {
+  const vehicles = allVehicles.filter(v => v.status === 'active');
   if (vehicles.length === 0) return '';
   if (vehicles.length === 1) return vehicles[0].id;
 

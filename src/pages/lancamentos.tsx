@@ -1262,18 +1262,20 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           {tipo === 'pessoal' ? (
             <div className="space-y-6 animate-in fade-in duration-300">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {vehicles.length > 1 && (
+                {vehicles.filter(v => v.status === 'active' || v.id === vehicleId).length > 1 && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo</label>
                     <CustomSelect
                       value={vehicleId}
                       onChange={setVehicleId}
-                      options={vehicles.map(v => ({ value: v.id, label: `${v.name} - ${v.plate}` }))}
+                      options={vehicles
+                        .filter(v => v.status === 'active' || v.id === vehicleId)
+                        .map(v => ({ value: v.id, label: `${v.name} - ${v.plate}` }))}
                       placeholder="Selecione o veículo..."
                     />
                   </div>
                 )}
-                <div className={cn("space-y-2", vehicles.length <= 1 && "md:col-span-2")}>
+                <div className={cn("space-y-2", vehicles.filter(v => v.status === 'active' || v.id === vehicleId).length <= 1 && "md:col-span-2")}>
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Odômetro Final (KM)</label>
                   <Input
                     type="number"
@@ -1320,7 +1322,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             <React.Fragment>
               <div className="space-y-4">
                 {/* 2. Vehicles */}
-                {vehicles.length > 0 && (
+                {vehicles.filter(v => v.status === 'active' || v.id === vehicleId).length > 0 && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Veículo (Opcional)</label>
                     <CustomSelect 
