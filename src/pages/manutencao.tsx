@@ -79,12 +79,12 @@ export function ManutencaoPage({ vehicles, manutencoes, lancamentos, user, refet
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
-      const { error } = await supabase.from('manutencoes').delete().eq('id', deletingId);
+      const { error} = await supabase.from('manutencoes').delete().eq('id', deletingId);
       if (error) throw error;
       setDeleteModalOpen(false);
       setDeletingId(null);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir manutenção.');
     }
   };
@@ -109,18 +109,18 @@ export function ManutencaoPage({ vehicles, manutencoes, lancamentos, user, refet
       };
 
       if (editingId) {
-        const { error } = await supabase.from('manutencoes').update(payload).eq('id', editingId);
+        const { error} = await supabase.from('manutencoes').update(payload).eq('id', editingId);
         if (error) throw error;
-      } else {
-        const { error } = await supabase.from('manutencoes').insert([payload]);
+     } else {
+        const { error} = await supabase.from('manutencoes').insert([payload]);
         if (error) throw error;
       }
 
       setIsFormOpen(false);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao salvar manutenção.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -128,12 +128,12 @@ export function ManutencaoPage({ vehicles, manutencoes, lancamentos, user, refet
   const handleLogMaintenance = async (m: Manutencao, currentOdo: number) => {
     // A quick way to update the "ultimo_km_realizado"
     try {
-      const { error } = await supabase.from('manutencoes').update({ ultimo_km_realizado: currentOdo }).eq('id', m.id);
+      const { error} = await supabase.from('manutencoes').update({ ultimo_km_realizado: currentOdo }).eq('id', m.id);
       if (error) throw error;
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       // Ignored for now
-      console.error(error);
+      console.error(error); 
     }
   };
 
@@ -161,7 +161,7 @@ export function ManutencaoPage({ vehicles, manutencoes, lancamentos, user, refet
     let status: 'ok' | 'warning' | 'overdue' = 'ok';
     if (remainingKm < 0) {
       status = 'overdue';
-    } else if (remainingKm <= m.aviso_km_antes) {
+   } else if (remainingKm <= m.aviso_km_antes) {
       status = 'warning';
     }
 

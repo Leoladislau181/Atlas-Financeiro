@@ -27,7 +27,7 @@ export function PlanoIndicacoesPage({ user, onBack, onNavigateToPremium }: Plano
       
       setLoading(true);
       try {
-        const { data: profiles, error: profilesError } = await supabase
+        const { data: profiles, error: profilesError} = await supabase
           .from('profiles')
           .select('id, nome, email')
           .eq('referred_by', user.id);
@@ -41,7 +41,7 @@ export function PlanoIndicacoesPage({ user, onBack, onNavigateToPremium }: Plano
 
         const activeReferrals: { id: string; nome: string; email: string }[] = [];
         for (const profile of profiles) {
-          const { count, error: countError } = await supabase
+          const { count, error: countError} = await supabase
             .from('lancamentos')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', profile.id);
@@ -56,9 +56,9 @@ export function PlanoIndicacoesPage({ user, onBack, onNavigateToPremium }: Plano
           totalActive: activeReferrals.length,
           totalDaysEarned: activeReferrals.length * 30
         });
-      } catch (err) {
-        console.error('Error fetching referrals:', err);
-      } finally {
+     } catch (err) {
+        console.error('Error fetching referrals:', err); 
+     } finally {
         setLoading(false);
       }
     }

@@ -30,7 +30,7 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme} = useTheme();
 
   useEffect(() => {
     setProfileNome(user.nome || '');
@@ -43,7 +43,7 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error} = await supabase.auth.updateUser({
         data: {
           nome: profileNome,
           telefone: profileTelefone
@@ -51,7 +51,7 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
       });
       if (error) throw error;
 
-      const { error: profileError } = await supabase
+      const { error: profileError} = await supabase
         .from('profiles')
         .update({
           nome: profileNome,
@@ -62,11 +62,11 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
 
       setSuccessMsg('Perfil atualizado com sucesso!');
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       if (!handleAuthError(error)) {
         setErrorMsg(error.message || 'Erro ao atualizar perfil.');
       }
-    } finally {
+   } finally {
       setProfileLoading(false);
     }
   };
@@ -93,7 +93,7 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
 
     setPasswordLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError} = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword,
       });
@@ -102,7 +102,7 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
         throw new Error('Senha atual incorreta.');
       }
 
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error} = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       
       setSuccessMsg('Senha atualizada com sucesso!');
@@ -110,11 +110,11 @@ export function PerfilPage({ user, refetch, onBackToConfig, onBackToHome }: Perf
       setCurrentPassword('');
       setConfirmPassword('');
       setIsPasswordFormOpen(false);
-    } catch (error: any) {
+   } catch (error: any) {
       if (!handleAuthError(error)) {
         setErrorMsg(error.message || 'Erro ao atualizar senha.');
       }
-    } finally {
+   } finally {
       setPasswordLoading(false);
     }
   };

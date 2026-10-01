@@ -41,7 +41,7 @@ export function usePWA() {
     installPrompt.prompt();
 
     // Wait for the user to respond to the prompt
-    const { outcome } = await installPrompt.userChoice;
+    const { outcome} = await installPrompt.userChoice;
     
     if (outcome === 'accepted') {
       setInstallPrompt(null);

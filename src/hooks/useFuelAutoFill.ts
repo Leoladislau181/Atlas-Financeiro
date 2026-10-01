@@ -32,7 +32,8 @@ export function useFuelAutoFill({
     pricePerLiter: number | null;
     lastOdometer: number | null;
     avgConsumption: number | null;
-  } | null>(null);
+  }
+ | null>(null);
 
   const [suggestedPricePerLiter, setSuggestedPricePerLiter] = useState<string | null>(null);
   const [suggestedOdometer, setSuggestedOdometer] = useState<string | null>(null);
@@ -95,12 +96,12 @@ export function useFuelAutoFill({
       if (triggerKey !== lastAutoFillTrigger) {
         if (lastPrice) {
           setSuggestedPricePerLiter(formatCurrency(lastPrice));
-        } else {
+       } else {
           setSuggestedPricePerLiter(null);
         }
         setLastAutoFillTrigger(triggerKey);
       }
-    } else if (!isActive || !vehicleId) {
+   } else if (!isActive || !vehicleId) {
       setLastFuelData(null);
       setLastAutoFillTrigger(triggerKey);
       setSuggestedPricePerLiter(null);
@@ -118,10 +119,10 @@ export function useFuelAutoFill({
         const expectedOdometer = Math.round(lastFuelData.lastOdometer + expectedKm);
         
         setSuggestedOdometer(expectedOdometer.toString());
-      } else if (valorNum === 0 || pricePerLiter === 0) {
+     } else if (valorNum === 0 || pricePerLiter === 0) {
         setSuggestedOdometer('');
       }
-    } else if (!isActive || !vehicleId) {
+   } else if (!isActive || !vehicleId) {
       setSuggestedOdometer(null);
     }
   }, [valorStr, pricePerLiterStr, lastFuelData, isOdometerManuallyEdited, isActive, vehicleId]);

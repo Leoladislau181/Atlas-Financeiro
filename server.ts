@@ -1,15 +1,25 @@
 import express from "express";
+import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import dotenv from "dotenv";
 import { togglePremiumHandler, getAdminDataHandler, toggleUserStatusHandler, approvePaymentHandler } from "./server/api/admin.ts";
 import { submitReceiptHandler } from "./server/api/payment.ts";
+import keepAliveHandler from "./api/cron/keep-alive.ts";
 
 dotenv.config();
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Habilitar CORS para permitir requisições do iframe do AI Studio e de qualquer origem
+  app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allowedHeaders: ["Content-Type", "Authorization", "apikey", "x-client-info", "Cache-Control", "Accept"]
+  }));
 
   // Middleware to parse JSON bodies (increased limit for base64 images)
   app.use(express.json({ limit: "10mb" }));
@@ -24,6 +34,8 @@ async function startServer() {
     res.setHeader("Content-Type", "application/json");
     res.status(200).json({ ok: true, service: "atlas-financeiro-api" });
   });
+
+  app.get("/api/cron/keep-alive", keepAliveHandler);
 
   app.post("/api/admin/toggle-premium", togglePremiumHandler);
   app.post("/api/admin/toggle-status", toggleUserStatusHandler);

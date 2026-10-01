@@ -87,19 +87,19 @@ export function TurnosPage({
 
       if (shiftFilterTime === 'today') {
         if (shift.date !== format(now, 'yyyy-MM-dd')) return false;
-      } else if (shiftFilterTime === 'week') {
+     } else if (shiftFilterTime === 'week') {
         const start = startOfWeek(now, { weekStartsOn: 0 });
         const end = endOfWeek(now, { weekStartsOn: 0 });
         if (!isWithinInterval(dateObj, { start, end })) return false;
-      } else if (shiftFilterTime === 'month') {
+     } else if (shiftFilterTime === 'month') {
         const start = startOfMonth(now);
         const end = endOfMonth(now);
         if (!isWithinInterval(dateObj, { start, end })) return false;
-      } else if (shiftFilterTime === 'year') {
+     } else if (shiftFilterTime === 'year') {
         const start = startOfYear(now);
         const end = endOfYear(now);
         if (!isWithinInterval(dateObj, { start, end })) return false;
-      } else if (shiftFilterTime === 'custom') {
+     } else if (shiftFilterTime === 'custom') {
         const start = parseLocalDate(shiftFilterStartDate);
         const end = parseLocalDate(shiftFilterEndDate);
         if (!isWithinInterval(dateObj, { start, end })) return false;
@@ -108,6 +108,17 @@ export function TurnosPage({
       return true;
     }).sort((a, b) => new Date(b.date + 'T' + b.start_time).getTime() - new Date(a.date + 'T' + a.start_time).getTime());
   }, [workShifts, shiftFilterTime, shiftFilterVehicle, shiftFilterStartDate, shiftFilterEndDate]);
+
+  type GroupedShift = {
+    date: string;
+    shifts: WorkShift[];
+    transactions: Lancamento[];
+    totalMinutes: number;
+    revenue: number;
+    expenses: number;
+    categoryBreakdown: Record<string, { value: number; type: string; name: string }>;
+    vehicleKM: Record<string, { km: number; vehicleName: string }>;
+  };
 
   const groupedShiftsByDate = useMemo(() => {
     const groups: Record<string, { 
@@ -150,7 +161,7 @@ export function TurnosPage({
       
       if (l.tipo === 'receita') {
         groups[l.data].revenue += Number(l.valor);
-      } else if (l.tipo === 'despesa') {
+     } else if (l.tipo === 'despesa') {
         groups[l.data].expenses += Number(l.valor);
       }
       
@@ -184,7 +195,7 @@ export function TurnosPage({
 
             if (shift.odometer && shift.odometer > 0) {
               vehicleStats[shift.vehicle_id].manualKM += shift.odometer;
-            } else {
+           } else {
               const start = shift.start_odometer || 0;
               const end = shift.end_odometer || 0;
               if (start > 0 && start < vehicleStats[shift.vehicle_id].minStartOdo) {
@@ -213,7 +224,7 @@ export function TurnosPage({
 
     return Object.entries(groups)
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([date, data]) => ({ date, ...data }));
+      .map(([date, data]): GroupedShift => ({ date, ...data }));
   }, [filteredShifts, lancamentos, vehicles]);
 
   const toggleDateExpansion = (date: string) => {
@@ -258,7 +269,7 @@ export function TurnosPage({
     setShiftLoading(true);
     try {
       if (editingShiftId) {
-        const { error } = await supabase
+        const { error} = await supabase
           .from('work_shifts')
           .update({
             date: shiftDate,
@@ -270,8 +281,8 @@ export function TurnosPage({
           })
           .eq('id', editingShiftId);
         if (error) throw error;
-      } else {
-        const { error } = await supabase
+     } else {
+        const { error} = await supabase
           .from('work_shifts')
           .insert([{
             user_id: user.id,
@@ -287,9 +298,9 @@ export function TurnosPage({
 
       setShiftModalOpen(false);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao salvar turno.');
-    } finally {
+   } finally {
       setShiftLoading(false);
     }
   };
@@ -302,12 +313,12 @@ export function TurnosPage({
   const handleDeleteShift = async () => {
     if (!deletingShiftId) return;
     try {
-      const { error } = await supabase.from('work_shifts').delete().eq('id', deletingShiftId);
+      const { error} = await supabase.from('work_shifts').delete().eq('id', deletingShiftId);
       if (error) throw error;
       setDeleteShiftModalOpen(false);
       setDeletingShiftId(null);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir turno.');
     }
   };
@@ -448,15 +459,15 @@ export function TurnosPage({
                 <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-800/50">
                   <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1 font-mono">KM Rodado</p>
                   <p className="text-2xl font-black text-blue-900 dark:text-blue-100">
-                    {Math.round(groupedShiftsByDate.reduce((acc, g) => {
-                      return acc + Object.values(g.vehicleKM).reduce((sum, v) => sum + v.km, 0);
+                    {Math.round(groupedShiftsByDate.reduce((acc, g: GroupedShift) => {
+                      return acc + Object.values(g.vehicleKM).reduce((sum, v: any) => sum + v.km, 0);
                     }, 0))} km
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                {groupedShiftsByDate.slice(0, visibleShiftsCount).map((group) => {
+                {groupedShiftsByDate.slice(0, visibleShiftsCount).map((group: GroupedShift) => {
                   const isExpanded = expandedDate === group.date;
                   const hours = group.totalMinutes / 60;
                   const hourlyRate = hours > 0 ? group.revenue / hours : 0;

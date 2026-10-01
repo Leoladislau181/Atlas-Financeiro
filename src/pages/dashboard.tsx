@@ -42,7 +42,7 @@ export function Dashboard({
   onNavigateToNewVehicle,
   onNavigateToNewCategory
 }: DashboardProps) {
-  const { preferences } = useFeatures();
+  const { preferences} = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -108,7 +108,7 @@ export function Dashboard({
       if (vehicle) {
         if (vehicle.fuel_type && vehicle.fuel_type !== 'flex') {
           setQuickFuelType(vehicle.fuel_type);
-        } else {
+       } else {
           // If flex or undefined, look for the last refueling of this vehicle to pre-select
           const lastRefueling = lancamentos
             .filter(l => l.vehicle_id === quickVehicleId && l.fuel_type)
@@ -121,9 +121,9 @@ export function Dashboard({
           
           if (lastRefueling) {
             setQuickFuelType(lastRefueling.fuel_type as FuelType);
-          } else if (vehicle.fuel_type === 'flex') {
+         } else if (vehicle.fuel_type === 'flex') {
             setQuickFuelType('gasolina'); // Default for flex if no history
-          } else {
+         } else {
              setQuickFuelType(null);
           }
         }
@@ -142,7 +142,7 @@ export function Dashboard({
     suggestedPricePerLiter: quickSuggestedPricePerLiter,
     suggestedOdometer: quickSuggestedOdometer,
     setLastAutoFillTrigger: setLastQuickAutoFillTrigger
-  } = useFuelAutoFill({
+ } = useFuelAutoFill({
     vehicleId: quickVehicleId,
     fuelType: quickFuelType,
     lancamentos,
@@ -178,7 +178,7 @@ export function Dashboard({
       
       try {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        const { data, error } = await supabase
+        const { data, error} = await supabase
           .from('calculator_goals')
           .select('*, vehicles(*)')
           .eq('user_id', user.id)
@@ -187,8 +187,10 @@ export function Dashboard({
         
         if (error) throw error;
         setActiveGoals(data || []);
-      } catch (err) {
-        console.error('Error fetching dashboard goals:', err);
+     } catch (err: any) {
+        if (err.message !== 'Failed to fetch') {
+          console.error('Error fetching dashboard goals:', err); 
+        }
       }
     };
     
@@ -213,7 +215,7 @@ export function Dashboard({
       if (l.tipo === 'receita') {
         saldoGeral += valor;
         if (isCurrentMonth) receitasMes += valor;
-      } else if (l.tipo === 'despesa') {
+     } else if (l.tipo === 'despesa') {
         saldoGeral -= valor;
         if (isCurrentMonth) despesasMes += valor;
       }
@@ -274,7 +276,7 @@ export function Dashboard({
 
     setQuickLoading(true);
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('lancamentos')
         .insert([{
           user_id: user.id,
@@ -300,9 +302,9 @@ export function Dashboard({
       setQuickIsFullTank(true);
       setQuickEntryOpen(false);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao registrar abastecimento.');
-    } finally {
+   } finally {
       setQuickLoading(false);
     }
   };
@@ -321,8 +323,11 @@ export function Dashboard({
         const valor = Number(l.valor);
         const dataLancamento = parseLocalDate(l.data);
         if (isWithinInterval(dataLancamento, { start: monthStart, end: monthEnd })) {
-          if (l.tipo === 'receita') receitas += valor;
-          else despesas += valor;
+          if (l.tipo === 'receita') {
+            receitas += valor;
+          } else {
+            despesas += valor;
+          }
         }
       });
 
@@ -355,7 +360,7 @@ export function Dashboard({
 
       if (kmFaltante <= 0) {
         alerts.push({ vehicle, manutencao: m, kmFaltante, status: 'danger', currentOdometer });
-      } else if (kmFaltante <= (m.aviso_km_antes || 1000)) {
+     } else if (kmFaltante <= (m.aviso_km_antes || 1000)) {
         alerts.push({ vehicle, manutencao: m, kmFaltante, status: 'warning', currentOdometer });
       }
     });
@@ -393,14 +398,14 @@ export function Dashboard({
     setPerformLoading(true);
     try {
       // 1. Update Manutencao
-      const { error: maintError } = await supabase
+      const { error: maintError} = await supabase
         .from('manutencoes')
         .update({ ultimo_km_realizado: Number(performKm) })
         .eq('id', performManutencao.id);
       if (maintError) throw maintError;
 
       // 2. Insert Lancamento
-      const { error: lancError } = await supabase
+      const { error: lancError} = await supabase
         .from('lancamentos')
         .insert([{
           user_id: user.id,
@@ -416,9 +421,9 @@ export function Dashboard({
 
       setPerformModalOpen(false);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao registrar manutenção.');
-    } finally {
+   } finally {
       setPerformLoading(false);
     }
   };
@@ -440,7 +445,7 @@ export function Dashboard({
 
     setIncomeLoading(true);
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('lancamentos')
         .insert([{
           user_id: user.id,
@@ -457,9 +462,9 @@ export function Dashboard({
       setIncomeEntryOpen(false);
       setIncomeValueStr('');
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao salvar ganhos.');
-    } finally {
+   } finally {
       setIncomeLoading(false);
     }
   };
@@ -783,7 +788,7 @@ export function Dashboard({
                 barWidth = Math.min(100, Math.max(0, remainingCost));
                 barColor = "bg-red-500";
                 barLabelPercent = `-${barWidth.toFixed(0)}`;
-              } else {
+             } else {
                 // Phase 2: Zone Yellow/Green (Building profit)
                 const visibleProfit = realGross - realCost; 
                 const profitProgressRaw = metaProfit > 0 ? (visibleProfit / metaProfit) * 100 : 0;

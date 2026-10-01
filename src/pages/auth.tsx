@@ -23,7 +23,7 @@ export function Auth() {
       sessionStorage.setItem('atlas_referred_by', ref);
       // Clean URL for a cleaner experience
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
+   } else {
       // Check if it was previously saved in this session
       const savedRef = sessionStorage.getItem('atlas_referred_by');
       if (savedRef) {
@@ -75,7 +75,7 @@ export function Auth() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ 
+        const { error} = await supabase.auth.signUp({ 
           email, 
           password,
           options: {
@@ -87,17 +87,17 @@ export function Auth() {
         if (error) throw error;
         setSuccess('Conta criada com sucesso! Verifique seu email ou faça login.');
         setIsSignUp(false);
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+     } else {
+        const { error} = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-    } catch (err: any) {
+   } catch (err: any) {
       if (err.message === 'Failed to fetch') {
-        setError('Erro de conexão. Verifique sua internet ou tente novamente mais tarde.');
-      } else {
+        setError('Erro de conexão: O banco de dados (Supabase) está inacessível. O projeto pode estar pausado ou excluído.');
+     } else {
         setError(err.message || 'Ocorreu um erro.');
       }
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -118,11 +118,15 @@ export function Auth() {
     setError(null);
     setSuccess(null);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error} = await supabase.auth.resetPasswordForEmail(email);
       if (error) throw error;
       setSuccess('Email de recuperação enviado!');
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro.');
+      if (err.message === 'Failed to fetch') {
+        setError('Erro de conexão: O banco de dados (Supabase) está inacessível. O projeto pode estar pausado ou indisponível.');
+      } else {
+        setError(err.message || 'Ocorreu um erro.');
+      }
     } finally {
       setLoading(false);
     }

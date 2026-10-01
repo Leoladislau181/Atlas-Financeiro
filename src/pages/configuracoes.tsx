@@ -86,9 +86,9 @@ export function Configuracoes({
 
   const mostUsedVehicleId = useMemo(() => getMostUsedVehicleId(vehicles, lancamentos), [vehicles, lancamentos]);
 
-  const { preferences, toggleFeature } = useFeatures();
+  const { preferences, toggleFeature} = useFeatures();
 
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme} = useTheme();
 
   return (
     <div className="space-y-6">

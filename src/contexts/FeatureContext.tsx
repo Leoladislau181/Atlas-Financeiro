@@ -27,7 +27,7 @@ export function FeatureProvider({ children, user }: { children: React.ReactNode,
   useEffect(() => {
     if (user) {
       loadPreferences();
-    } else {
+   } else {
       setPreferences(defaultPreferences);
       setLoading(false);
     }
@@ -36,7 +36,7 @@ export function FeatureProvider({ children, user }: { children: React.ReactNode,
   const loadPreferences = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('profiles')
         .select('preferences')
         .eq('id', user.id)
@@ -47,9 +47,11 @@ export function FeatureProvider({ children, user }: { children: React.ReactNode,
       if (data?.preferences) {
         setPreferences({ ...defaultPreferences, ...data.preferences });
       }
-    } catch (err) {
-      console.error('Erro ao carregar preferências:', err);
-    } finally {
+   } catch (err: any) {
+      if (err.message !== 'Failed to fetch') {
+        console.error('Erro ao carregar preferências:', err); 
+      }
+   } finally {
       setLoading(false);
     }
   };
@@ -65,14 +67,14 @@ export function FeatureProvider({ children, user }: { children: React.ReactNode,
     setPreferences(newPreferences);
 
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('profiles')
         .update({ preferences: newPreferences })
         .eq('id', user.id);
 
       if (error) throw error;
-    } catch (err) {
-      console.error('Erro ao salvar preferência:', err);
+   } catch (err) {
+      console.error('Erro ao salvar preferência:', err); 
       // Revert in case of error
       setPreferences(preferences);
     }

@@ -57,7 +57,7 @@ export function useFinanceData() {
         if (initUserId !== userId || !initPromise) {
           initUserId = userId;
           initPromise = (async () => {
-            const { data: newCats, error: insertError } = await supabase
+            const { data: newCats, error: insertError} = await supabase
               .from('categorias')
               .insert(missingDefaults.map(def => ({ ...def, user_id: userId })))
               .select();
@@ -65,7 +65,7 @@ export function useFinanceData() {
             if (insertError) {
               // Se falhar (ex: restrição de unicidade por concorrência de outra aba),
               // buscamos novamente as categorias para garantir que temos os dados mais recentes.
-              const { data: fallbackData } = await supabase
+              const { data: fallbackData} = await supabase
                 .from('categorias')
                 .select('*')
                 .eq('user_id', userId)
@@ -99,15 +99,22 @@ export function useFinanceData() {
       const shiftError = shiftResult.error;
       if (shiftError && shiftError.code !== '42P01') throw shiftError;
       setWorkShifts(shiftResult.data || []);
-    } catch (error: any) {
-      console.error('Error fetching data:', error);
+   } catch (error: any) {
+      if (error.message !== 'Failed to fetch') {
+        console.error('Error fetching data:', error); 
+      }
+      
       if (handleAuthError(error)) {
         // Redirecionamento visual (o App.tsx cuidará do estado de session/user via onAuthStateChange)
         window.location.reload();
-      } else {
-        setError(error.message || 'Erro ao carregar dados do banco de dados.');
+     } else {
+        if (error.message === 'Failed to fetch') {
+          setError('Falha de conexão: O banco de dados (Supabase) está inacessível. Verifique se o projeto não está pausado ou excluído.');
+       } else {
+          setError(error.message || 'Erro ao carregar dados do banco de dados.');
+        }
       }
-    } finally {
+   } finally {
       setLoading(false);
     }
   };

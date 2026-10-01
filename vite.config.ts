@@ -9,6 +9,7 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     test: {
       environment: 'jsdom',
+      exclude: ['**/node_modules/**', '**/dist/**'],
     },
     define: {
     },

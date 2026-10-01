@@ -5,7 +5,7 @@ import { usePWA } from '@/hooks/usePWA';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function InstallPWAButton() {
-  const { isInstallable, install } = usePWA();
+  const { isInstallable, install} = usePWA();
 
   return (
     <AnimatePresence>

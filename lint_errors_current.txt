@@ -1,0 +1,79 @@
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+src/pages/admin.tsx(205,68): error TS1005: ',' expected.
+src/pages/admin.tsx(228,7): error TS1472: 'catch' or 'finally' expected.
+src/pages/admin.tsx(243,6): error TS1005: ',' expected.
+src/pages/admin.tsx(257,68): error TS1005: ',' expected.
+src/pages/admin.tsx(286,7): error TS1472: 'catch' or 'finally' expected.
+src/pages/admin.tsx(296,6): error TS1005: ',' expected.
+src/pages/admin.tsx(301,3): error TS1128: Declaration or statement expected.
+src/pages/admin.tsx(305,68): error TS1005: ',' expected.
+src/pages/admin.tsx(344,72): error TS1005: ',' expected.
+src/pages/admin.tsx(365,68): error TS1005: ',' expected.
+src/pages/admin.tsx(403,72): error TS1005: ',' expected.
+src/pages/admin.tsx(890,1): error TS1128: Declaration or statement expected.
+src/pages/dashboard.tsx(329,7): error TS1005: ',' expected.
+src/pages/dashboard.tsx(329,8): error TS1128: Declaration or statement expected.
+src/pages/dashboard.tsx(338,3): error TS1128: Declaration or statement expected.
+src/pages/dashboard.tsx(338,4): error TS1128: Declaration or statement expected.
+src/pages/dashboard.tsx(338,38): error TS1005: ';' expected.
+src/pages/dashboard.tsx(1200,1): error TS1128: Declaration or statement expected.
+src/pages/lancamentos.tsx(917,51): error TS1005: ';' expected.
+src/pages/lancamentos.tsx(917,53): error TS1131: Property or signature expected.
+src/pages/lancamentos.tsx(1005,9): error TS1005: ',' expected.
+src/pages/lancamentos.tsx(1005,14): error TS1135: Argument expression expected.
+src/pages/lancamentos.tsx(1006,9): error TS1005: ',' expected.
+src/pages/lancamentos.tsx(1006,14): error TS1135: Argument expression expected.
+src/pages/lancamentos.tsx(1010,6): error TS1128: Declaration or statement expected.
+src/pages/lancamentos.tsx(1012,3): error TS1128: Declaration or statement expected.
+src/pages/lancamentos.tsx(1012,4): error TS1128: Declaration or statement expected.
+src/pages/lancamentos.tsx(1012,27): error TS1005: ';' expected.
+src/pages/lancamentos.tsx(2046,1): error TS1128: Declaration or statement expected.
+src/pages/premium.tsx(31,58): error TS1005: ',' expected.
+src/pages/premium.tsx(80,68): error TS1005: ',' expected.
+src/pages/premium.tsx(105,32): error TS1005: ',' expected.
+src/pages/premium.tsx(126,84): error TS1005: ',' expected.
+src/pages/relatorios.tsx(54,133): error TS1005: ';' expected.
+src/pages/relatorios.tsx(156,5): error TS1005: ',' expected.
+src/pages/relatorios.tsx(249,4): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(249,121): error TS1005: ';' expected.
+src/pages/relatorios.tsx(370,7): error TS1005: ',' expected.
+src/pages/relatorios.tsx(370,8): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(377,5): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(379,3): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(379,4): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(379,57): error TS1005: ';' expected.
+src/pages/relatorios.tsx(416,9): error TS1005: ',' expected.
+src/pages/relatorios.tsx(416,10): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(422,7): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(423,4): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(423,6): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(437,9): error TS1005: ',' expected.
+src/pages/relatorios.tsx(437,10): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(444,4): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(444,6): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(454,10): error TS1005: ',' expected.
+src/pages/relatorios.tsx(455,16): error TS1005: ',' expected.
+src/pages/relatorios.tsx(455,35): error TS1005: ',' expected.
+src/pages/relatorios.tsx(455,37): error TS1005: ';' expected.
+src/pages/relatorios.tsx(456,13): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(457,9): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(458,7): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(458,8): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(462,5): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(465,3): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(465,4): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(465,74): error TS1005: ';' expected.
+src/pages/relatorios.tsx(630,7): error TS1472: 'catch' or 'finally' expected.
+src/pages/relatorios.tsx(906,4): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(906,6): error TS1005: 'try' expected.
+src/pages/relatorios.tsx(912,3): error TS1128: Declaration or statement expected.
+src/pages/relatorios.tsx(2240,1): error TS1128: Declaration or statement expected.
+src/pages/veiculos.tsx(382,14): error TS1128: Declaration or statement expected.
+src/pages/veiculos.tsx(390,9): error TS1005: ',' expected.
+src/pages/veiculos.tsx(392,5): error TS1128: Declaration or statement expected.
+src/pages/veiculos.tsx(392,6): error TS1128: Declaration or statement expected.
+src/pages/veiculos.tsx(526,3): error TS1128: Declaration or statement expected.
+src/pages/veiculos.tsx(1156,1): error TS1128: Declaration or statement expected.

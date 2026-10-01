@@ -30,7 +30,7 @@ interface VeiculosProps {
 }
 
 export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refetch, user, onBackToConfig, onBackToHome, isEmbedded = false, forceOpenAdd = false, onForceOpenReset }: VeiculosProps) {
-  const { preferences } = useFeatures();
+  const { preferences} = useFeatures();
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
   const [vehicleCategory, setVehicleCategory] = useState<'car' | 'motorcycle' | 'truck' | 'other'>('car');
@@ -126,7 +126,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         payload.contract_end_date = contractEndDate || null;
         payload.contract_initial_km = contractInitialKm ? Number(contractInitialKm) : null;
         payload.contract_km_limit = contractKmLimit ? Number(contractKmLimit) : null;
-      } else {
+     } else {
         payload.contract_value = null;
         payload.contract_start_date = null;
         payload.contract_end_date = null;
@@ -136,21 +136,21 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
 
       if (editingId) {
         console.log('Updating vehicle:', editingId, payload);
-        const { error } = await supabase.from('vehicles').update(payload).eq('id', editingId);
+        const { error} = await supabase.from('vehicles').update(payload).eq('id', editingId);
         if (error) {
-          console.error('Supabase update error:', error);
+          console.error('Supabase update error:', error); 
           throw error;
         }
-      } else {
+     } else {
         console.log('Inserting vehicle:', payload);
-        const { data: newVehicle, error } = await supabase.from('vehicles').insert([payload]).select();
+        const { data: newVehicle, error} = await supabase.from('vehicles').insert([payload]).select();
         if (error) {
-          console.error('Supabase insert error:', error);
+          console.error('Supabase insert error:', error); 
           throw error;
         }
 
         if (type === 'rented') {
-          const { data: catData } = await supabase.from('categorias').select('id').eq('nome', 'Aluguel').eq('user_id', user.id).single();
+          const { data: catData} = await supabase.from('categorias').select('id').eq('nome', 'Aluguel').eq('user_id', user.id).single();
           if (catData) {
             await supabase.from('lancamentos').insert([{
               user_id: user.id,
@@ -168,9 +168,9 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       resetForm();
       setIsFormOpen(false);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao salvar veículo.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -209,7 +209,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       setContractEndDate(vehicle.contract_end_date || '');
       setContractInitialKm(vehicle.contract_initial_km?.toString() || '');
       setContractKmLimit(vehicle.contract_km_limit?.toString() || '');
-    } else {
+   } else {
       setContractValueStr('');
       setContractStartDate('');
       setContractEndDate('');
@@ -260,10 +260,10 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         contract_km_limit: finalKmLimit,
       };
 
-      const { error } = await supabase.from('vehicles').update(payload).eq('id', renewingVehicle.id);
+      const { error} = await supabase.from('vehicles').update(payload).eq('id', renewingVehicle.id);
       if (error) throw error;
 
-      const { data: catData } = await supabase.from('categorias').select('id').eq('nome', 'Aluguel').eq('user_id', user.id).single();
+      const { data: catData} = await supabase.from('categorias').select('id').eq('nome', 'Aluguel').eq('user_id', user.id).single();
       if (catData) {
         await supabase.from('lancamentos').insert([{
           user_id: user.id,
@@ -279,9 +279,9 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       setRenewModalOpen(false);
       setRenewingVehicle(null);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao renovar contrato.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -294,12 +294,12 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
-      const { error } = await supabase.from('vehicles').delete().eq('id', deletingId);
+      const { error} = await supabase.from('vehicles').delete().eq('id', deletingId);
       if (error) throw error;
       setDeleteModalOpen(false);
       setDeletingId(null);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir veículo.');
     }
   };
@@ -348,7 +348,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       const valor = Number(l.valor);
       if (l.tipo === 'receita') {
         totalReceitas += valor;
-      } else {
+     } else {
         totalDespesas += valor;
         
         if (l.odometer && l.odometer > maxOdometer) {
@@ -365,8 +365,11 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
         // First check if it's a start lancamento for any contract (prioritize the contract it starts)
         const startContract = contracts.find(c => c.start_lancamento_id === l.id);
         if (startContract) {
-          if (l.tipo === 'receita') startContract.receitas += valor;
-          else startContract.despesas += valor;
+          if (l.tipo === 'receita') {
+            startContract.receitas += valor;
+          } else {
+            startContract.despesas += valor;
+          }
         } else {
           // Date based assignment for other lancamentos
           for (let i = 0; i < contracts.length; i++) {
@@ -375,14 +378,20 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
             
             if (i === 0) {
               if (isLast || !c.end_date || l.data <= c.end_date) {
-                if (l.tipo === 'receita') c.receitas += valor;
-                else c.despesas += valor;
+                if (l.tipo === 'receita') {
+                  c.receitas += valor;
+                } else {
+                  c.despesas += valor;
+                }
                 break;
               }
             } else {
               if (l.data > c.start_date && (isLast || !c.end_date || l.data <= c.end_date)) {
-                if (l.tipo === 'receita') c.receitas += valor;
-                else c.despesas += valor;
+                if (l.tipo === 'receita') {
+                  c.receitas += valor;
+                } else {
+                  c.despesas += valor;
+                }
                 break;
               }
             }
@@ -445,7 +454,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       if (litersInCycle > 0 && distance > 0) {
         mediaKmL = (distance / litersInCycle).toFixed(2);
       }
-    } else {
+   } else {
       // Fallback para a lógica antiga se não houver tanques cheios suficientes
       mediaKmL = totalLitros > 0 ? (kmRodadoCombustivel / totalLitros).toFixed(2) : '0.00';
     }
@@ -467,7 +476,7 @@ export function Veiculos({ vehicles, lancamentos, manutencoes, workShifts, refet
       // Calculate distance from shift odometer fields
       if (s.odometer && s.odometer > 0) {
         vOdometer += Number(s.odometer);
-      } else if (s.end_odometer && s.start_odometer && s.end_odometer > s.start_odometer) {
+     } else if (s.end_odometer && s.start_odometer && s.end_odometer > s.start_odometer) {
         vOdometer += (Number(s.end_odometer) - Number(s.start_odometer));
       }
     });

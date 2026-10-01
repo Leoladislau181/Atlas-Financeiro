@@ -36,7 +36,7 @@ interface LancamentoItem {
 }
 
 export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, refetch, user, forceOpenForm, onFormClose, onBack }: LancamentosProps) {
-  const { preferences } = useFeatures();
+  const { preferences} = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -74,7 +74,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       
       if (matchingShifts.length > 0) {
         setShifts(matchingShifts.map(s => ({ startTime: s.start_time.substring(0, 5), endTime: s.end_time?.substring(0, 5) || format(new Date(), 'HH:mm'), id: s.id })));
-      } else {
+     } else {
         setShifts([]);
       }
     }
@@ -100,7 +100,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       if (vehicle) {
         if (vehicle.fuel_type && vehicle.fuel_type !== 'flex') {
           setFuelType(vehicle.fuel_type);
-        } else {
+       } else {
           // If flex or undefined, look for the last refueling of this vehicle to pre-select
           const lastRefueling = lancamentos
             .filter(l => l.vehicle_id === vehicleId && l.fuel_type)
@@ -113,7 +113,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           
           if (lastRefueling) {
             setFuelType(lastRefueling.fuel_type as FuelType);
-          } else if (vehicle.fuel_type === 'flex') {
+         } else if (vehicle.fuel_type === 'flex') {
             setFuelType('gasolina'); // Default for flex if no history
           }
         }
@@ -184,7 +184,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       if (litersInCycle > 0 && distance > 0) {
         consumption = distance / litersInCycle;
       }
-    } else {
+   } else {
       const totalLitros = sortedFuelEntries.reduce((acc, l) => acc + (l.fuel_liters || 0), 0);
       let kmRodadoCombustivel = 0;
       sortedFuelEntries.forEach((entry, index) => {
@@ -202,13 +202,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
   useEffect(() => {
     if (tipo === 'pessoal' && vehicleId && odometer) {
-      const { lastOdo, fuelPrice, consumption } = getPersonalUseData(vehicleId);
+      const { lastOdo, fuelPrice, consumption} = getPersonalUseData(vehicleId);
       const kmRodados = Number(odometer) - lastOdo;
       if (kmRodados > 0) {
         const value = (kmRodados / consumption) * fuelPrice;
         setPersonalCalculatedValue(value);
         setPersonalKmRodados(kmRodados);
-      } else {
+     } else {
         setPersonalCalculatedValue(0);
         setPersonalKmRodados(0);
       }
@@ -257,7 +257,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     suggestedPricePerLiter,
     suggestedOdometer,
     setLastAutoFillTrigger
-  } = useFuelAutoFill({
+ } = useFuelAutoFill({
     vehicleId,
     fuelType,
     lancamentos,
@@ -319,7 +319,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       if (filteredCategorias.length > 0) {
         setItems([{ categoriaId: filteredCategorias[0].id, valorStr: '' }]);
       }
-    } else {
+   } else {
       const newItems = items.map(item => {
         const validCategory = filteredCategorias.find(c => c.id === item.categoriaId);
         if (!validCategory && filteredCategorias.length > 0) {
@@ -374,7 +374,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     const newItems = [...items];
     if (field === 'valorStr') {
       newItems[index].valorStr = formatCurrencyInput(value);
-    } else {
+   } else {
       newItems[index].categoriaId = value;
     }
     setItems(newItems);
@@ -549,8 +549,8 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         const personalCat = categorias.find(c => c.nome.toLowerCase() === 'uso pessoal');
         if (personalCat) {
           personalCatId = personalCat.id;
-        } else {
-          const { data: newCat, error: catError } = await supabase
+       } else {
+          const { data: newCat, error: catError} = await supabase
             .from('categorias')
             .insert([{ user_id: user.id, nome: 'Uso Pessoal', tipo: 'despesa' }])
             .select()
@@ -574,7 +574,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           fuel_type: null,
           is_full_tank: null,
         }];
-      } else {
+     } else {
         // Handle Income/Expense
         let kmRodados = null;
         let odoReceitaNum = odometroReceita ? Number(odometroReceita) : null;
@@ -606,7 +606,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
 
             if (odoEntries.length > 0) {
               lastOdoRef = odoEntries[0].odometro_receita || odoEntries[0].odometer;
-            } else {
+           } else {
               lastOdoRef = vehicle.initial_odometer;
             }
           }
@@ -667,7 +667,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           if (!groupId || groupId !== original.group_id) {
             await supabase.from('work_shifts').delete().eq('group_id', original.group_id);
           }
-        } else {
+       } else {
           await supabase.from('lancamentos').delete().eq('id', editingId);
           // Se era único e agora é múltiplo, limpamos o turno "sem grupo" do dia original
           if (groupId) {
@@ -678,10 +678,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
               .is('group_id', null);
           }
         }
-        const { error } = await supabase.from('lancamentos').insert(finalPayloads);
+        const { error} = await supabase.from('lancamentos').insert(finalPayloads);
         if (error) throw error;
-      } else {
-        const { error } = await supabase.from('lancamentos').insert(finalPayloads);
+     } else {
+        const { error} = await supabase.from('lancamentos').insert(finalPayloads);
         if (error) throw error;
       }
 
@@ -690,7 +690,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         let query = supabase.from('lancamentos').select('*').eq('user_id', user.id).eq('vehicle_id', vId).eq('data', d).eq('tipo', 'receita');
         if (gId) query = query.eq('group_id', gId); else query = query.is('group_id', null);
         
-        const { data: dayRevenues, error: revError } = await query.order('created_at', { ascending: true });
+        const { data: dayRevenues, error: revError} = await query.order('created_at', { ascending: true });
         if (revError) throw revError;
 
         const currentContext = (vId === vehicleId && d === data && gId === groupId);
@@ -703,7 +703,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         if (gId) {
           existingS = (await sQuery.eq('group_id', gId)).data || [];
           await delQuery.eq('group_id', gId);
-        } else {
+       } else {
           existingS = (await sQuery.is('group_id', null)).data || [];
           await delQuery.is('group_id', null);
         }
@@ -713,7 +713,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
         const firstRev = dayRevenues[0];
         const lastRev = dayRevenues[dayRevenues.length - 1];
 
-        const { data: lastGlobalOdos } = await supabase.from('lancamentos').select('odometer, odometro_receita')
+        const { data: lastGlobalOdos} = await supabase.from('lancamentos').select('odometer, odometro_receita')
           .eq('user_id', user.id).eq('vehicle_id', vId).in('tipo', ['receita', 'pessoal'])
           .lt('data', d).order('data', { ascending: false }).order('created_at', { ascending: false }).limit(1);
 
@@ -730,7 +730,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           }));
           await supabase.from('work_shifts').insert(shiftPayloads);
         }
-      } else {
+     } else {
         if (existingS && existingS.length > 0) {
           const shiftPayloads = existingS.map(s => ({
             user_id: user.id, vehicle_id: vId, type: 'work', date: d,
@@ -739,7 +739,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
             start_odometer: startOdo, end_odometer: endOdo, status: 'closed', group_id: gId
           }));
           await supabase.from('work_shifts').insert(shiftPayloads);
-        } else {
+       } else {
           await supabase.from('work_shifts').insert([{
             user_id: user.id, vehicle_id: vId, type: 'work', date: d,
             start_time: firstRev.created_at.substring(11, 16),
@@ -781,9 +781,9 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       setEditingId(null);
       setIsFormOpen(false);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao salvar lançamento.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -800,7 +800,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     if (lancamento.group_id) {
       const groupItems = lancamentos.filter(l => l.group_id === lancamento.group_id);
       setItems(groupItems.map(l => ({ categoriaId: l.categoria_id, valorStr: formatCurrency(l.valor) })));
-    } else {
+   } else {
       setItems([{ categoriaId: lancamento.categoria_id, valorStr: formatCurrency(lancamento.valor) }]);
     }
 
@@ -808,7 +808,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       setOdometer(lancamento.odometer ? lancamento.odometer.toString() : '');
       if (lancamento.fuel_price_per_liter) {
         setFuelPricePerLiterStr(formatCurrency(lancamento.fuel_price_per_liter));
-      } else {
+     } else {
         setFuelPricePerLiterStr('');
       }
       setFuelType(lancamento.fuel_type || null);
@@ -822,10 +822,10 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       
       if (existingShifts.length > 0) {
         setShifts(existingShifts.map(s => ({ id: s.id, startTime: s.start_time.substring(0, 5), endTime: s.end_time?.substring(0, 5) || '' })));
-      } else {
+     } else {
         setShifts([]);
       }
-    } else {
+   } else {
       setOdometer('');
       setFuelPricePerLiterStr('');
       setFuelType(null);
@@ -847,13 +847,13 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
       if (lancamento?.group_id) {
         await supabase.from('lancamentos').delete().eq('group_id', lancamento.group_id);
         await supabase.from('work_shifts').delete().eq('group_id', lancamento.group_id);
-      } else {
+     } else {
         await supabase.from('lancamentos').delete().eq('id', deletingId);
       }
       setDeleteModalOpen(false);
       setDeletingId(null);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir lançamento.');
     }
   };
@@ -961,7 +961,7 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
           earning_per_hour: (totalMinutes > 0 && total > 0) ? (total / (totalMinutes / 60)) : null
         });
         processedGroups.add(l.group_id);
-      } else {
+     } else {
         // Single item might also have shifts
         const itemShifts = workShifts.filter(s => 
           (s.group_id === l.group_id && l.group_id) || 
@@ -1001,9 +1001,11 @@ export function Lancamentos({ categorias, lancamentos, vehicles, workShifts, ref
     let pessoalCusto = 0;
     filteredLancamentos.forEach(l => {
       const valor = Number(l.valor);
-      if (l.tipo === 'receita') receitas += valor;
-      else if (l.tipo === 'despesa') despesas += valor;
-      else if (l.tipo === 'pessoal') {
+      if (l.tipo === 'receita') {
+        receitas += valor;
+      } else if (l.tipo === 'despesa') {
+        despesas += valor;
+      } else if (l.tipo === 'pessoal') {
         pessoalCusto += valor;
         pessoalKm += (l.km_rodados || 0);
       }

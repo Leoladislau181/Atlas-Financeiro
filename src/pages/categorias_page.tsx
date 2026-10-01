@@ -65,7 +65,7 @@ export function CategoriasPage({
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('categorias')
         .insert([{ user_id: user.id, nome, tipo }]);
       if (error) throw error;
@@ -78,9 +78,9 @@ export function CategoriasPage({
       setTimeout(() => {
         refetch();
       }, 100);
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao criar categoria.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -89,7 +89,7 @@ export function CategoriasPage({
     if (!editNome) return;
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('categorias')
         .update({ nome: editNome })
         .eq('id', cat.id);
@@ -98,9 +98,9 @@ export function CategoriasPage({
       setEditingId(null);
       setEditNome('');
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao atualizar categoria.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -118,12 +118,12 @@ export function CategoriasPage({
   const handleDelete = async () => {
     if (!deletingId) return;
     try {
-      const { error } = await supabase.from('categorias').delete().eq('id', deletingId);
+      const { error} = await supabase.from('categorias').delete().eq('id', deletingId);
       if (error) throw error;
       setDeleteModalOpen(false);
       setDeletingId(null);
       refetch();
-    } catch (error: any) {
+   } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao excluir categoria. Verifique se há lançamentos vinculados.');
     }
   };

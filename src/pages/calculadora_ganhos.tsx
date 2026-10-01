@@ -56,7 +56,7 @@ export function CalculadoraGanhos({
 
   const fetchGoals = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('calculator_goals')
         .select('*, vehicles(*)')
         .eq('user_id', user.id)
@@ -64,9 +64,11 @@ export function CalculadoraGanhos({
       
       if (error) throw error;
       setGoals(data || []);
-    } catch (err) {
-      console.error('Error fetching goals:', err);
-    } finally {
+   } catch (err: any) {
+      if (err.message !== 'Failed to fetch') {
+        console.error('Error fetching goals:', err); 
+      }
+   } finally {
       setLoadingGoals(false);
     }
   };
@@ -96,7 +98,7 @@ export function CalculadoraGanhos({
       const daysToAdd = calcMode === 'weekly' ? 6 : 29;
       const endDate = addDays(startDate, daysToAdd);
 
-      const { error } = await supabase
+      const { error} = await supabase
         .from('calculator_goals')
         .insert([{
           user_id: user.id,
@@ -123,24 +125,24 @@ export function CalculadoraGanhos({
       
       // Clear success message after 3s
       setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (err: any) {
+   } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao ativar meta.');
-    } finally {
+   } finally {
       setIsActivating(false);
     }
   };
 
   const handleDeleteGoal = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('calculator_goals')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
       setGoals(prev => prev.filter(g => g.id !== id));
-    } catch (err) {
-      console.error('Error deleting goal:', err);
+   } catch (err) {
+      console.error('Error deleting goal:', err); 
     }
   };
 
@@ -234,7 +236,7 @@ export function CalculadoraGanhos({
         if (litersInCycle > 0 && distance > 0) {
           mediaKmL = (distance / litersInCycle).toFixed(2);
         }
-      } else {
+     } else {
         // Fallback to simple average
         let totalLitros = 0;
         let kmRodadoCombustivel = 0;
@@ -270,7 +272,7 @@ export function CalculadoraGanhos({
       setCalcKmPerDay(lastActiveGoal.km_per_day.toString().replace('.', ','));
       setCalcProfitGoal(formatCurrency(lastActiveGoal.profit_goal));
       setCalcOtherFixed(formatCurrency(lastActiveGoal.other_fixed || 0));
-    } else {
+   } else {
       // Empty the fields if no active goal, except fuel and consumption which were populated above
       setCalcDaysPerWeek('');
       setCalcKmPerDay('');
@@ -557,10 +559,10 @@ export function CalculadoraGanhos({
                     const input = (e.currentTarget as HTMLElement).querySelector('input');
                     if (input && 'showPicker' in input) {
                       (input as any).showPicker();
-                    } else if (input) {
+                   } else if (input) {
                       input.focus();
                     }
-                  } catch (err) {
+                 } catch (err) {
                     console.warn('Erro ao abrir seletor de data:', err);
                   }
                 }}
@@ -671,7 +673,7 @@ export function CalculadoraGanhos({
                   return l.vehicle_id === goal.vehicle_id && 
                     !isNaN(lDate.getTime()) &&
                     isWithinInterval(lDate, { start: goalStart, end: goalEnd });
-                } catch (e) {
+               } catch (e) {
                   return false;
                 }
               });
@@ -731,7 +733,7 @@ export function CalculadoraGanhos({
                 barWidth = Math.min(100, Math.max(0, remainingCost));
                 barColor = "bg-red-500";
                 barLabelPercent = `-${barWidth.toFixed(0)}`;
-              } else {
+             } else {
                 // Phase 2: Zone Yellow/Green (Building profit)
                 const visibleProfit = realGross - realTotalCost; // same as realProfit
                 const profitProgressRaw = goal.profit_goal > 0 ? (visibleProfit / goal.profit_goal) * 100 : 0;
@@ -948,7 +950,7 @@ export function CalculadoraGanhos({
   );
 }
 
-function GoalComparativeCard({ goal, lancamentos, onDelete, isExpanded, onToggle }: { goal: CalculatorGoal; lancamentos: Lancamento[]; onDelete: (id: string) => void; isExpanded: boolean; onToggle: () => void }) {
+function GoalComparativeCard({ goal, lancamentos, onDelete, isExpanded, onToggle }: { key?: string | number; goal: CalculatorGoal; lancamentos: Lancamento[]; onDelete: (id: string) => Promise<void> | void; isExpanded: boolean; onToggle: () => void }) {
   // Same logic as Active Goals but for History display
   if (!goal.start_date || !goal.end_date) return null;
 
@@ -965,7 +967,7 @@ function GoalComparativeCard({ goal, lancamentos, onDelete, isExpanded, onToggle
       return l.vehicle_id === goal.vehicle_id && 
         !isNaN(lDate.getTime()) &&
         isWithinInterval(lDate, { start: goalStart, end: goalEnd });
-    } catch (e) {
+   } catch (e) {
       return false;
     }
   });
@@ -1004,7 +1006,7 @@ function GoalComparativeCard({ goal, lancamentos, onDelete, isExpanded, onToggle
     barWidth = Math.min(100, Math.max(0, remainingCost));
     barColor = "bg-red-500";
     barLabelPercent = `-${barWidth.toFixed(0)}`;
-  } else {
+ } else {
     const visibleProfit = realGross - realTotalCost; 
     const profitProgressRaw = goal.profit_goal > 0 ? (visibleProfit / goal.profit_goal) * 100 : 0;
     barWidth = Math.min(100, Math.max(0, profitProgressRaw));

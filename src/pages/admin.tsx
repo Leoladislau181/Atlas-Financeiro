@@ -61,21 +61,21 @@ export function Admin({ user, onBack }: AdminProps) {
 
   const fetchSupportTickets = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('support_tickets')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       setSupportTickets(data || []);
-    } catch (err) {
-      console.error('Error fetching support tickets:', err);
+   } catch (err) {
+      console.error('Error fetching support tickets:', err); 
     }
   };
 
   const fetchTicketMessages = async (ticketId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('support_messages')
         .select('*')
         .eq('ticket_id', ticketId)
@@ -83,8 +83,8 @@ export function Admin({ user, onBack }: AdminProps) {
 
       if (error) throw error;
       setTicketMessages(data || []);
-    } catch (err) {
-      console.error('Error fetching ticket messages:', err);
+   } catch (err) {
+      console.error('Error fetching ticket messages:', err); 
     }
   };
 
@@ -127,7 +127,7 @@ export function Admin({ user, onBack }: AdminProps) {
 
     setIsReplying(true);
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('support_messages')
         .insert([{
           ticket_id: activeTicket.id,
@@ -161,9 +161,9 @@ export function Admin({ user, onBack }: AdminProps) {
       
       setReplyMessage('');
       fetchTicketMessages(activeTicket.id);
-    } catch (err) {
-      console.error('Error sending reply:', err);
-    } finally {
+   } catch (err) {
+      console.error('Error sending reply:', err); 
+   } finally {
       setIsReplying(false);
     }
   };
@@ -171,7 +171,7 @@ export function Admin({ user, onBack }: AdminProps) {
   const handleResolveTicket = async () => {
     if (!activeTicket) return;
     try {
-      const { error } = await supabase
+      const { error} = await supabase
         .from('support_tickets')
         .update({ status: 'resolved', updated_at: new Date().toISOString() })
         .eq('id', activeTicket.id);
@@ -181,8 +181,8 @@ export function Admin({ user, onBack }: AdminProps) {
       setActiveTicket({ ...activeTicket, status: 'resolved' });
       fetchSupportTickets();
       setSuccessMsg('Chamado marcado como resolvido.');
-    } catch (err) {
-      console.error('Error resolving ticket:', err);
+   } catch (err) {
+      console.error('Error resolving ticket:', err); 
     }
   };
 
@@ -240,12 +240,18 @@ export function Admin({ user, onBack }: AdminProps) {
         premiumUsers: data.premiumUsers || 0,
         totalLancamentos: data.totalTransactions || 0
       });
-    } catch (error: any) {
-      console.error('Erro ao buscar dados administrativos:', error);
-      if (!handleAuthError(error)) {
-        setErrorMsg(error.message || 'Erro ao carregar dados do painel administrativo.');
+   } catch (error: any) {
+      if (error.message !== 'Failed to fetch') {
+        console.error('Erro ao buscar dados administrativos:', error); 
       }
-    } finally {
+      if (!handleAuthError(error)) {
+        if (error.message === 'Failed to fetch') {
+          setErrorMsg('Falha de conexão com a API interna. O servidor pode estar reiniciando.');
+        } else {
+          setErrorMsg(error.message || 'Erro ao carregar dados do painel administrativo.');
+        }
+      }
+   } finally {
       setLoading(false);
     }
   };
@@ -291,7 +297,7 @@ export function Admin({ user, onBack }: AdminProps) {
       setSuccessMsg(`Status Premium do usuário atualizado!`);
       setIsDetailsModalOpen(false); // Fecha o modal após a ação
       fetchAdminData();
-    } catch (error: any) {
+   } catch (error: any) {
       if (!handleAuthError(error)) {
         setErrorMsg(error.message || 'Erro ao atualizar status premium.');
       }
@@ -326,7 +332,7 @@ export function Admin({ user, onBack }: AdminProps) {
       setSuccessMsg(`Status do usuário atualizado para ${newStatus}!`);
       setIsDetailsModalOpen(false); // Fecha o modal após a ação
       fetchAdminData();
-    } catch (error: any) {
+   } catch (error: any) {
       if (!handleAuthError(error)) {
         setErrorMsg(error.message || 'Erro ao atualizar status do usuário.');
       }
@@ -347,11 +353,11 @@ export function Admin({ user, onBack }: AdminProps) {
           setSuccessMsg('Usuário excluído com sucesso!');
           setIsDetailsModalOpen(false);
           fetchAdminData();
-        } catch (error: any) {
+       } catch (error: any) {
           if (!handleAuthError(error)) {
             setErrorMsg(error.message || 'Erro ao excluir usuário.');
           }
-        } finally {
+       } finally {
           setConfirmModalOpen(false);
         }
       }
@@ -385,7 +391,7 @@ export function Admin({ user, onBack }: AdminProps) {
       setSuccessMsg('Pagamento aprovado com sucesso!');
       setIsDetailsModalOpen(false);
       fetchAdminData();
-    } catch (error: any) {
+   } catch (error: any) {
       if (!handleAuthError(error)) {
         setErrorMsg(error.message || 'Erro ao aprovar pagamento.');
       }
@@ -422,11 +428,11 @@ export function Admin({ user, onBack }: AdminProps) {
           setSuccessMsg('Pagamento rejeitado.');
           setIsDetailsModalOpen(false);
           fetchAdminData();
-        } catch (error: any) {
+       } catch (error: any) {
           if (!handleAuthError(error)) {
             setErrorMsg(error.message || 'Erro ao rejeitar pagamento.');
           }
-        } finally {
+       } finally {
           setConfirmModalOpen(false);
         }
       }
@@ -447,11 +453,11 @@ export function Admin({ user, onBack }: AdminProps) {
     
     if (dateFilter === 'month') {
       if (createdAt.getMonth() !== now.getMonth() || createdAt.getFullYear() !== now.getFullYear()) return false;
-    } else if (dateFilter === '90days') {
+   } else if (dateFilter === '90days') {
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(now.getDate() - 90);
       if (createdAt < ninetyDaysAgo) return false;
-    } else if (dateFilter === '7days') {
+   } else if (dateFilter === '7days') {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(now.getDate() - 7);
       if (createdAt < sevenDaysAgo) return false;
@@ -461,9 +467,9 @@ export function Admin({ user, onBack }: AdminProps) {
     const isPremiumStatus = u.premium_until && new Date(u.premium_until) > now;
     if (planFilter === 'free') {
       if (isPremiumStatus) return false;
-    } else if (planFilter === 'premium') {
+   } else if (planFilter === 'premium') {
       if (!isPremiumStatus) return false;
-    } else if (planFilter === 'expiringSoon') {
+   } else if (planFilter === 'expiringSoon') {
       if (!isPremiumStatus) return false;
       const sevenDaysFromNow = new Date();
       sevenDaysFromNow.setDate(now.getDate() + 7);

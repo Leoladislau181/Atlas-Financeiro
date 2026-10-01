@@ -55,7 +55,7 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
     setError(null);
     try {
       // 1. Atualizar/Criar Profile (Usar upsert para garantir que exista)
-      const { error: profileError } = await supabase.from('profiles').upsert({ 
+      const { error: profileError} = await supabase.from('profiles').upsert({ 
         id: user.id, 
         nome: nome.trim() 
       });
@@ -71,10 +71,10 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
 
       await refetch();
       setStep(2);
-    } catch (err: any) {
-      console.error('Error saving name:', err);
+   } catch (err: any) {
+      console.error('Error saving name:', err); 
       setError(err.message || 'Erro ao salvar nome. Tente novamente.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
@@ -86,7 +86,7 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
     setLoading(true);
     setError(null);
     try {
-      const { error: vehError } = await supabase.from('vehicles').insert([{
+      const { error: vehError} = await supabase.from('vehicles').insert([{
         user_id: user.id,
         name: vehicleName,
         plate: vehiclePlate || 'NÃO INF.',
@@ -101,10 +101,10 @@ export function WelcomeWizard({ user, vehicles, categorias, refetch, onUserUpdat
 
       await refetch();
       setStep(3);
-    } catch (err: any) {
-      console.error('Error saving vehicle:', err);
+   } catch (err: any) {
+      console.error('Error saving vehicle:', err); 
       setError(err.message || 'Erro ao cadastrar veículo. Tente novamente.');
-    } finally {
+   } finally {
       setLoading(false);
     }
   };
