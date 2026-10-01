@@ -28,17 +28,13 @@ export function Premium({ user, refetch }: PremiumProps) {
     if (params.get('success')) {
       setSuccess(true);
       // Solo refrescar si existe una sesion activa para evitar error de "Refresh Token Not Found"
-      supabase.auth.getSession()
-        .then(({ data: { session } }) => {
-          if (session) {
-            supabase.auth.refreshSession().catch(err => {
-              console.warn("Não foi possível atualizar a sessão após o pagamento:", err.message);
-            });
-          }
-        })
-        .catch(err => {
-          console.warn("Não foi possível obter sessão:", err?.message);
-        });
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          supabase.auth.refreshSession().catch(err => {
+            console.warn("Não foi possível atualizar a sessão após o pagamento:", err.message);
+          });
+        }
+      });
       // Clear the URL parameters to prevent re-triggering on reload
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -69,7 +65,7 @@ export function Premium({ user, refetch }: PremiumProps) {
       const preview = await compressImage(file, 800, 800, 0.8);
       setReceiptPreview(preview);
       setError(null);
-   } catch (err) {
+    } catch (err) {
       setError('Erro ao processar a imagem.');
     }
   };
@@ -92,7 +88,7 @@ export function Premium({ user, refetch }: PremiumProps) {
       const fileName = `${user.id}-receipt-${Date.now()}.${fileExt}`;
       const filePath = `receipts/${fileName}`;
 
-      const { error: uploadError} = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, blob, {
           contentType: receiptFile.type,
@@ -131,10 +127,10 @@ export function Premium({ user, refetch }: PremiumProps) {
       if (currentSession) {
         await supabase.auth.refreshSession().catch(() => {});
       }
-   } catch (err: any) {
-      console.error('Erro no envio:', err); 
+    } catch (err: any) {
+      console.error('Erro no envio:', err);
       setError(err.message);
-   } finally {
+    } finally {
       setLoading(false);
     }
   };

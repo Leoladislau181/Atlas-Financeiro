@@ -48,7 +48,7 @@ describe('Admin API Handlers', () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ 
-        error: 'Configuração do servidor incompleta: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente.' 
+        error: 'Chave de serviço do Supabase (SUPABASE_SERVICE_ROLE_KEY) não configurada no servidor.' 
       });
     });
   });
@@ -69,7 +69,7 @@ describe('Admin API Handlers', () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ 
-        error: 'Configuração do servidor incompleta: SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausente.' 
+        error: 'Chave de serviço do Supabase (SUPABASE_SERVICE_ROLE_KEY) não configurada no servidor.' 
       });
     });
   });

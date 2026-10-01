@@ -88,7 +88,7 @@ export default function App() {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error} = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           if (handleAuthError(error)) {
@@ -104,16 +104,15 @@ export default function App() {
 
         setSession(session);
         if (session?.user) {
-          let profile: any = null;
-          try {
-            const { data } = await supabase
-              .from('profiles')
-              .select('role, premium_until, preferences, referral_code')
-              .eq('id', session.user.id)
-              .maybeSingle();
-            profile = data;
-          } catch (profileError: any) {
-            console.warn("Não foi possível carregar dados extras do perfil:", profileError?.message);
+          // Fetch profile data to get secure fields like role, premium_until and preferences
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role, premium_until, preferences, referral_code')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) {
+            console.warn("Perfil não encontrado ou erro ao buscar. O trigger do Supabase deve criar automaticamente para novos usuários.", profileError.message);
           }
 
           setUser({ 
@@ -133,9 +132,7 @@ export default function App() {
             preferences: profile?.preferences
           });
         }
-      } catch (err: any) {
-        console.warn("Erro durante inicialização de autenticação:", err?.message);
-        handleAuthError(err);
+      } catch (err) {
         setSession(null);
         setUser(null);
       }
@@ -145,39 +142,40 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       
       if (session?.user) {
-        let profile: any = null;
-        try {
-          const { data } = await supabase
-            .from('profiles')
-            .select('role, premium_until, preferences, referral_code')
-            .eq('id', session.user.id)
-            .maybeSingle();
-          profile = data;
-        } catch (profileError: any) {
-          console.warn("Perfil não encontrado no onAuthStateChange:", profileError?.message);
-        }
-        
-        setUser({ 
-          id: session.user.id, 
-          email: session.user.email || '',
-          nome: session.user.user_metadata?.nome || '',
-          telefone: session.user.user_metadata?.telefone || '',
-          foto_url: session.user.user_metadata?.foto_url || '',
-          referral_code: profile?.referral_code || session.user.user_metadata?.referral_code || '',
-          referred_by: session.user.user_metadata?.referred_by || '',
-          premium_status: session.user.user_metadata?.premium_status || 'none',
-          premium_plan: session.user.user_metadata?.premium_plan || '',
-          payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
-          was_premium_before_renewal: session.user.user_metadata?.was_premium_before_renewal || false,
-          premium_until: profile?.premium_until || '',
-          role: profile?.role || 'user',
-          preferences: profile?.preferences
-        });
-      } else {
+        // Fetch profile data to get secure fields like role, premium_until and preferences
+        supabase
+          .from('profiles')
+          .select('role, premium_until, preferences, referral_code')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data: profile, error: profileError }) => {
+            if (profileError) {
+              console.warn("Perfil não encontrado no onAuthStateChange:", profileError.message);
+            }
+            
+            setUser({ 
+              id: session.user.id, 
+              email: session.user.email || '',
+              nome: session.user.user_metadata?.nome || '',
+              telefone: session.user.user_metadata?.telefone || '',
+              foto_url: session.user.user_metadata?.foto_url || '',
+              referral_code: profile?.referral_code || session.user.user_metadata?.referral_code || '',
+              referred_by: session.user.user_metadata?.referred_by || '',
+              premium_status: session.user.user_metadata?.premium_status || 'none',
+              premium_plan: session.user.user_metadata?.premium_plan || '',
+              payment_receipt_url: session.user.user_metadata?.payment_receipt_url || '',
+              was_premium_before_renewal: session.user.user_metadata?.was_premium_before_renewal || false,
+              premium_until: profile?.premium_until || '',
+              role: profile?.role || 'user',
+              preferences: profile?.preferences
+            });
+          });
+      }
+ else {
         setUser(null);
       }
 
@@ -221,7 +219,7 @@ export default function App() {
 
 function MainApp({ user, setUser }: { user: User; setUser: (u: User) => void }) {
   const [activeTab, setActiveTab] = useState('inicio');
-  const { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, refetch} = useFinanceData();
+  const { categorias, lancamentos, vehicles, manutencoes, workShifts, loading, refetch } = useFinanceData();
   const [isNewLancamentoOpen, setIsNewLancamentoOpen] = useState(false);
   const [forceOpenProfile, setForceOpenProfile] = useState(false);
   const [forceOpenVehicle, setForceOpenVehicle] = useState(false);
@@ -240,7 +238,7 @@ function MainApp({ user, setUser }: { user: User; setUser: (u: User) => void }) 
 
       if ((needsName || needsVehicle || needsCategory) && !wizardDismissed) {
         setIsWizardOpen(true);
-     } else if (isWizardOpen) {
+      } else if (isWizardOpen) {
         // If everything is done or dismissed, close it
         setIsWizardOpen(false);
       }

@@ -30,7 +30,7 @@ interface FuncionalidadesProps {
 }
 
 export function Funcionalidades({ user, onBackToConfig, onBackToHome, onNavigateToPremium }: FuncionalidadesProps) {
-  const { preferences, toggleFeature} = useFeatures();
+  const { preferences, toggleFeature } = useFeatures();
 
   // Unified list of features
   const allFeatures = [

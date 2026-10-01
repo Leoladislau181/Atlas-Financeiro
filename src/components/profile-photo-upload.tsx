@@ -54,7 +54,7 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
       const filePath = `${user.id}/${fileName}`;
 
       // Upload to Supabase Storage
-      const { error: uploadError} = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, croppedImageBlob, {
           contentType: 'image/jpeg',
@@ -76,14 +76,14 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
         .getPublicUrl(filePath);
 
       // Update User Metadata
-      const { error: updateError} = await supabase.auth.updateUser({
+      const { error: updateError } = await supabase.auth.updateUser({
         data: { foto_url: publicUrl }
       });
 
       if (updateError) throw updateError;
 
       // Update the profiles table
-      const { error: profileError} = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ foto_url: publicUrl })
         .eq('id', user.id);
@@ -93,10 +93,10 @@ export function ProfilePhotoUpload({ user, onUpdate }: ProfilePhotoUploadProps) 
       setImageSrc(null);
       onUpdate();
       setSuccessMsg('Foto de perfil atualizada!');
-   } catch (error: any) {
-      console.error('Error uploading photo:', error); 
+    } catch (error: any) {
+      console.error('Error uploading photo:', error);
       setErrorMsg(error.message || 'Erro ao fazer upload da foto.');
-   } finally {
+    } finally {
       setLoading(false);
     }
   };

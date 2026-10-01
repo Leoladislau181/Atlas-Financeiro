@@ -26,11 +26,9 @@ export function useOnboarding(user: User | null) {
         setHasVehicles((vehiclesRes.count || 0) > 0);
         setHasCategories((categoriesRes.count || 0) > 0);
         setHasTransactions((transactionsRes.count || 0) > 0);
-     } catch (error: any) {
-        if (error.message !== 'Failed to fetch') {
-          console.error('Error checking onboarding status:', error); 
-        }
-     } finally {
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      } finally {
         setIsLoading(false);
       }
     };

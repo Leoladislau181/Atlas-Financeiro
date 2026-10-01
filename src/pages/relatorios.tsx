@@ -29,7 +29,7 @@ interface RelatoriosProps {
 }
 
 export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user, refetch, onBack, onBackToHome }: RelatoriosProps) {
-  const { preferences} = useFeatures();
+  const { preferences } = useFeatures();
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [premiumFeatureName, setPremiumFeatureName] = useState('');
   const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
@@ -109,10 +109,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       
       start = startOfMonth(filterDate);
       end = endOfMonth(filterDate);
-   } else if (filterType === 'year') {
+    } else if (filterType === 'year') {
       start = startOfYear(new Date(Number(selectedYear), 0));
       end = endOfYear(new Date(Number(selectedYear), 0));
-   } else {
+    } else {
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
     }
@@ -138,9 +138,9 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
     if (filterType === 'month') {
       const [year, month] = selectedMonth.split('-');
       endFilterDate = endOfMonth(new Date(Number(year), Number(month) - 1));
-   } else if (filterType === 'year') {
+    } else if (filterType === 'year') {
       endFilterDate = endOfYear(new Date(Number(selectedYear), 0));
-   } else {
+    } else {
       endFilterDate = parseLocalDate(endDate);
     }
 
@@ -150,11 +150,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       
       if (data <= endFilterDate && matchesVehicle) {
         const valor = Number(l.valor);
-        if (l.tipo === 'receita') {
-          saldoAcumulado += valor;
-        } else if (l.tipo === 'despesa') {
-          saldoAcumulado -= valor;
-        }
+        if (l.tipo === 'receita') saldoAcumulado += valor;
+        else if (l.tipo === 'despesa') saldoAcumulado -= valor;
       }
     });
 
@@ -162,7 +159,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const valor = Number(l.valor);
       if (l.tipo === 'receita') {
         receitas += valor;
-     } else if (l.tipo === 'despesa') {
+      } else if (l.tipo === 'despesa') {
         despesas += valor;
       }
 
@@ -191,7 +188,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         if (l.tipo === 'receita') {
           porVeiculo[l.vehicle_id].receitas += valor;
           porVeiculo[l.vehicle_id].saldo += valor;
-       } else if (l.tipo === 'despesa') {
+        } else if (l.tipo === 'despesa') {
           porVeiculo[l.vehicle_id].despesas += valor;
           porVeiculo[l.vehicle_id].saldo -= valor;
         }
@@ -217,10 +214,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         const [year, month] = selectedMonth.split('-');
         startRange = startOfMonth(new Date(Number(year), Number(month) - 1));
         endRange = endOfMonth(new Date(Number(year), Number(month) - 1));
-     } else if (filterType === 'year') {
+      } else if (filterType === 'year') {
         startRange = startOfYear(new Date(Number(selectedYear), 0));
         endRange = endOfYear(new Date(Number(selectedYear), 0));
-     } else {
+      } else {
         startRange = parseLocalDate(startDate);
         endRange = parseLocalDate(endDate);
       }
@@ -259,10 +256,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const [year, month] = selectedMonth.split('-');
       start = startOfMonth(new Date(Number(year), Number(month) - 1));
       end = endOfMonth(new Date(Number(year), Number(month) - 1));
-   } else if (filterType === 'year') {
+    } else if (filterType === 'year') {
       start = startOfYear(new Date(Number(selectedYear), 0));
       end = endOfYear(new Date(Number(selectedYear), 0));
-   } else {
+    } else {
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
     }
@@ -294,7 +291,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       
       if (shift.start_odometer && shift.end_odometer) {
         totalOdometer += (Number(shift.end_odometer) - Number(shift.start_odometer));
-     } else if (shift.odometer) {
+      } else if (shift.odometer) {
         totalOdometer += Number(shift.odometer);
       }
 
@@ -367,11 +364,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         const matchesVehicle = selectedVehicleId === 'all' || l.vehicle_id === selectedVehicleId;
         
         if (isWithinInterval(lDate, { start, end }) && matchesVehicle) {
-          if (l.tipo === 'receita') {
-            receitas += Number(l.valor);
-          } else {
-            despesas += Number(l.valor);
-          }
+          if (l.tipo === 'receita') receitas += Number(l.valor);
+          else despesas += Number(l.valor);
         }
       });
 
@@ -392,10 +386,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const [year, month] = selectedMonth.split('-');
       start = startOfMonth(new Date(Number(year), Number(month) - 1));
       end = endOfMonth(new Date(Number(year), Number(month) - 1));
-   } else if (filterType === 'year') {
+    } else if (filterType === 'year') {
       start = startOfYear(new Date(Number(selectedYear), 0));
       end = endOfYear(new Date(Number(selectedYear), 0));
-   } else {
+    } else {
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
     }
@@ -416,11 +410,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         let despesas = 0;
         filteredLancamentos.forEach(l => {
           if (isSameDay(parseLocalDate(l.data), targetDate)) {
-            if (l.tipo === 'receita') {
-              receitas += Number(l.valor);
-            } else {
-              despesas += Number(l.valor);
-            }
+            if (l.tipo === 'receita') receitas += Number(l.valor);
+            else despesas += Number(l.valor);
           }
         });
         data.push({
@@ -429,7 +420,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           Despesas: despesas
         });
       }
-   } else if (daysCount <= 20) {
+    } else if (daysCount <= 20) {
       // Weekly
       const weeksCount = Math.ceil(daysCount / 7);
       for (let i = 0; i < weeksCount; i++) {
@@ -440,11 +431,8 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         filteredLancamentos.forEach(l => {
           const lDate = parseLocalDate(l.data);
           if (isWithinInterval(lDate, { start: weekStart, end: weekEnd })) {
-            if (l.tipo === 'receita') {
-              receitas += Number(l.valor);
-            } else {
-              despesas += Number(l.valor);
-            }
+            if (l.tipo === 'receita') receitas += Number(l.valor);
+            else despesas += Number(l.valor);
           }
         });
         data.push({
@@ -453,7 +441,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           Despesas: despesas
         });
       }
-   } else {
+    } else {
       // Fortnightly (Quinzena)
       const midPoint = addDays(start, 14);
       
@@ -461,17 +449,11 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       filteredLancamentos.forEach(l => {
         const lDate = parseLocalDate(l.data);
         if (lDate <= midPoint) {
-          if (l.tipo === 'receita') {
-            r1 += Number(l.valor);
-          } else {
-            d1 += Number(l.valor);
-          }
-       } else {
-          if (l.tipo === 'receita') {
-            r2 += Number(l.valor);
-          } else {
-            d2 += Number(l.valor);
-          }
+          if (l.tipo === 'receita') r1 += Number(l.valor);
+          else d1 += Number(l.valor);
+        } else {
+          if (l.tipo === 'receita') r2 += Number(l.valor);
+          else d2 += Number(l.valor);
         }
       });
       
@@ -490,10 +472,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
       const [year, month] = selectedMonth.split('-');
       start = startOfMonth(new Date(Number(year), Number(month) - 1));
       end = endOfMonth(new Date(Number(year), Number(month) - 1));
-   } else if (filterType === 'year') {
+    } else if (filterType === 'year') {
       start = startOfYear(new Date(Number(selectedYear), 0));
       end = endOfYear(new Date(Number(selectedYear), 0));
-   } else {
+    } else {
       start = parseLocalDate(startDate);
       end = parseLocalDate(endDate);
     }
@@ -527,7 +509,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           'Horas': Number((minutes / 60).toFixed(2))
         });
       }
-   } else {
+    } else {
       // Monthly productivity for year view
       const months = eachMonthOfInterval({ start, end });
       months.forEach(m => {
@@ -617,9 +599,9 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
   const exportToPDF = async () => {
     setExportLoading(true);
     try {
-      const { default: jsPDF} = await import('jspdf');
-      const { default: autoTable} = await import('jspdf-autotable');
-      const { default: html2canvas} = await import('html2canvas');
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const { default: html2canvas } = await import('html2canvas');
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -673,7 +655,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
         const splitNotes = doc.splitTextToSize(`Observações: ${exportNotes}`, pageWidth - 30);
         doc.text(splitNotes, 15, currentY + 5);
         currentY += (splitNotes.length * 5) + 10;
-     } else {
+      } else {
         currentY += 10;
       }
 
@@ -701,7 +683,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
               for (let i = 0; i < styleTags.length; i++) {
                 try {
                   styleTags[i].innerHTML = styleTags[i].innerHTML.replace(/oklch\([^)]+\)/g, '#71717a');
-               } catch (e) {
+                } catch (e) {
                   console.warn("Could not sanitize style tag", e);
                 }
               }
@@ -803,7 +785,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           if (data.section === 'body' && data.column.index === 1) {
             if (data.cell.text[0] === 'Receita') {
               data.cell.styles.textColor = [5, 149, 104];
-           } else {
+            } else {
               data.cell.styles.textColor = [239, 68, 68];
             }
           }
@@ -850,7 +832,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
               const rawValue = data.cell.raw as string;
               if (!rawValue.includes('-') && rawValue !== 'R$ 0,00') {
                 data.cell.styles.textColor = [5, 149, 104];
-             } else if (rawValue.includes('-')) {
+              } else if (rawValue.includes('-')) {
                 data.cell.styles.textColor = [239, 68, 68];
               }
             }
@@ -894,7 +876,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           if (data.section === 'body' && data.column.index === 4) {
             if (data.cell.text[0] === 'RECEITA') {
               data.cell.styles.textColor = [5, 149, 104];
-           } else {
+            } else {
               data.cell.styles.textColor = [239, 68, 68];
             }
           }
@@ -921,10 +903,10 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
       doc.save(`relatorio-financeiro-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       setIsExportModalOpen(false);
-   } catch (error) {
-      console.error("Export error:", error); 
+    } catch (error) {
+      console.error("Export error:", error);
       setErrorMsg("Erro ao exportar PDF.");
-   } finally {
+    } finally {
       setExportLoading(false);
     }
   };
@@ -977,7 +959,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
               // Excel date serial number
               const dateObj = XLSX.SSF.parse_date_code(dataStr);
               finalDate = format(new Date(dateObj.y, dateObj.m - 1, dateObj.d), 'yyyy-MM-dd');
-           } else if (typeof dataStr === 'string' && dataStr.includes('/')) {
+            } else if (typeof dataStr === 'string' && dataStr.includes('/')) {
               const parts = dataStr.split('/');
               if (parts.length === 3) {
                 // Assume dd/mm/yyyy
@@ -989,7 +971,7 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
             let valor = 0;
             if (typeof valorRaw === 'string') {
               valor = parseFloat(valorRaw.replace(/[R$\s.]/g, '').replace(',', '.'));
-           } else {
+            } else {
               valor = Number(valorRaw);
             }
 
@@ -1029,23 +1011,23 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
           }
 
           if (newLancamentos.length > 0) {
-            const { error} = await supabase.from('lancamentos').insert(newLancamentos);
+            const { error } = await supabase.from('lancamentos').insert(newLancamentos);
             if (error) throw error;
             
             refetch();
             setIsImportModalOpen(false);
             alert(`${newLancamentos.length} lançamentos importados com sucesso!${skippedRows > 0 ? ` (${skippedRows} linhas ignoradas por falta de dados)` : ''}`);
-         } else {
+          } else {
             setErrorMsg('Nenhum dado válido encontrado para importação.');
           }
-       } catch (err: any) {
+        } catch (err: any) {
           setErrorMsg('Erro ao processar arquivo: ' + err.message);
-       } finally {
+        } finally {
           setImportLoading(false);
         }
       };
       reader.readAsBinaryString(file);
-   } catch (error: any) {
+    } catch (error: any) {
       setErrorMsg('Erro ao ler arquivo: ' + error.message);
       setImportLoading(false);
     }
@@ -1104,14 +1086,14 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
 
       if (fileFormat === 'xlsx') {
         XLSX.writeFile(wb, `atlas-financeiro-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-     } else {
+      } else {
         XLSX.writeFile(wb, `atlas-financeiro-${format(new Date(), 'yyyy-MM-dd')}.csv`, { bookType: 'csv' });
       }
       setIsExportModalOpen(false);
-   } catch (error) {
-      console.error("Excel export error:", error); 
+    } catch (error) {
+      console.error("Excel export error:", error);
       setErrorMsg("Erro ao exportar arquivo.");
-   } finally {
+    } finally {
       setExportLoading(false);
     }
   };
@@ -1786,13 +1768,13 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                       let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
                       if (!isCurrentMonth) {
                         bgColor = 'bg-transparent opacity-20';
-                     } else if (!hasTransactions) {
+                      } else if (!hasTransactions) {
                         bgColor = 'bg-gray-100 dark:bg-gray-800/40';
-                     } else if (value < 0) {
+                      } else if (value < 0) {
                         bgColor = 'bg-red-500 text-white';
-                     } else if (value > 0) {
+                      } else if (value > 0) {
                         bgColor = 'bg-emerald-500 text-white';
-                     } else {
+                      } else {
                         // value is 0 but has transactions (Break even)
                         bgColor = 'bg-blue-500 text-white';
                       }
@@ -1838,15 +1820,15 @@ export function Relatorios({ lancamentos, vehicles, categorias, workShifts, user
                       let bgColor = 'bg-gray-100 dark:bg-gray-800/40';
                       if (!isCurrentMonth) {
                         bgColor = 'bg-transparent opacity-20';
-                     } else if (value > 0 && value < 100) {
+                      } else if (value > 0 && value < 100) {
                         bgColor = 'bg-emerald-100 dark:bg-emerald-900/20';
-                     } else if (value >= 100 && value < 250) {
+                      } else if (value >= 100 && value < 250) {
                         bgColor = 'bg-emerald-300 dark:bg-emerald-700/40';
-                     } else if (value >= 250 && value < 500) {
+                      } else if (value >= 250 && value < 500) {
                         bgColor = 'bg-emerald-500 dark:bg-emerald-500/60';
-                     } else if (value >= 500) {
+                      } else if (value >= 500) {
                         bgColor = 'bg-emerald-700 dark:bg-emerald-400/80';
-                     } else if (value < 0) {
+                      } else if (value < 0) {
                         bgColor = 'bg-red-100 dark:bg-red-900/20';
                       }
 

@@ -36,7 +36,7 @@ describe('useFuelAutoFill', () => {
   ];
 
   it('should return nulls when inactive', () => {
-    const { result} = renderHook(() => useFuelAutoFill({
+    const { result } = renderHook(() => useFuelAutoFill({
       vehicleId: 'v1',
       fuelType: 'gasolina',
       lancamentos: mockLancamentos,
@@ -53,7 +53,7 @@ describe('useFuelAutoFill', () => {
   });
 
   it('should calculate last fuel data and suggest price when active', () => {
-    const { result} = renderHook(() => useFuelAutoFill({
+    const { result } = renderHook(() => useFuelAutoFill({
       vehicleId: 'v1',
       fuelType: 'gasolina',
       lancamentos: mockLancamentos,
@@ -75,7 +75,7 @@ describe('useFuelAutoFill', () => {
   });
 
   it('should suggest odometer based on value and price per liter', () => {
-    const { result} = renderHook(() => useFuelAutoFill({
+    const { result } = renderHook(() => useFuelAutoFill({
       vehicleId: 'v1',
       fuelType: 'gasolina',
       lancamentos: mockLancamentos,
@@ -94,7 +94,7 @@ describe('useFuelAutoFill', () => {
   });
 
   it('should not suggest odometer if manually edited', () => {
-    const { result} = renderHook(() => useFuelAutoFill({
+    const { result } = renderHook(() => useFuelAutoFill({
       vehicleId: 'v1',
       fuelType: 'gasolina',
       lancamentos: mockLancamentos,
@@ -108,7 +108,7 @@ describe('useFuelAutoFill', () => {
     // Hook logic: if manually edited, it doesn't calculate suggestions, but it might still hold previous state.
     // Actually, in the hook, if isOdometerManuallyEdited is true, it doesn't set suggestedOdometer
     // Wait, let's look at the hook:
-    //else if (!isActive || !vehicleId) { setSuggestedOdometer(null); }
+    // } else if (!isActive || !vehicleId) { setSuggestedOdometer(null); }
     // If it's active but manually edited, it just doesn't execute the if block, keeping the initial null or previous value.
     // Since it starts as null, it should be null.
     expect(result.current.suggestedOdometer).toBeNull();

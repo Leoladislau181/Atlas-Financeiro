@@ -87,7 +87,7 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
   const fetchTickets = async () => {
     try {
       setLoading(true);
-      const { data, error} = await supabase
+      const { data, error } = await supabase
         .from('support_tickets')
         .select('*')
         .eq('user_id', user.id)
@@ -95,19 +95,17 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
 
       if (error) throw error;
       setTickets(data || []);
-   } catch (err: any) {
-      if (err.message !== 'Failed to fetch') {
-        console.error('Error fetching tickets:', err); 
-      }
+    } catch (err: any) {
+      console.error('Error fetching tickets:', err);
       setError('Erro ao carregar seus chamados.');
-   } finally {
+    } finally {
       setLoading(false);
     }
   };
 
   const fetchMessages = async (ticketId: string) => {
     try {
-      const { data, error} = await supabase
+      const { data, error } = await supabase
         .from('support_messages')
         .select('*')
         .eq('ticket_id', ticketId)
@@ -116,8 +114,8 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
       if (error) throw error;
       setMessages(data || []);
       scrollToBottom();
-   } catch (err: any) {
-      console.error('Error fetching messages:', err); 
+    } catch (err: any) {
+      console.error('Error fetching messages:', err);
     }
   };
 
@@ -130,7 +128,7 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
 
     try {
       // 1. Create Ticket
-      const { data: ticketData, error: ticketError} = await supabase
+      const { data: ticketData, error: ticketError } = await supabase
         .from('support_tickets')
         .insert([{
           user_id: user.id,
@@ -144,7 +142,7 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
       if (ticketError) throw ticketError;
 
       // 2. Create Initial Message
-      const { error: messageError} = await supabase
+      const { error: messageError } = await supabase
         .from('support_messages')
         .insert([{
           ticket_id: ticketData.id,
@@ -168,10 +166,10 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
         setShowSuccessBanner(false);
       }, 5000);
 
-   } catch (err: any) {
-      console.error('Error creating ticket:', err); 
+    } catch (err: any) {
+      console.error('Error creating ticket:', err);
       setError(`Erro ao criar o chamado: ${err.message || 'Erro desconhecido'}`);
-   } finally {
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -182,7 +180,7 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
 
     setIsReplying(true);
     try {
-      const { data, error} = await supabase
+      const { data, error } = await supabase
         .from('support_messages')
         .insert([{
           ticket_id: activeTicket.id,
@@ -203,10 +201,10 @@ export function Suporte({ user, onBack, onBackToHome }: SuporteProps) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
-   } catch (err: any) {
-      console.error('Error sending reply:', err); 
+    } catch (err: any) {
+      console.error('Error sending reply:', err);
       setError(`Erro ao enviar mensagem: ${err.message || 'Erro desconhecido'}`);
-   } finally {
+    } finally {
       setIsReplying(false);
     }
   };

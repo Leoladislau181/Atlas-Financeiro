@@ -121,7 +121,7 @@ export function compressImage(file: File, maxWidth: number = 1024, maxHeight: nu
             height = Math.round((height * maxWidth) / width);
             width = maxWidth;
           }
-       } else {
+        } else {
           if (height > maxHeight) {
             width = Math.round((width * maxHeight) / height);
             height = maxHeight;
